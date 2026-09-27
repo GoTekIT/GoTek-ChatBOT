@@ -1,0 +1,66 @@
+# P0.1 fresh core acceptance — 2026-09-27
+
+- Scope: fresh local acceptance evidence for the core path only; no source, test, migration, status, or handoff files changed.
+- Checkout: `codex/chatbot-delivery`
+- Commit under test: `fb8f2589c30d1de936c3cb6b35e067fc2558322d`
+- Time: 2026-09-27 15:46:40 UTC (2026-09-27 22:46:40 Asia/Ho_Chi_Minh)
+- Environment: Node v20.20.2, npm 10.8.2, PostgreSQL 16 local dedicated cluster on port 55432/socket `/tmp`, database `gotek_chatbot`.
+- Runtime credentials: loaded from private `.local/runtime.json`; no password, cookie, token, provider key, or customer data recorded here.
+- Result: **PASS for the focused local core slice; product-wide acceptance remains IN PROGRESS.**
+
+## Exact command
+
+```sh
+npx tsx --test --test-concurrency=1 \
+  tests/auth-signup-verify.test.ts \
+  tests/h02-workspace-isolation.test.ts \
+  tests/widget-api-flow.test.ts \
+  tests/knowledge-retrieval.test.ts \
+  tests/grounded-widget-flow.test.ts \
+  tests/usage-ledger.test.ts \
+  tests/audit-export-http.test.ts
+```
+
+The command completed in 6.470 seconds with TAP result: `tests 9`, `pass 9`, `fail 0`, `cancelled 0`, `skipped 0`, `todo 0`.
+
+## Acceptance matrix
+
+| Core path | Fresh evidence and observed result | Status |
+|---|---|---|
+| Auth / session | `auth-signup-verify.test.ts`: local signup, verification token single-use and expired-token rejection; `grounded-widget-flow.test.ts` logs in a new owner. | PASS |
+| Two-workspace tenant isolation | `h02-workspace-isolation.test.ts`: two fresh owners/workspaces, workspace reads remain local, cross-workspace switch returns 403, member listing does not leak the other owner, rename is isolated. `knowledge-retrieval.test.ts` also verifies the second workspace cannot retrieve the first workspace's published item. | PASS |
+| Channel / widget credential and origin | `grounded-widget-flow.test.ts` creates a channel, reads installation public key, and uses the configured origin. `widget-api-flow.test.ts` rejects wrong origin (403), accepts the configured origin, and keeps workspace identifiers out of public config. | PASS |
+| Visitor / prechat / message | `widget-api-flow.test.ts`: required prechat field is enforced, visitor session is created, visitor message is idempotent, public transcript excludes internal staff notes, and widget auth/origin negatives return 401/403. | PASS |
+| Knowledge lifecycle / retrieval | `knowledge-retrieval.test.ts`: draft and processed-unpublished versions are excluded; published PUBLIC content is retrieved only in its tenant; INTERNAL content is excluded from widget context; inactive/revoked and wrong-role paths are rejected. Semantic retrieval also checks model/dimension/integrity boundaries. | PASS |
+| Grounded AI worker / handoff | `grounded-widget-flow.test.ts`: fixture provider receives grounded published content, widget receives the public answer, usage path is exercised, takeover prevents stale AI output, and provider/model failures hand off without leaking transport details. Provider is injected/local fixture only. | PASS (local fixture) |
+| Usage / quota ledger | `usage-ledger.test.ts`: concurrent replay produces one ledger row, conflicting replay is rejected, other-tenant write is denied, update is denied by insert-only policy, and invalid totals fail constraints. | PASS |
+| Audit | `audit-export-http.test.ts`: owner-only tenant-scoped keyset export, pagination, foreign cursor isolation, unauthenticated/Agent denial, and no workspace ID in exported row. | PASS |
+
+## Fresh run output summary
+
+```text
+ok 1 - H22 audit export HTTP envelope paginates and enforces session, role and tenant
+ok 2 - H01 local verification consumes token once and rejects expired tokens
+ok 3 - published enterprise data flows through granted adapter to widget, then human takeover
+ok 4 - H02 workspace resources stay tenant-bound and cross-tenant switch is denied
+ok 5 - knowledge retrieval uses active published versions with audience, tenant and role isolation
+ok 6 - semantic retrieval contract ranks only dimension-matched, integrity-ready embeddings
+ok 7 - semantic context path uses persisted public embeddings and remains bounded
+ok 8 - usage ledger persists with insert-only permissions, concurrent replay and tenant isolation
+ok 9 - widget config/prechat/message/human reply/resume enforce origin and private-note boundary
+
+1..9
+# tests 9
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+```
+
+## Limits / gates still open
+
+- This is local Supertest/Node integration evidence plus injected provider fixtures; it is **not** a live external provider receipt, external email receipt, browser/mobile acceptance, staging, or production acceptance.
+- The grounded flow uses a test-only provider secret reference and mocked `fetch`; no provider credential or secret was logged.
+- The run does not claim all H01–H32/E01–E12 requirements, HiChat parity, production RPO/RTO, retention/closure policy, or live operational readiness.
+- No independent acceptance/PO sign-off is recorded; status remains evidence-limited and MVP IN PROGRESS.

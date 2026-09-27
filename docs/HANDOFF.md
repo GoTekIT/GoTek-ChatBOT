@@ -6,7 +6,7 @@ Checkout `codex/chatbot-delivery` đang ở MVP core backend, chưa có commit l
 
 ## Last thing being worked on
 
-Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contract, audit export, restore integrity/quarantine. Bản handoff mới đã chạy `npm run build` PASS, `npm test` 173/173 PASS và `npm run db:restore-drill` PASS trên 55 bảng; xem `docs/TESTING.md`.
+Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contract, expired-grant fence, audit export, restore integrity/quarantine. Bản handoff mới đã chạy `npm run build` PASS, `npm test` 174/174 PASS sau expired-grant fix, P0.1 focused acceptance 9/9 PASS và `npm run db:restore-drill` PASS trên 55 bảng; xem `docs/TESTING.md`, `delivery/evidence/p0-core-acceptance-2026-09-27.txt` và `delivery/evidence/p0-provider-contract-2026-09-27.txt`.
 
 ## Exact point where work stopped
 
@@ -40,7 +40,7 @@ Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contrac
 1. Đọc `README.md`, `AGENTS.md`, `docs/PROJECT-STATUS.md`, `docs/TESTING.md` và `delivery/CHECKPOINT.md`.
 2. Đọc log verification mới ở `delivery/evidence/handoff-*-2026-09-27.txt`; chạy lại trên checkout/môi trường của mình nếu cần tái lập.
 3. Chạy `npm run build`, `npm test` và, với PostgreSQL local, `npm run db:restore-drill` sau thay đổi code liên quan.
-4. Tạo fresh fixture hai workspace; đi qua auth → channel/widget → visitor message → knowledge publish/retrieve → AI job, ghi evidence.
+4. P0.1 focused flow đã có evidence 9/9; tiếp tục bằng fresh fixture hai workspace khi thay đổi core và ghi evidence mới.
 5. Với credentials được cấp riêng, chạy provider receipt và usage/quota matrix; redact mọi secret.
 6. Chốt `delivery/decisions/H32_RETENTION_CLOSURE.md` trước bất kỳ purge/closure code nào.
 7. Cập nhật PROJECT-STATUS/BACKLOG/CHECKPOINT cùng acceptance evidence; chỉ sau đó mở P1 feature hoặc UI browser acceptance.
@@ -62,4 +62,4 @@ Provider accounts nào được dùng cho staging? Email delivery nào? H32 rete
 
 ## Recommended next task
 
-Hoàn thành P0.1 fresh core acceptance và evidence matrix, sau đó P0.2 live provider receipt nếu owner cấp credentials. Không làm thêm UI cho tới khi core path và failure states được nghiệm thu.
+Hoàn thiện P0.1 full acceptance matrix beyond the focused 9/9 local slice, then run P0.2 live provider receipt if the owner supplies credentials. Không làm thêm UI cho tới khi core path và failure states được nghiệm thu.

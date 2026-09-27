@@ -559,3 +559,13 @@ Detailed current state and evidence are in `delivery/CHECKPOINT-LOCAL-BLOCKER.md
 - Fresh local checks: `npm run build` PASS, `npm test` PASS (173/173, serial), `npm run db:restore-drill` PASS (55 tables). Evidence: `delivery/evidence/handoff-build-2026-09-27.txt`, `handoff-tests-2026-09-27.txt`, `handoff-restore-drill-2026-09-27.txt`.
 - `delivery/BACKLOG.csv` remains 170 planning rows (107 Backlog, 61 In progress, 2 Implemented). It was not mass-promoted because those counts do not prove UI, external receipt, policy or acceptance. Exact open gates are in `docs/PROJECT-STATUS.md` and `docs/HANDOFF.md`.
 - No provider/email credential, customer message, purchase or production deployment was performed. Remote is the user-supplied GitHub URL; commit/push status is recorded after the handoff snapshot is committed.
+
+## 2026-09-27 — P0.1 focused core acceptance
+- Ran the serial focused core path on local PostgreSQL 16: auth/verification, two-workspace isolation, widget origin/session/messages, knowledge publication/retrieval, grounded AI worker fixture, usage ledger and audit export.
+- Result: **9/9 PASS** in 6.470 seconds. Evidence: `delivery/evidence/p0-core-acceptance-2026-09-27.txt`.
+- Limits remain explicit: provider transport is injected/local fixture; no browser, live provider/email receipt, staging, production, HiChat parity or full H/E acceptance claim.
+
+## 2026-09-27 — expired model-grant fence
+- Provider audit found `defaultWorkspaceProviderInvoke` checked `active` but not `model_grants.expires_at` before transport. Added the expiry predicate so a grant that expires cannot initiate provider I/O.
+- Added `tests/provider-grant-expiry.test.ts`: expired grant returns `AI_MODEL_REVOKED` with zero transport calls; renewed grant reaches the injected transport.
+- Focused provider contract: **19/19 PASS**; full serial regression after the fix: **174/174 PASS**. Evidence: `delivery/evidence/p0-provider-contract-2026-09-27.txt`, `delivery/evidence/core-after-expired-grant-2026-09-27.txt`.

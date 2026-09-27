@@ -14,7 +14,7 @@ Source, migration và test là bằng chứng triển khai; `delivery/BACKLOG.cs
 
 ## Completed — các slice giới hạn
 
-Bằng chứng regression lịch sử gần nhất: `delivery/evidence/core-after-h05-h06-2026-09-27.txt`, 173/173 PASS. Kết quả chạy lại trong đợt bàn giao xem [TESTING](TESTING.md); không coi log lịch sử là lần chạy mới.
+Bằng chứng regression mới nhất: fresh post-fix run 174/174 PASS tại `delivery/evidence/core-after-expired-grant-2026-09-27.txt`. Fresh P0.1 core acceptance: `delivery/evidence/p0-core-acceptance-2026-09-27.txt`, 9/9 focused integration tests PASS. Kết quả này vẫn không thay thế browser/live-provider acceptance.
 
 | Slice | Files chính | Trạng thái | Evidence và giới hạn |
 |---|---|---|---|
@@ -24,7 +24,7 @@ Bằng chứng regression lịch sử gần nhất: `delivery/evidence/core-afte
 | Visitor profile validation | `src/server/widget.ts` | DONE | H06 targeted 1/1 và regression |
 | Audit keyset list/export | `src/server/audit-log.ts`, `src/server/audit-export.ts`, `src/server/app.ts` | DONE | `delivery/evidence/h22-audit-export-http.txt`; JSON envelope chứa NDJSON, không raw download |
 | Restore disposable DB + integrity/quarantine | `scripts/restore-drill.ts` | DONE | `delivery/evidence/p1-restore-drill.json`: 55 tables; không phải production RPO/RTO |
-| Provider error contract | `src/server/provider-transport.ts` | DONE | `delivery/evidence/provider-runtime-errors-2026-09-27.txt`: injected transport; không live provider |
+| Provider error contract và expired grant fence | `src/server/provider-transport.ts`, `src/server/worker.ts` | DONE BUT NEEDS VERIFICATION | Injected transport/error tests; expired grant now blocks before transport (`tests/provider-grant-expiry.test.ts`). Không live provider |
 | Expired session purge primitive | `src/server/session-maintenance.ts` | DONE | H23 checkpoint/tests; lịch chạy production chưa chốt |
 
 ## In Progress
@@ -37,8 +37,8 @@ Bằng chứng regression lịch sử gần nhất: `delivery/evidence/core-afte
 **Not implemented:** chưa có bằng chứng nghiệm thu live tất cả provider/model, tính đúng đủ của bộ dữ liệu doanh nghiệp thực, staging vận hành. Không suy ra `claude_code` là chạy CLI Claude Code: adapter hiện gọi Anthropic Messages API.  
 **Relevant files:** `src/server/platform.ts`, `platform-agent.ts`, `provider-transport.ts`, `knowledge-retrieval.ts`, `knowledge-embedding-worker.ts`, `ai-reply-worker.ts`, `quota.ts`, `usage-ledger.ts`.  
 **Current behavior:** grant/capability và trạng thái workspace/provider/model chặn routing; workers kiểm tra quyền và xử lý lỗi/unknown.  
-**Known issue:** provider receipts thực tế UNKNOWN / NEEDS VERIFICATION; giá/chất lượng/chi phí thực chưa được chứng minh bằng transport giả.  
-**Next exact step:** chạy acceptance local bằng một model được cấp thật trên hai workspace fixture, kiểm chứng publish/retrieve/reply/citation và usage; chỉ chạy khi có credential hợp lệ cho test.  
+**Known issue:** provider receipts thực tế UNKNOWN / NEEDS VERIFICATION; giá/chất lượng/chi phí thực chưa được chứng minh bằng transport giả. P0.1 local fixture pass không đóng gate live.
+**Next exact step:** với credential test hợp lệ, chạy acceptance live bằng một model được cấp trên hai workspace fixture, kiểm chứng publish/retrieve/reply/citation và usage; nếu chưa có credential, tiếp tục hardening bằng injected transport.
 **Definition of done:** negative tenant/privacy cases pass, provider receipt và usage đối chiếu được, browser flow và lỗi được nghiệm thu.
 
 ### Nguồn web, knowledge import và publish

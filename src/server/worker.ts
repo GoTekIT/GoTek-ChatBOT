@@ -40,7 +40,7 @@ export function defaultWorkspaceProviderInvoke(transport:typeof invokeProvider=i
   await scope(db,input.workspace);
   const previous=(await db.query("SELECT current_setting('app.platform',true) AS enabled")).rows[0]?.enabled||'';
   let model:any;
-  try { await db.query("SELECT set_config('app.platform','true',true)"); model=(await db.query("SELECT m.name model,p.adapter,p.base_url,p.secret_ref FROM models m JOIN providers p ON p.id=m.provider_id JOIN model_grants g ON g.model_id=m.id WHERE g.workspace_id=$1 AND g.capability='chat' AND g.active AND m.id=$2 AND m.enabled AND p.enabled AND 'chat'=ANY(m.capabilities)",[input.workspace,input.modelId])).rows[0]; }
+  try { await db.query("SELECT set_config('app.platform','true',true)"); model=(await db.query("SELECT m.name model,p.adapter,p.base_url,p.secret_ref FROM models m JOIN providers p ON p.id=m.provider_id JOIN model_grants g ON g.model_id=m.id WHERE g.workspace_id=$1 AND g.capability='chat' AND g.active AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp()) AND m.id=$2 AND m.enabled AND p.enabled AND 'chat'=ANY(m.capabilities)",[input.workspace,input.modelId])).rows[0]; }
   finally { await db.query("SELECT set_config('app.platform',$1,true)",[previous]); }
   if(!model)throw new HttpError(409,'AI_MODEL_REVOKED');
   return model;

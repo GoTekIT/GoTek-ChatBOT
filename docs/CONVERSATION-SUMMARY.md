@@ -57,4 +57,4 @@ Full conversation history may not be available to future agents; this summary is
 
 ## Context future AI must not lose
 
-Read `AGENTS.md`, `docs/PROJECT-STATUS.md`, `docs/HANDOFF.md`, then delivery checkpoint/contracts. Preserve incomplete source and evidence distinctions. “173 tests pass” means the historical configured regression at that checkpoint, not acceptance of all product groups.
+Read `AGENTS.md`, `docs/PROJECT-STATUS.md`, `docs/HANDOFF.md`, then delivery checkpoint/contracts. Preserve incomplete source and evidence distinctions. “174 tests pass” is the current configured regression after the expired-grant fence; it does not accept all product groups.

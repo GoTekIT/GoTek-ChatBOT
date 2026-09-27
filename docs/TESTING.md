@@ -15,17 +15,18 @@ Các command tồn tại/được đối chiếu trong package/source. Lint: NOT
 
 ## Current verification
 
-Fresh handoff validation (2026-09-27): `npm run build` PASS; `npm test` PASS 173/173 (serial); `npm run db:restore-drill` PASS trên 55 bảng. Logs: `delivery/evidence/handoff-build-2026-09-27.txt`, `delivery/evidence/handoff-tests-2026-09-27.txt`, `delivery/evidence/handoff-restore-drill-2026-09-27.txt`. `npx tsc --noEmit` được chạy trong build. Kết quả này không thay thế browser/live-provider acceptance. Xem `delivery/evidence/` và checkpoint cho các lần chạy trước.
+Fresh handoff validation (2026-09-27): `npm run build` PASS; after the expired-grant fix, `npm test` PASS 174/174 (serial); P0.1 focused core acceptance PASS 9/9; `npm run db:restore-drill` PASS trên 55 bảng. Logs: `delivery/evidence/handoff-build-2026-09-27.txt`, `delivery/evidence/handoff-tests-2026-09-27.txt`, `delivery/evidence/build-after-expired-grant-2026-09-27.txt`, `delivery/evidence/core-after-expired-grant-2026-09-27.txt`, `delivery/evidence/p0-core-acceptance-2026-09-27.txt`, `delivery/evidence/p0-provider-contract-2026-09-27.txt`, `delivery/evidence/handoff-restore-drill-2026-09-27.txt`. `npx tsc --noEmit` được chạy trong focused provider audit và build. Kết quả này không thay thế browser/live-provider acceptance. Xem `delivery/evidence/` và checkpoint cho các lần chạy trước.
 
 | Check | Current handoff result |
 |---|---|
 | Build | PASS (2026-09-27) |
 | Typecheck | PASS via build (2026-09-27) |
-| Tests | PASS 173/173 (2026-09-27) |
+| Tests | PASS 174/174 (2026-09-27, after grant expiry fix) |
 | Restore drill | PASS, 55 tables (2026-09-27) |
 | Lint | NOT AVAILABLE |
 | Manual/browser end-to-end | NOT VERIFIED for complete scope |
 | Real provider API receipt | NOT VERIFIED |
+| P0.1 focused core acceptance | PASS, 9/9 local integration tests (2026-09-27) |
 
 ## Current verification matrix
 

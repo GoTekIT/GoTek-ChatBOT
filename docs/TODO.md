@@ -6,6 +6,7 @@ Các mục dưới đây được rút từ source, `delivery/BACKLOG.csv`, chec
 
 ### P0.1 Fresh core acceptance
 - **Description:** chạy local PostgreSQL mới và kiểm tra auth → workspace → channel/widget → visitor message → agent/AI reply → knowledge retrieval → usage/audit.
+- **Current evidence:** focused local slice 9/9 PASS (`delivery/evidence/p0-core-acceptance-2026-09-27.txt`); full browser/live-provider acceptance remains open.
 - **Dependency:** migration, fixture, provider test credential nếu chạy live.
 - **Relevant files:** `src/server/app.ts`, `src/server/widget.ts`, `src/server/worker.ts`, `src/server/knowledge-retrieval.ts`, `tests/`.
 - **Acceptance:** hai workspace không đọc chéo; lỗi và trạng thái thành công được ghi; evidence mới.

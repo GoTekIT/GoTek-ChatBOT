@@ -1,0 +1,884 @@
+
+> gotek-chatbot@0.1.0 test
+> tsx --test --test-concurrency=1 tests/*.test.ts
+
+TAP version 13
+# Subtest: E01 DB: tenant isolation, internal ACL, revocation and mutation roles
+ok 1 - E01 DB: tenant isolation, internal ACL, revocation and mutation roles
+  ---
+  duration_ms: 79.005583
+  ...
+# Subtest: worker estimates the complete grounded prompt and preserves provider receipts
+ok 2 - worker estimates the complete grounded prompt and preserves provider receipts
+  ---
+  duration_ms: 8.927459
+  ...
+# Subtest: SIGKILL during provider invocation survives worker restart without duplicate dispatch
+ok 3 - SIGKILL during provider invocation survives worker restart without duplicate dispatch
+  ---
+  duration_ms: 2799.264291
+  ...
+# Subtest: distinct scheduler jobs for one visitor turn cannot both invoke provider
+ok 4 - distinct scheduler jobs for one visitor turn cannot both invoke provider
+  ---
+  duration_ms: 124.116834
+  ...
+# Subtest: AI dispatch fence claims one queued source when workers race
+ok 5 - AI dispatch fence claims one queued source when workers race
+  ---
+  duration_ms: 73.425458
+  ...
+# Subtest: AI provider invocation error is terminal-unknown and is not immediately replayed
+ok 6 - AI provider invocation error is terminal-unknown and is not immediately replayed
+  ---
+  duration_ms: 9.899125
+  ...
+# Subtest: embedding transport failures fall back only to existing grounded lexical context
+ok 7 - embedding transport failures fall back only to existing grounded lexical context
+  ---
+  duration_ms: 166.737917
+  ...
+# Subtest: AI commit keeps chat grant/model/provider FOR SHARE until the reply is committed
+ok 8 - AI commit keeps chat grant/model/provider FOR SHARE until the reply is committed
+  ---
+  duration_ms: 74.218458
+  ...
+# Subtest: AI worker boundary refuses stale ownership and missing model before invocation
+ok 9 - AI worker boundary refuses stale ownership and missing model before invocation
+  ---
+  duration_ms: 0.711625
+  ...
+# Subtest: AI worker invokes an enabled workspace model and appends a public reply
+ok 10 - AI worker invokes an enabled workspace model and appends a public reply
+  ---
+  duration_ms: 225.418583
+  ...
+# Subtest: rule snapshot is tenant scoped, deterministic, complete and invalidated on active changes
+ok 11 - rule snapshot is tenant scoped, deterministic, complete and invalidated on active changes
+  ---
+  duration_ms: 79.6525
+  ...
+# Subtest: embedding revocation fences semantic replies but does not invalidate lexical fallback
+ok 12 - embedding revocation fences semantic replies but does not invalidate lexical fallback
+  ---
+  duration_ms: 139.130042
+  ...
+# Subtest: H22 audit export HTTP envelope paginates and enforces session, role and tenant
+ok 13 - H22 audit export HTTP envelope paginates and enforces session, role and tenant
+  ---
+  duration_ms: 192.988083
+  ...
+# Subtest: audit export is bounded, tenant scoped, paginates and requires Owner/Admin
+ok 14 - audit export is bounded, tenant scoped, paginates and requires Owner/Admin
+  ---
+  duration_ms: 65.155583
+  ...
+# Subtest: audit pagination preserves tenant, role, tied timestamp order and insertion stability
+ok 15 - audit pagination preserves tenant, role, tied timestamp order and insertion stability
+  ---
+  duration_ms: 79.564791
+  ...
+# Subtest: H01 reset challenge is single-use, expires, and revokes existing sessions
+ok 16 - H01 reset challenge is single-use, expires, and revokes existing sessions
+  ---
+  duration_ms: 239.679042
+  ...
+# Subtest: H01 local verification consumes token once and rejects expired tokens
+ok 17 - H01 local verification consumes token once and rejects expired tokens
+  ---
+  duration_ms: 132.680375
+  ...
+# Subtest: H06 local start inclusive, end exclusive, disabled day and full-day
+ok 18 - H06 local start inclusive, end exclusive, disabled day and full-day
+  ---
+  duration_ms: 17.276375
+  ...
+# Subtest: H06 overnight carries from starting weekday, including week rollover
+ok 19 - H06 overnight carries from starting weekday, including week rollover
+  ---
+  duration_ms: 0.408541
+  ...
+# Subtest: H06 DST uses actual local time for spring gap and repeated fall hour
+ok 20 - H06 DST uses actual local time for spring gap and repeated fall hour
+  ---
+  duration_ms: 0.670792
+  ...
+# Subtest: H03 message ordering/idempotency, takeover fencing, note boundary and tenant isolation
+ok 21 - H03 message ordering/idempotency, takeover fencing, note boundary and tenant isolation
+  ---
+  duration_ms: 102.667917
+  ...
+# Subtest: H13 contacts persist without email/phone, replay, paginate and isolate workspace
+ok 22 - H13 contacts persist without email/phone, replay, paginate and isolate workspace
+  ---
+  duration_ms: 427.750334
+  ...
+# Subtest: AI worker hands off when provider configuration cannot be used
+ok 23 - AI worker hands off when provider configuration cannot be used
+  ---
+  duration_ms: 125.314125
+  ...
+# Subtest: H12 contract: request ids are UUIDs and error codes are stable
+ok 24 - H12 contract: request ids are UUIDs and error codes are stable
+  ---
+  duration_ms: 0.457459
+  ...
+# Subtest: document extraction preserves Vietnamese enterprise FAQ text from DOCX
+ok 25 - document extraction preserves Vietnamese enterprise FAQ text from DOCX
+  ---
+  duration_ms: 11.142083
+  ...
+# Subtest: document extraction rejects invalid DOCX with a stable API error
+ok 26 - document extraction rejects invalid DOCX with a stable API error
+  ---
+  duration_ms: 0.313583
+  ...
+# Subtest: document extraction rejects malformed PDF
+ok 27 - document extraction rejects malformed PDF
+  ---
+  duration_ms: 0.120083
+  ...
+# Subtest: document extraction bounds unknown formats before parsing
+ok 28 - document extraction bounds unknown formats before parsing
+  ---
+  duration_ms: 0.064333
+  ...
+# Subtest: embedding CLI rejects production and missing selectors without exposing configuration
+ok 29 - embedding CLI rejects production and missing selectors without exposing configuration
+  ---
+  duration_ms: 346.917792
+  ...
+# Subtest: published enterprise data flows through granted adapter to widget, then human takeover
+ok 30 - published enterprise data flows through granted adapter to widget, then human takeover
+  ---
+  duration_ms: 652.065625
+  ...
+# Subtest: H02 workspace resources stay tenant-bound and cross-tenant switch is denied
+ok 31 - H02 workspace resources stay tenant-bound and cross-tenant switch is denied
+  ---
+  duration_ms: 196.964416
+  ...
+# Subtest: H03 contact visibility: Agent cannot read CRM contacts and tenant owner cannot cross workspace
+ok 32 - H03 contact visibility: Agent cannot read CRM contacts and tenant owner cannot cross workspace
+  ---
+  duration_ms: 74.677375
+  ...
+# Subtest: H05 assignment capacity serializes concurrent widget sessions and takeover rejects stale owner
+ok 33 - H05 assignment capacity serializes concurrent widget sessions and takeover rejects stale owner
+  ---
+  duration_ms: 121.119041
+  ...
+# Subtest: H06 visitor prechat profile persists and remains channel/tenant scoped
+ok 34 - H06 visitor prechat profile persists and remains channel/tenant scoped
+  ---
+  duration_ms: 134.377792
+  ...
+# Subtest: H16 membership revoke is live for an existing session and cannot cross tenants
+ok 35 - H16 membership revoke is live for an existing session and cannot cross tenants
+  ---
+  duration_ms: 182.862541
+  ...
+# Subtest: H28 registry resolution is tenant and lifecycle scoped
+ok 36 - H28 registry resolution is tenant and lifecycle scoped
+  ---
+  duration_ms: 73.308083
+  ...
+# Subtest: H32.02 stale lease becomes UNKNOWN for external work and cannot duplicate side effect
+ok 37 - H32.02 stale lease becomes UNKNOWN for external work and cannot duplicate side effect
+  ---
+  duration_ms: 52.547792
+  ...
+# Subtest: H32.02 failed local work reaches dead-letter after bounded attempts
+ok 38 - H32.02 failed local work reaches dead-letter after bounded attempts
+  ---
+  duration_ms: 10.850875
+  ...
+# Subtest: H02/H03 draft storage is distinct by workspace and user
+ok 39 - H02/H03 draft storage is distinct by workspace and user
+  ---
+  duration_ms: 0.41925
+  ...
+# Subtest: H03 draft parsing preserves Vietnamese text and rejects corrupt entries
+ok 40 - H03 draft parsing preserves Vietnamese text and rejects corrupt entries
+  ---
+  duration_ms: 0.489834
+  ...
+# Subtest: H03 pending replies retain retry identity and internal visibility across serialization
+ok 41 - H03 pending replies retain retry identity and internal visibility across serialization
+  ---
+  duration_ms: 1.837292
+  ...
+# Subtest: explicit resume checks ownership/version and audits only successful transitions
+ok 42 - explicit resume checks ownership/version and audits only successful transitions
+  ---
+  duration_ms: 4.609625
+  ...
+# Subtest: H32 bounded jobs: atomic enqueue, concurrent claim, stale/unknown recovery, tenant isolation
+ok 43 - H32 bounded jobs: atomic enqueue, concurrent claim, stale/unknown recovery, tenant isolation
+  ---
+  duration_ms: 77.389875
+  ...
+# Subtest: H10 knowledge draft API persists edits, isolates tenants and enforces live membership
+ok 44 - H10 knowledge draft API persists edits, isolates tenants and enforces live membership
+  ---
+  duration_ms: 898.881083
+  ...
+# Subtest: knowledge chunk store rebuilds deterministically and deletes stale chunks
+ok 45 - knowledge chunk store rebuilds deterministically and deletes stale chunks
+  ---
+  duration_ms: 1.887458
+  ...
+# Subtest: stored chunk retrieval is tenant/version scoped and budgeted
+ok 46 - stored chunk retrieval is tenant/version scoped and budgeted
+  ---
+  duration_ms: 1.565
+  ...
+# Subtest: stored chunk retrieval rejects tampered chunk content
+ok 47 - stored chunk retrieval rejects tampered chunk content
+  ---
+  duration_ms: 0.727833
+  ...
+# Subtest: chunkKnowledgeText preserves bounded overlap and deterministic offsets
+ok 48 - chunkKnowledgeText preserves bounded overlap and deterministic offsets
+  ---
+  duration_ms: 1.982708
+  ...
+# Subtest: rankKnowledgeChunks favors an exact phrase and exposes matched terms
+ok 49 - rankKnowledgeChunks favors an exact phrase and exposes matched terms
+  ---
+  duration_ms: 1.349416
+  ...
+# Subtest: selectChunkContext enforces a token budget
+ok 50 - selectChunkContext enforces a token budget
+  ---
+  duration_ms: 0.613417
+  ...
+# Subtest: chunk boundaries preserve supplementary Unicode through UTF-8 storage
+ok 51 - chunk boundaries preserve supplementary Unicode through UTF-8 storage
+  ---
+  duration_ms: 0.240875
+  ...
+# Subtest: H10 lifecycle: deterministic process, publish CAS, audience, tenant and role guards
+ok 52 - H10 lifecycle: deterministic process, publish CAS, audience, tenant and role guards
+  ---
+  duration_ms: 219.497542
+  ...
+# Subtest: knowledge retrieval uses active published versions with audience, tenant and role isolation
+ok 53 - knowledge retrieval uses active published versions with audience, tenant and role isolation
+  ---
+  duration_ms: 345.948292
+  ...
+# Subtest: semantic retrieval contract ranks only dimension-matched, integrity-ready embeddings
+ok 54 - semantic retrieval contract ranks only dimension-matched, integrity-ready embeddings
+  ---
+  duration_ms: 0.6915
+  ...
+# Subtest: semantic context path uses persisted public embeddings and remains bounded
+ok 55 - semantic context path uses persisted public embeddings and remains bounded
+  ---
+  duration_ms: 1.070709
+  ...
+# Subtest: H10 draft storage: unicode, immutable versions, replay, conflict, pagination and tenant isolation
+ok 56 - H10 draft storage: unicode, immutable versions, replay, conflict, pagination and tenant isolation
+  ---
+  duration_ms: 223.885709
+  ...
+# Subtest: H28 grant policy rejects expired/revoked grants and accepts active unexpired grant
+ok 57 - H28 grant policy rejects expired/revoked grants and accepts active unexpired grant
+  ---
+  duration_ms: 0.677875
+  ...
+# Subtest: E06 onboarding blocks unsafe index and preserves audience gate
+ok 58 - E06 onboarding blocks unsafe index and preserves audience gate
+  ---
+  duration_ms: 0.431125
+  ...
+# Subtest: PDF extraction reads bounded text from a valid PDF
+ok 59 - PDF extraction reads bounded text from a valid PDF
+  ---
+  duration_ms: 443.052959
+  ...
+# Subtest: PDF extraction rejects invalid bytes before parser execution
+ok 60 - PDF extraction rejects invalid bytes before parser execution
+  ---
+  duration_ms: 0.282416
+  ...
+# Subtest: PDF extraction rejects non-PDF extensions
+ok 61 - PDF extraction rejects non-PDF extensions
+  ---
+  duration_ms: 0.078792
+  ...
+# Subtest: PDF extraction rejects oversized input
+ok 62 - PDF extraction rejects oversized input
+  ---
+  duration_ms: 0.558083
+  ...
+# Subtest: admin prompt preserves question and recent history within independent context budgets
+ok 63 - admin prompt preserves question and recent history within independent context budgets
+  ---
+  duration_ms: 0.589916
+  ...
+# Subtest: provider probe requires a configured chat model and valid nonempty inference
+ok 64 - provider probe requires a configured chat model and valid nonempty inference
+  ---
+  duration_ms: 2.438375
+  ...
+# Subtest: H28 platform role separate, capability grant, missing secret, metadata redaction and revoke
+ok 65 - H28 platform role separate, capability grant, missing secret, metadata redaction and revoke
+  ---
+  duration_ms: 412.015791
+  ...
+# Subtest: H28 Platform Agent history is actor-scoped
+ok 66 - H28 Platform Agent history is actor-scoped
+  ---
+  duration_ms: 242.290041
+  ...
+# Subtest: embedding transport supports OpenAI-compatible and Gemini response shapes without leaking secrets
+ok 67 - embedding transport supports OpenAI-compatible and Gemini response shapes without leaking secrets
+  ---
+  duration_ms: 12.993125
+  ...
+# Subtest: embedding rejects unsupported routing and malformed vectors before persistence
+ok 68 - embedding rejects unsupported routing and malformed vectors before persistence
+  ---
+  duration_ms: 0.8365
+  ...
+# Subtest: provider endpoint validation blocks private DNS and non-HTTPS
+ok 69 - provider endpoint validation blocks private DNS and non-HTTPS
+  ---
+  duration_ms: 4.30875
+  ...
+# Subtest: workspace provider boundary refuses an expired grant before provider I/O
+ok 70 - workspace provider boundary refuses an expired grant before provider I/O
+  ---
+  duration_ms: 62.575583
+  ...
+# Subtest: provider receipt contract maps usage and text for every remote adapter
+ok 71 - provider receipt contract maps usage and text for every remote adapter
+  ---
+  duration_ms: 11.433292
+  ...
+# Subtest: provider receipt errors use stable codes and never include secret or response body
+ok 72 - provider receipt errors use stable codes and never include secret or response body
+  ---
+  duration_ms: 0.581916
+  ...
+# Subtest: malformed provider JSON returns stable errors instead of parser exceptions
+ok 73 - malformed provider JSON returns stable errors instead of parser exceptions
+  ---
+  duration_ms: 3.538542
+  ...
+# Subtest: real HTTP transport does not follow provider redirects for chat or embeddings
+ok 74 - real HTTP transport does not follow provider redirects for chat or embeddings
+  ---
+  duration_ms: 3.792792
+  ...
+# Subtest: provider transport timeout has stable redacted errors across adapters
+ok 75 - provider transport timeout has stable redacted errors across adapters
+  ---
+  duration_ms: 1.082166
+  ...
+# Subtest: provider transport network has stable redacted errors across adapters
+ok 76 - provider transport network has stable redacted errors across adapters
+  ---
+  duration_ms: 0.456334
+  ...
+# Subtest: provider transport invalid has stable redacted errors across adapters
+ok 77 - provider transport invalid has stable redacted errors across adapters
+  ---
+  duration_ms: 10.226625
+  ...
+# Subtest: shared provider transport preserves Gemini, Anthropic and OpenAI-compatible contracts
+ok 78 - shared provider transport preserves Gemini, Anthropic and OpenAI-compatible contracts
+  ---
+  duration_ms: 11.276458
+  ...
+# Subtest: detailed provider transport preserves usage metadata without secrets
+ok 79 - detailed provider transport preserves usage metadata without secrets
+  ---
+  duration_ms: 0.486959
+  ...
+# Subtest: shared transport rejects provider HTTP failure and unusable output without exposing response body
+ok 80 - shared transport rejects provider HTTP failure and unusable output without exposing response body
+  ---
+  duration_ms: 1.007041
+  ...
+# Subtest: shared transport classifies timeout, network and malformed provider responses
+ok 81 - shared transport classifies timeout, network and malformed provider responses
+  ---
+  duration_ms: 3.164625
+  ...
+# Subtest: partial provider usage can be normalized without undefined fields
+ok 82 - partial provider usage can be normalized without undefined fields
+  ---
+  duration_ms: 0.569709
+  ...
+# Subtest: custom LLM requires explicit routing and unknown adapters never send data
+ok 83 - custom LLM requires explicit routing and unknown adapters never send data
+  ---
+  duration_ms: 0.401959
+  ...
+# Subtest: quota matrix: missing model
+ok 84 - quota matrix: missing model
+  ---
+  duration_ms: 77.360375
+  ...
+# Subtest: quota matrix: stale owner
+ok 85 - quota matrix: stale owner
+  ---
+  duration_ms: 17.439916
+  ...
+# Subtest: quota matrix: missing grounded knowledge
+ok 86 - quota matrix: missing grounded knowledge
+  ---
+  duration_ms: 26.025042
+  ...
+# Subtest: quota matrix: revoked source before provider
+ok 87 - quota matrix: revoked source before provider
+  ---
+  duration_ms: 20.2695
+  ...
+# Subtest: H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation
+ok 88 - H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation
+  ---
+  duration_ms: 66.16475
+  ...
+# Subtest: AI response quota keeps legacy workspaces unlimited until provisioned
+ok 89 - AI response quota keeps legacy workspaces unlimited until provisioned
+  ---
+  duration_ms: 15.893458
+  ...
+# Subtest: AI quota retry retains its original reservation across period renewal
+ok 90 - AI quota retry retains its original reservation across period renewal
+  ---
+  duration_ms: 13.571167
+  ...
+# Subtest: restore drill report has complete integrity metadata and disposable target is gone
+ok 91 - restore drill report has complete integrity metadata and disposable target is gone
+  ---
+  duration_ms: 12.492417
+  ...
+# Subtest: H09 update rejects invalid expectedVersion undefined
+ok 92 - H09 update rejects invalid expectedVersion undefined
+  ---
+  duration_ms: 1.864292
+  ...
+# Subtest: H09 update rejects invalid expectedVersion 0
+ok 93 - H09 update rejects invalid expectedVersion 0
+  ---
+  duration_ms: 0.226291
+  ...
+# Subtest: H09 update rejects invalid expectedVersion -1
+ok 94 - H09 update rejects invalid expectedVersion -1
+  ---
+  duration_ms: 0.173209
+  ...
+# Subtest: H09 update rejects invalid expectedVersion 1.5
+ok 95 - H09 update rejects invalid expectedVersion 1.5
+  ---
+  duration_ms: 0.087666
+  ...
+# Subtest: H09 update rejects invalid expectedVersion 1
+ok 96 - H09 update rejects invalid expectedVersion 1
+  ---
+  duration_ms: 0.08325
+  ...
+# Subtest: H09 update failed compare-and-swap returns conflict without audit
+ok 97 - H09 update failed compare-and-swap returns conflict without audit
+  ---
+  duration_ms: 0.562625
+  ...
+# Subtest: H09 update failed compare-and-swap returns not found without audit
+ok 98 - H09 update failed compare-and-swap returns not found without audit
+  ---
+  duration_ms: 0.091708
+  ...
+# Subtest: H09 update successful compare-and-swap returns new version and audits once
+ok 99 - H09 update successful compare-and-swap returns new version and audits once
+  ---
+  duration_ms: 0.11375
+  ...
+# Subtest: H09 state rejects invalid expectedVersion undefined
+ok 100 - H09 state rejects invalid expectedVersion undefined
+  ---
+  duration_ms: 0.305917
+  ...
+# Subtest: H09 state rejects invalid expectedVersion 0
+ok 101 - H09 state rejects invalid expectedVersion 0
+  ---
+  duration_ms: 0.086416
+  ...
+# Subtest: H09 state rejects invalid expectedVersion -1
+ok 102 - H09 state rejects invalid expectedVersion -1
+  ---
+  duration_ms: 0.118666
+  ...
+# Subtest: H09 state rejects invalid expectedVersion 1.5
+ok 103 - H09 state rejects invalid expectedVersion 1.5
+  ---
+  duration_ms: 0.071458
+  ...
+# Subtest: H09 state rejects invalid expectedVersion 1
+ok 104 - H09 state rejects invalid expectedVersion 1
+  ---
+  duration_ms: 0.108333
+  ...
+# Subtest: H09 state failed compare-and-swap returns conflict without audit
+ok 105 - H09 state failed compare-and-swap returns conflict without audit
+  ---
+  duration_ms: 0.122834
+  ...
+# Subtest: H09 state failed compare-and-swap returns not found without audit
+ok 106 - H09 state failed compare-and-swap returns not found without audit
+  ---
+  duration_ms: 0.070708
+  ...
+# Subtest: H09 state successful compare-and-swap returns new version and audits once
+ok 107 - H09 state successful compare-and-swap returns new version and audits once
+  ---
+  duration_ms: 0.086958
+  ...
+# Subtest: H09 CSV roundtrip preserves Vietnamese, quotes, comma and embedded line endings
+ok 108 - H09 CSV roundtrip preserves Vietnamese, quotes, comma and embedded line endings
+  ---
+  duration_ms: 0.766292
+  ...
+# Subtest: H09 CSV rejects malformed quotes, extra columns and ambiguous active values
+ok 109 - H09 CSV rejects malformed quotes, extra columns and ambiguous active values
+  ---
+  duration_ms: 0.205625
+  ...
+# Subtest: H09 concurrent transactions share request identity and audit only once
+ok 110 - H09 concurrent transactions share request identity and audit only once
+  ---
+  duration_ms: 137.5195
+  ...
+# Subtest: H09 list: Agent is forbidden before database access
+ok 111 - H09 list: Agent is forbidden before database access
+  ---
+  duration_ms: 0.62825
+  ...
+# Subtest: H09 create: Agent is forbidden before database access
+ok 112 - H09 create: Agent is forbidden before database access
+  ---
+  duration_ms: 0.108792
+  ...
+# Subtest: H09 update: Agent is forbidden before database access
+ok 113 - H09 update: Agent is forbidden before database access
+  ---
+  duration_ms: 0.081917
+  ...
+# Subtest: H09 state: Agent is forbidden before database access
+ok 114 - H09 state: Agent is forbidden before database access
+  ---
+  duration_ms: 0.071834
+  ...
+# Subtest: H09 create: rejects empty title before database access
+ok 115 - H09 create: rejects empty title before database access
+  ---
+  duration_ms: 1.098542
+  ...
+# Subtest: H09 create: rejects whitespace title before database access
+ok 116 - H09 create: rejects whitespace title before database access
+  ---
+  duration_ms: 0.081959
+  ...
+# Subtest: H09 create: rejects title over 150 characters before database access
+ok 117 - H09 create: rejects title over 150 characters before database access
+  ---
+  duration_ms: 0.18775
+  ...
+# Subtest: H09 create: rejects empty content before database access
+ok 118 - H09 create: rejects empty content before database access
+  ---
+  duration_ms: 0.0805
+  ...
+# Subtest: H09 create: rejects whitespace content before database access
+ok 119 - H09 create: rejects whitespace content before database access
+  ---
+  duration_ms: 0.14725
+  ...
+# Subtest: H09 create: rejects content over 2000 characters before database access
+ok 120 - H09 create: rejects content over 2000 characters before database access
+  ---
+  duration_ms: 0.138458
+  ...
+# Subtest: H09 transfer uses current Owner/Admin/Agent role and denied imports leave no writes
+ok 121 - H09 transfer uses current Owner/Admin/Agent role and denied imports leave no writes
+  ---
+  duration_ms: 159.332167
+  ...
+# Subtest: H09 rules export/import is tenant scoped and auditable
+ok 122 - H09 rules export/import is tenant scoped and auditable
+  ---
+  duration_ms: 206.585291
+  ...
+# Subtest: H09 rules are workspace scoped, bounded, versioned and auditable
+ok 123 - H09 rules are workspace scoped, bounded, versioned and auditable
+  ---
+  duration_ms: 162.944958
+  ...
+# Subtest: canonical installed SDK contains widget contract without provider secrets
+ok 124 - canonical installed SDK contains widget contract without provider secrets
+  ---
+  duration_ms: 0.986416
+  ...
+# Subtest: embedding query includes only bounded earlier visitor turns
+ok 125 - embedding query includes only bounded earlier visitor turns
+  ---
+  duration_ms: 0.487792
+  ...
+# Subtest: embedding query caps visitor history and total code units
+ok 126 - embedding query caps visitor history and total code units
+  ---
+  duration_ms: 0.138666
+  ...
+# Subtest: empty or malformed history preserves current message
+ok 127 - empty or malformed history preserves current message
+  ---
+  duration_ms: 0.048166
+  ...
+# Subtest: H23 expired sessions are purged in bounded batches without touching live sessions
+ok 128 - H23 expired sessions are purged in bounded batches without touching live sessions
+  ---
+  duration_ms: 67.555875
+  ...
+# Subtest: H23 maintenance rejects unbounded batch sizes
+ok 129 - H23 maintenance rejects unbounded batch sizes
+  ---
+  duration_ms: 1.628375
+  ...
+# Subtest: H28 support grant requires tenant approval, correct subject, scope, expiry and audit
+ok 130 - H28 support grant requires tenant approval, correct subject, scope, expiry and audit
+  ---
+  duration_ms: 273.454417
+  ...
+# Subtest: normalizes common provider usage fields and derives a consistent total
+ok 131 - normalizes common provider usage fields and derives a consistent total
+  ---
+  duration_ms: 0.730458
+  ...
+# Subtest: estimates missing usage deterministically and rounds integer micro-cost
+ok 132 - estimates missing usage deterministically and rounds integer micro-cost
+  ---
+  duration_ms: 0.141792
+  ...
+# Subtest: meter event is tenant-bound and contains no raw prompt or secret
+ok 133 - meter event is tenant-bound and contains no raw prompt or secret
+  ---
+  duration_ms: 0.16275
+  ...
+# Subtest: rejects malformed, negative, unsafe and conflicting provider usage
+ok 134 - rejects malformed, negative, unsafe and conflicting provider usage
+  ---
+  duration_ms: 0.222334
+  ...
+# Subtest: rejects unsafe usage and non-integer or negative rates before billing
+ok 135 - rejects unsafe usage and non-integer or negative rates before billing
+  ---
+  duration_ms: 0.095667
+  ...
+# Subtest: usage ledger persists with insert-only permissions, concurrent replay and tenant isolation
+ok 136 - usage ledger persists with insert-only permissions, concurrent replay and tenant isolation
+  ---
+  duration_ms: 44.005333
+  ...
+# Subtest: HTTP web generation preserves every imported part and retires removed parts on refresh
+ok 137 - HTTP web generation preserves every imported part and retires removed parts on refresh
+  ---
+  duration_ms: 234.430875
+  ...
+# Subtest: generation publish and rollback restores parent pointer atomically
+ok 138 - generation publish and rollback restores parent pointer atomically
+  ---
+  duration_ms: 96.812791
+  ...
+# Subtest: H11 generation schema enforces lineage, action values and tenant RLS policy
+ok 139 - H11 generation schema enforces lineage, action values and tenant RLS policy
+  ---
+  duration_ms: 62.704416
+  ...
+# Subtest: web refresh CLI rejects production, missing/invalid tenant and unsupported all mode with redacted logs
+ok 140 - web refresh CLI rejects production, missing/invalid tenant and unsupported all mode with redacted logs
+  ---
+  duration_ms: 736.830792
+  ...
+# Subtest: web refresh CLI --once exits idle and SIGTERM stops an idle real database loop cleanly
+ok 141 - web refresh CLI --once exits idle and SIGTERM stops an idle real database loop cleanly
+  ---
+  duration_ms: 716.191792
+  ...
+# Subtest: web refresh persists isolated immutable snapshots; replay skips fetch; paused/changed/expired jobs cannot commit
+ok 142 - web refresh persists isolated immutable snapshots; replay skips fetch; paused/changed/expired jobs cannot commit
+  ---
+  duration_ms: 166.716459
+  ...
+# Subtest: sitemap index crawls bounded same-origin page content with provenance
+ok 143 - sitemap index crawls bounded same-origin page content with provenance
+  ---
+  duration_ms: 2.479375
+  ...
+# Subtest: web snapshot import preserves Unicode, remains private draft, rejects invalid input atomically and replays original provenance
+ok 144 - web snapshot import preserves Unicode, remains private draft, rejects invalid input atomically and replays original provenance
+  ---
+  duration_ms: 179.231417
+  ...
+# Subtest: crawl follows bounded same-origin links, deduplicates fragments and retains page provenance
+ok 145 - crawl follows bounded same-origin links, deduplicates fragments and retains page provenance
+  ---
+  duration_ms: 1.881417
+  ...
+# Subtest: crawl rejects aggregate byte overflow rather than persisting partial success
+ok 146 - crawl rejects aggregate byte overflow rather than persisting partial success
+  ---
+  duration_ms: 0.315917
+  ...
+# Subtest: H11 fetch rejects private approved addresses before opening a socket
+ok 147 - H11 fetch rejects private approved addresses before opening a socket
+  ---
+  duration_ms: 4.225209
+  ...
+# Subtest: H11 absolute deadline also bounds a stalled DNS resolution
+ok 148 - H11 absolute deadline also bounds a stalled DNS resolution
+  ---
+  duration_ms: 102.032667
+  ...
+# Subtest: URL strips executable markup and decodes entities
+ok 149 - URL strips executable markup and decodes entities
+  ---
+  duration_ms: 1.682375
+  ...
+# Subtest: RSS extracts title/link and limits items
+ok 150 - RSS extracts title/link and limits items
+  ---
+  duration_ms: 1.100042
+  ...
+# Subtest: sitemap extracts loc URLs
+ok 151 - sitemap extracts loc URLs
+  ---
+  duration_ms: 0.524833
+  ...
+# Subtest: rejects malformed, unsupported and empty documents
+ok 152 - rejects malformed, unsupported and empty documents
+  ---
+  duration_ms: 0.316542
+  ...
+# Subtest: XML declaration and RSS CDATA produce readable content
+ok 153 - XML declaration and RSS CDATA produce readable content
+  ---
+  duration_ms: 0.829291
+  ...
+# Subtest: hexadecimal numeric entities decode without losing Unicode
+ok 154 - hexadecimal numeric entities decode without losing Unicode
+  ---
+  duration_ms: 0.228208
+  ...
+# Subtest: strict XML rejects multiple roots, trailing text, invalid entities/attributes and DTD
+ok 155 - strict XML rejects multiple roots, trailing text, invalid entities/attributes and DTD
+  ---
+  duration_ms: 0.542542
+  ...
+# Subtest: Atom namespace entries and alternate links are parsed
+ok 156 - Atom namespace entries and alternate links are parsed
+  ---
+  duration_ms: 0.329875
+  ...
+# Subtest: unsafe parsed links are not returned to the UI
+ok 157 - unsafe parsed links are not returned to the UI
+  ---
+  duration_ms: 0.192667
+  ...
+# Subtest: H11 fetch policy enforces bounded pages/depth/bytes/time/redirects
+ok 158 - H11 fetch policy enforces bounded pages/depth/bytes/time/redirects
+  ---
+  duration_ms: 0.85
+  ...
+# Subtest: H11 runtime counters reject malformed counts instead of bypassing limits
+ok 159 - H11 runtime counters reject malformed counts instead of bypassing limits
+  ---
+  duration_ms: 0.287958
+  ...
+# Subtest: H11 runtime counters accept zero and exact limits and reject first excess
+ok 160 - H11 runtime counters accept zero and exact limits and reject first excess
+  ---
+  duration_ms: 0.139875
+  ...
+# Subtest: schedule CAS, role and concurrent due claims preserve one tenant job
+ok 161 - schedule CAS, role and concurrent due claims preserve one tenant job
+  ---
+  duration_ms: 88.913167
+  ...
+# Subtest: H11 rejects unsafe source URLs and DNS-resolved private addresses
+ok 162 - H11 rejects unsafe source URLs and DNS-resolved private addresses
+  ---
+  duration_ms: 4.166
+  ...
+# Subtest: H11 redirects preserve origin and revalidate DNS
+ok 163 - H11 redirects preserve origin and revalidate DNS
+  ---
+  duration_ms: 0.471875
+  ...
+# Subtest: H11 rejects literal and resolved special ranges without fail-open
+ok 164 - H11 rejects literal and resolved special ranges without fail-open
+  ---
+  duration_ms: 0.462458
+  ...
+# Subtest: H11 configuration persists, audits and isolates two workspaces
+ok 165 - H11 configuration persists, audits and isolates two workspaces
+  ---
+  duration_ms: 410.433792
+  ...
+# Subtest: widget config/prechat/message/human reply/resume enforce origin and private-note boundary
+ok 166 - widget config/prechat/message/human reply/resume enforce origin and private-note boundary
+  ---
+  duration_ms: 321.069959
+  ...
+# Subtest: H04 widget public token is channel scoped and origin/rate boundaries are enforced
+ok 167 - H04 widget public token is channel scoped and origin/rate boundaries are enforced
+  ---
+  duration_ms: 444.710917
+  ...
+# Subtest: widget AI context bounds message, individual sources and total content
+ok 168 - widget AI context bounds message, individual sources and total content
+  ---
+  duration_ms: 2.75
+  ...
+# Subtest: widget excludes corrupted stored chunks from provider context
+ok 169 - widget excludes corrupted stored chunks from provider context
+  ---
+  duration_ms: 0.641584
+  ...
+# Subtest: widget compatibility loader uses the canonical channel SDK and preserves key
+ok 170 - widget compatibility loader uses the canonical channel SDK and preserves key
+  ---
+  duration_ms: 1.945583
+  ...
+# Subtest: CLI consumes a real tenant job and commits unavailable-model handoff once
+ok 171 - CLI consumes a real tenant job and commits unavailable-model handoff once
+  ---
+  duration_ms: 693.585625
+  ...
+# Subtest: scheduler discovery sees active tenants without granting workspace row access
+ok 172 - scheduler discovery sees active tenants without granting workspace row access
+  ---
+  duration_ms: 287.573917
+  ...
+# Subtest: workspace prompt rejects absent and oversized sources and separates untrusted text
+ok 173 - workspace prompt rejects absent and oversized sources and separates untrusted text
+  ---
+  duration_ms: 4.286666
+  ...
+# Subtest: follow-up context preserves recent public turns under a separate budget
+ok 174 - follow-up context preserves recent public turns under a separate budget
+  ---
+  duration_ms: 1.416375
+  ...
+1..174
+# tests 174
+# suites 0
+# pass 174
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 50647.669875

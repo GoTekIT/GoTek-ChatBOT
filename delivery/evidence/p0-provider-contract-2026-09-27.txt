@@ -1,0 +1,52 @@
+P0 provider/model/grant/quota contract audit
+Snapshot: 2026-09-27 (Asia/Ho_Chi_Minh)
+
+Scope
+- Audited src/server/provider-transport.ts, src/server/worker.ts, src/server/platform.ts,
+  src/server/platform-agent.ts, src/server/model-grant-policy.ts,
+  src/server/ai-reply-worker.ts and src/server/knowledge-embedding-worker.ts.
+- Audited provider, model-grant, embedding, runtime-error, receipt, endpoint-security,
+  redirect, platform-probe and quota boundary tests.
+
+Concrete fix
+- Found defaultWorkspaceProviderInvoke() in src/server/worker.ts selected a chat grant
+  using g.active but did not require the H28 expiry predicate. A grant could expire after
+  AI job preparation and still pass the provider lookup, causing provider I/O before the
+  later commit fence rejected the result. Added:
+    (g.expires_at IS NULL OR g.expires_at>clock_timestamp())
+  to the provider lookup. This prevents spend after grant expiry.
+- Added tests/provider-grant-expiry.test.ts. It verifies an expired grant fails with
+  AI_MODEL_REVOKED and invokes zero provider calls, then verifies an unexpired grant can
+  reach the injected transport.
+
+Focused verification
+- Command:
+  npx tsx --test --test-concurrency=1 tests/provider-grant-expiry.test.ts
+  tests/provider-transport.test.ts tests/provider-runtime-errors.test.ts
+  tests/provider-receipt-contract.test.ts tests/provider-endpoint-security.test.ts
+  tests/provider-redirect.test.ts tests/provider-embedding.test.ts
+  tests/platform-provider-probe.test.ts tests/model-grant-policy.test.ts
+  Result: PASS, 19/19.
+- Command: npx tsc --noEmit
+  Result: PASS.
+
+Verified contract slices
+- Supported chat adapters are covered by deterministic wire-shape tests:
+  Gemini, Anthropic, claude_code, OpenAI, ChatGPT and custom_llm.
+- Embedding adapters and malformed vector rejection are covered for Gemini and
+  OpenAI-compatible routes.
+- Provider HTTP, timeout, network and malformed-response failures use stable redacted
+  errors; response bodies and provider secrets are not returned.
+- Provider redirects are disabled and custom endpoints are checked against HTTPS/private
+  DNS policy in the tested paths.
+- Usage metadata maps to the common receipt shape used by token metering.
+- Expired/revoked/disabled model grants are rejected by the tested H28 policy and runtime
+  boundary.
+
+Acceptance limits
+- Live provider receipts for Gemini/OpenAI/Anthropic/custom_llm are UNKNOWN / NEEDS
+  VERIFICATION because tests use injected fetchers and no production/test provider key was
+  supplied.
+- Provider latency, rate-limit behavior, and vendor-specific streaming/tool-call schemas
+  are not accepted by this deterministic contract suite.
+- Full worker, browser, staging and production acceptance are outside this focused slice.
