@@ -1,0 +1,4 @@
+.local/postgres/PG_VERSION: readable
+src/server/rules.ts: readable
+src/web/style.css: readable
+Database not started; no database files replaced. Source read success does not prove database availability.

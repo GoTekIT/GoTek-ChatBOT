@@ -1,0 +1,124 @@
+
+> gotek-chatbot@0.1.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: H06 local start inclusive, end exclusive, disabled day and full-day
+ok 1 - H06 local start inclusive, end exclusive, disabled day and full-day
+  ---
+  duration_ms: 55.500959
+  ...
+# Subtest: H06 overnight carries from starting weekday, including week rollover
+ok 2 - H06 overnight carries from starting weekday, including week rollover
+  ---
+  duration_ms: 0.898458
+  ...
+# Subtest: H06 DST uses actual local time for spring gap and repeated fall hour
+ok 3 - H06 DST uses actual local time for spring gap and repeated fall hour
+  ---
+  duration_ms: 1.211875
+  ...
+# Subtest: H04 channel persistence, retry identity, origin validation and tenant boundaries
+ok 4 - H04 channel persistence, retry identity, origin validation and tenant boundaries
+  ---
+  duration_ms: 369.294375
+  ...
+# Subtest: H04 installation endpoint is tenant-scoped and exposes only public SDK config
+ok 5 - H04 installation endpoint is tenant-scoped and exposes only public SDK config
+  ---
+  duration_ms: 98.77
+  ...
+# Subtest: H05 assignment settings require workspace admin and persist explicit limit
+ok 6 - H05 assignment settings require workspace admin and persist explicit limit
+  ---
+  duration_ms: 109.438959
+  ...
+# Subtest: H05 channel agents are workspace-scoped, active-only and audited
+ok 7 - H05 channel agents are workspace-scoped, active-only and audited
+  ---
+  duration_ms: 90.95725
+  ...
+# Subtest: H04 channel enable state is admin-only and audited
+ok 8 - H04 channel enable state is admin-only and audited
+  ---
+  duration_ms: 74.638959
+  ...
+# Subtest: H05 removed channel agent releases open assignments and audits
+ok 9 - H05 removed channel agent releases open assignments and audits
+  ---
+  duration_ms: 229.667417
+  ...
+# Subtest: H03 message ordering/idempotency, takeover fencing, note boundary and tenant isolation
+ok 10 - H03 message ordering/idempotency, takeover fencing, note boundary and tenant isolation
+  ---
+  duration_ms: 213.311416
+  ...
+# Subtest: H01/H02/H16/H22 real PostgreSQL identity, isolation, revoke and token lifecycle
+ok 11 - H01/H02/H16/H22 real PostgreSQL identity, isolation, revoke and token lifecycle
+  ---
+  duration_ms: 858.945125
+  ...
+# Subtest: H02/H03 draft storage is distinct by workspace and user
+ok 12 - H02/H03 draft storage is distinct by workspace and user
+  ---
+  duration_ms: 1.796292
+  ...
+# Subtest: H03 draft parsing preserves Vietnamese text and rejects corrupt entries
+ok 13 - H03 draft parsing preserves Vietnamese text and rejects corrupt entries
+  ---
+  duration_ms: 2.538416
+  ...
+# Subtest: H03 pending replies retain retry identity and internal visibility across serialization
+ok 14 - H03 pending replies retain retry identity and internal visibility across serialization
+  ---
+  duration_ms: 2.390292
+  ...
+# Subtest: H32 bounded jobs: atomic enqueue, concurrent claim, stale/unknown recovery, tenant isolation
+ok 15 - H32 bounded jobs: atomic enqueue, concurrent claim, stale/unknown recovery, tenant isolation
+  ---
+  duration_ms: 280.169709
+  ...
+# Subtest: H28 platform role separate, capability grant, missing secret, metadata redaction and revoke
+ok 16 - H28 platform role separate, capability grant, missing secret, metadata redaction and revoke
+  ---
+  duration_ms: 544.402833
+  ...
+# Subtest: H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation
+ok 17 - H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation
+  ---
+  duration_ms: 135.564833
+  ...
+# Subtest: H28 support grant requires tenant approval, correct subject, scope, expiry and audit
+ok 18 - H28 support grant requires tenant approval, correct subject, scope, expiry and audit
+  ---
+  duration_ms: 437.561833
+  ...
+# Subtest: H04 actual visitor → inbox → agent → visitor API, note privacy and receipt
+ok 19 - H04 actual visitor → inbox → agent → visitor API, note privacy and receipt
+  ---
+  duration_ms: 473.986917
+  ...
+# Subtest: H03 conversation status transition is audited and tenant-scoped
+ok 20 - H03 conversation status transition is audited and tenant-scoped
+  ---
+  duration_ms: 155.197
+  ...
+# Subtest: H03 inbox search and status filters stay tenant-scoped
+ok 21 - H03 inbox search and status filters stay tenant-scoped
+  ---
+  duration_ms: 98.0275
+  ...
+# Subtest: H05 concurrent visitor sessions respect automatic assignment capacity
+ok 22 - H05 concurrent visitor sessions respect automatic assignment capacity
+  ---
+  duration_ms: 222.514208
+  ...
+1..22
+# tests 22
+# suites 0
+# pass 22
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2536.894791

@@ -1,0 +1,5 @@
+CREATE TABLE web_sources(id uuid PRIMARY KEY,workspace_id uuid NOT NULL REFERENCES workspaces(id),name text NOT NULL CHECK(char_length(name) BETWEEN 1 AND 150),url text NOT NULL,type text NOT NULL CHECK(type IN ('URL','SITEMAP','RSS')),status text NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','PAUSED','ERROR')),max_pages integer NOT NULL DEFAULT 20 CHECK(max_pages BETWEEN 1 AND 20),depth integer NOT NULL DEFAULT 2 CHECK(depth BETWEEN 0 AND 2),delay_ms integer NOT NULL DEFAULT 0 CHECK(delay_ms BETWEEN 0 AND 60000),created_by uuid NOT NULL REFERENCES users(id),created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX web_sources_workspace_updated ON web_sources(workspace_id,updated_at DESC);
+ALTER TABLE web_sources ENABLE ROW LEVEL SECURITY; ALTER TABLE web_sources FORCE ROW LEVEL SECURITY;
+CREATE POLICY web_sources_scope ON web_sources USING(workspace_id=nullif(current_setting('app.workspace_id',true),'')::uuid) WITH CHECK(workspace_id=nullif(current_setting('app.workspace_id',true),'')::uuid);
+GRANT SELECT,INSERT,UPDATE ON web_sources TO gotek_app;

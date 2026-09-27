@@ -1,0 +1,5 @@
+
+> gotek-chatbot@0.1.0 db:restore-drill
+> tsx scripts/restore-drill.ts
+
+{"status":"PASS","tables":55,"durationMs":3418}

@@ -1,0 +1,141 @@
+GoTek - Product Brief Saas "AI Sales Chatbot + Dashboard" 
+PRODUCT BRIEF
+SaaS AI Chatbot Bán hàng và Tri thức, bản mở rộng cho đội kỹ thuật (24-09-2026)
+1. Tổng quan và bối cảnh
+
+Đây là bản mở rộng của Product Brief mũi nhọn số 1 Q4/2026 core team GoTek đã chốt (SaaS AI Chatbot Bán hàng và Tri thức). Bản gốc hoàn thành 24/09/2026 hướng tới việc trình Leader ra quyết định. Theo yêu cầu mới nhất từ phía sản phẩm, mục đích chính thu hẹp lại: đây là tài liệu định hướng gửi thẳng đội kỹ thuật, không cần trình Leader lại từ đầu.
+Toàn bộ bối cảnh, USP và rủi ro thị trường của bản gốc được giữ nguyên. Bản mở rộng bổ sung các mục về phân quyền vận hành (Mục 3), kiến trúc quản lý dữ liệu (Mục 4), giao diện và trải nghiệm sử dụng (Mục 5), và rủi ro kiến trúc khi mở rộng ra nhiều khách hàng (Mục 10), theo yêu cầu bổ sung từ phía sản phẩm.
+Mỗi mục đều gắn nhãn giai đoạn (MVP, Giai đoạn 2, hoặc Giai đoạn 3, tổng hợp ở Mục 12) để đội kỹ thuật thấy được hướng đi đầy đủ nhưng không hiểu nhầm phải triển khai tất cả cùng lúc. Quyết định phạm vi MVP đã chốt trước đó, ưu tiên dẫn nguồn chủ động và handover chọn lọc, không thay đổi.
+2. Đề xuất giá trị (USP)
+
+Bốn tính năng khác biệt đề xuất, đối chiếu với dữ liệu thị trường thu thập ngày 24/09/2026:
+Tính năng | Mô tả | Vì sao là USP thật
+Dẫn nguồn chủ động | Bot trả lời tóm tắt, chủ động hỏi ngược "muốn xem tài liệu gốc không", đồng ý thì mở thẳng file/link. | Khoảng trống thị trường thật: ngay cả Glean (nền tảng RAG hàng đầu) chỉ hỗ trợ citation dạng hiển thị khi hover, tài liệu chính thức xác nhận CHƯA hỗ trợ click để mở thẳng trang gốc. Không nơi nào công khai làm đúng UX "hỏi ngược rồi mới mở" như đề xuất.
+Handover chọn lọc | Sale tắt AI ở một hội thoại cụ thể, không ảnh hưởng các hội thoại khác đang chạy tự động. | Intercom Fin (đối thủ lớn nhất ngành) chỉ có tài liệu chính thức về tắt AI toàn kênh, không xác nhận công khai việc tắt theo từng hội thoại riêng lẻ.
+CRM dashboard tinh gọn | Theo dõi lead, cơ hội bị lỡ, phân nhóm theo vùng/ngành, phân bổ cho từng sale. | Phần lớn chatbot đối thủ (Tidio, Chatfuel, LiveChat) chỉ có contact list cơ bản, không phải CRM lead thật.
+Phân quyền tri thức theo phòng ban | Một kho tri thức phục vụ cả khách ngoài (tư vấn bán hàng) và nhân sự nội bộ (tra cứu nghiệp vụ), mỗi phòng chỉ truy cập tài liệu của mình. | Xem đánh giá rủi ro kỹ thuật riêng ở Mục 3, đây là tính năng khó nhất trong 4 USP.
+3. Phân quyền: hai lớp riêng biệt
+
+Cần phân biệt rõ hai lớp phân quyền khác nhau hoàn toàn, để tránh nhầm lẫn khi thiết kế và khi trao đổi với khách hàng.
+Lớp 1: Phân quyền truy cập tri thức theo phòng ban (RAG)
+Kiểm soát AI được truy cập tài liệu nào khi trả lời một câu hỏi. Các nền tảng RAG có phân quyền đã tồn tại trên thị trường (Glean, Onyx bản Enterprise) đều yêu cầu: hạ tầng nguồn dữ liệu đã có access control rõ ràng từ trước, license hoặc tier cao cấp trả phí, và công sức tích hợp không nhỏ.
+Microsoft Copilot còn gặp vấn đề "oversharing": Copilot có thể lộ ra tài liệu lẽ ra không nên truy cập rộng, vì phân quyền gốc trên SharePoint/OneDrive của nhiều tổ chức vốn lỏng lẻo từ trước. Microsoft phải ban hành hẳn hướng dẫn riêng yêu cầu khách hàng dọn dẹp phân quyền trước khi bật Copilot.
+Dify, nền tảng mã nguồn mở phổ biến hơn cho SME, CHƯA có giải pháp phân quyền chín muồi: chỉ có filter theo metadata ở mức thấp, đội kỹ thuật phải tự xây logic phân quyền phía trên, và có báo cáo lỗi công khai về việc kiểm soát quyền truy cập chưa hoàn thiện.
+Câu hỏi kỹ thuật cần đội kỹ thuật trả lời trước khi cam kết tính năng này với khách hoặc nội bộ: Lark Wiki (nguồn dữ liệu đã chốt trước đó) hiện có access control rõ ràng theo phòng ban chưa, hay cũng cần dọn dẹp phân quyền trước như trường hợp Microsoft Copilot nêu trên?
+Tham khảo 3 cấp độ kiến trúc theo AWS Security Blog, xếp theo độ phức tạp tăng dần: (1) lọc theo metadata, đơn giản nhất nhưng có độ trễ đồng bộ quyền; (2) đồng bộ identity/permission vào vector database, mức trung bình; (3) xác thực quyền theo thời gian thực tại nguồn dữ liệu, phức tạp nhất về tích hợp nhưng đảm bảo quyền thay đổi có hiệu lực ngay lập tức. Đây là input kỹ thuật để đội kỹ thuật chọn mức phù hợp năng lực và thời gian, không phải quyết định cuối của brief này.
+Lớp 2: Phân quyền thao tác trong ứng dụng theo vai trò kinh doanh
+Kiểm soát người dùng (Sale, quản lý, lãnh đạo) được thấy gì và thao tác gì trên chính ứng dụng, không liên quan đến việc AI dùng tài liệu nào để tư vấn ở Lớp 1.
+Vai trò | Thấy gì | Làm được gì
+Sale (nhân viên) | Hội thoại và khách hàng do mình phụ trách; phân tích AI cho từng khách ngay trong hội thoại của mình. | Chat song song nhiều khách hàng trên cùng dashboard; tạm dừng hoặc tiếp tục AI theo từng hội thoại riêng; chỉnh giọng điệu và câu chào khi AI trả lời thay mình.
+Quản lý / Trưởng nhóm sale | Toàn bộ hội thoại và khách hàng của cả nhóm; hiệu suất từng sale (tỷ lệ chốt, thời gian phản hồi). | Phân bổ lại lead giữa các sale trong nhóm; xem báo cáo theo giai đoạn khách hàng, vùng, ngành; mở xem chi tiết hội thoại của sale khi cần hỗ trợ hoặc kiểm tra.
+Lãnh đạo cấp cao (Leader) | Số liệu tổng hợp toàn công ty, phễu doanh thu theo nhóm và theo kênh. | Cấu hình tri thức hệ thống dùng chung, chính sách giá; không thao tác vận hành hội thoại hàng ngày.
+Sale chính thức, sale thử việc và sale thực tập dùng chung một vai trò và một mức quyền hạn, theo xác nhận mới nhất từ phía sản phẩm. Khác biệt giữa các bạn chỉ nằm ở mức độ thành thạo sử dụng ứng dụng, xử lý qua đào tạo và trải nghiệm dùng thử, không tạo thêm cấp phân quyền riêng. Nếu quy mô đội sale mở rộng nhiều trong tương lai, khung này có thể cần thêm cấp, nhưng chưa cần tính ở giai đoạn hiện tại.
+Giai đoạn: MVP cho vai trò Sale (chat và tạm dừng/tiếp tục AI). Vai trò Quản lý và Leader (báo cáo tổng hợp, phân bổ lead) là Giai đoạn 2.
+4. Kiến trúc quản lý dữ liệu
+
+Hệ thống cần phân biệt rõ hai loại dữ liệu, vì mức độ nhạy cảm và mục đích sử dụng khác nhau hoàn toàn.
+Loại 1: Tài liệu tri thức doanh nghiệp
+Tài liệu mô tả doanh nghiệp, sản phẩm, dịch vụ, quy trình. Đây là nguồn dữ liệu nạp cho AI để tư vấn và trả lời có dẫn nguồn (Mục 2). Ví dụ tại chính GoTek: tài liệu Giới thiệu chung, Business Model Canvas, các Product Brief đang xây dựng, quy trình nội bộ.
+Loại 2: Data khách hàng và con người
+Lead, liên hệ, lịch sử hội thoại, dữ liệu mua hàng. Đây là dữ liệu cá nhân chịu sự điều chỉnh trực tiếp của Luật Bảo vệ dữ liệu cá nhân (Mục 9). Ví dụ tại GoTek: hơn 2.000 khách hàng nền Go Media đã có sẵn (Mục 7).
+Nguyên tắc GoTek đang áp dụng cho chính mình, tài liệu nhạy cảm như lương và hợp đồng tách kho riêng do core team quản lý, không đưa vào phạm vi AI (Mục 7), nên là khuôn mẫu bắt buộc cho mọi khách hàng doanh nghiệp mua SaaS sau này, không chỉ là cách làm nội bộ riêng của GoTek.
+Onboarding dữ liệu cho khách hàng mới
+Một khách hàng doanh nghiệp mới bắt đầu với kho tri thức trống. Đề xuất chia tài liệu cần thu thập thành ba nhóm khi thiết kế luồng onboarding:
+Bắt buộc để AI hoạt động được: bảng giá, mô tả sản phẩm hoặc dịch vụ, câu hỏi thường gặp.
+Khuyến khích để AI tư vấn sâu hơn: quy trình bán hàng, tài liệu đào tạo nội bộ, kịch bản xử lý từ chối.
+Không đưa lên hệ thống AI trong mọi trường hợp: hợp đồng, lương, dữ liệu tài chính nội bộ, thông tin nhạy cảm khác của doanh nghiệp khách hàng.
+Mỗi doanh nghiệp khách hàng tự quản lý phân quyền nội bộ của họ theo đúng mô hình hai lớp ở Mục 3, áp dụng lại cho tổ chức của họ, không dùng chung phân quyền với GoTek.
+Giai đoạn: MVP cần nhóm "bắt buộc" hoạt động được. Wizard onboarding đầy đủ ba nhóm và cảnh báo tự động khi khách hàng cố tải lên tài liệu nhạy cảm là Giai đoạn 2.
+5. Giao diện và trải nghiệm sử dụng
+
+Dashboard đa hội thoại
+Một màn hình duy nhất cho sale chat song song với nhiều khách hàng, dạng hộp thoại kiểu ứng dụng nhắn tin. Mỗi hộp hội thoại hiển thị kèm bảng phân tích AI về khách hàng đó ngay tại chỗ: giai đoạn quan tâm, mức độ tiềm năng, gợi ý bước tiếp theo, thay vì phải mở báo cáo riêng. Đây là hướng mở rộng cụ thể của USP "CRM dashboard tinh gọn" (Mục 2): biến dữ liệu từ dạng báo cáo rời rạc thành ngữ cảnh hiển thị ngay nơi sale đang thao tác.
+Mô hình nhiều hội thoại kèm bảng thông tin bên cạnh là cách làm phổ biến ở các nền tảng live chat và CRM. Brief này CHƯA xác minh chi tiết implementation của từng nền tảng cụ thể, cần thêm một vòng nghiên cứu riêng nếu đội kỹ thuật muốn đối chiếu trước khi thiết kế.
+Giai đoạn: Giai đoạn 2, phụ thuộc CRM dashboard đã hoàn thành ở Mục 2.
+Tạm dừng và chuyển giao giữa AI và người
+Mở rộng chi tiết cho USP "handover chọn lọc" (Mục 2), với hai chiều kích hoạt riêng biệt:
+Sale chủ động: đang theo dõi một hội thoại, thấy cần can thiệp trực tiếp thì bấm dừng AI cho riêng hội thoại đó.
+Khách hàng chủ động: có nút hoặc câu lệnh "muốn nói chuyện với người thật", hệ thống tự chuyển và báo cho sale phụ trách.
+Theo nghiên cứu thị trường trước đó (Mục 8): Intercom Fin chỉ công khai tính năng tắt AI toàn kênh, chưa xác nhận tắt theo từng hội thoại. Haravan AI Chat có tự chuyển hội thoại cho nhân viên nhưng do AI tự quyết định khi "không tự tin", không phải do sale hoặc khách chủ động yêu cầu. Nếu GoTek làm được cả hai chiều kích hoạt, đây là điểm khác biệt thật, chưa thấy đối thủ công khai làm.
+Câu hỏi kỹ thuật cần đội kỹ thuật trả lời: hệ thống cần một cơ chế xác định rõ tại một thời điểm, ai (AI hay người) đang giữ quyền trả lời một hội thoại, để tránh cả hai cùng trả lời chồng chéo. Đây là quyết định kiến trúc, thuộc thẩm quyền của đội kỹ thuật.
+Cá nhân hoá phong cách AI theo từng sale
+Đề xuất giới hạn phạm vi cá nhân hoá ở giai đoạn đầu: chỉ cho phép chỉnh giọng điệu, câu chào, chữ ký khi AI trả lời thay sale. KHÔNG cho phép chỉnh logic tư vấn hoặc nguồn tri thức AI sử dụng theo từng cá nhân.
+Lý do giới hạn: nếu mỗi sale tự chỉnh được cả cách AI tư vấn, GoTek, và sau này là khách hàng doanh nghiệp mua SaaS, mất khả năng đảm bảo chất lượng tư vấn đồng nhất, đội hỗ trợ kỹ thuật cũng phải xử lý nhiều biến thể hơn khi có lỗi. Mở rộng cá nhân hoá sâu hơn nên chờ dữ liệu thực tế sau khi test nội bộ.
+Giai đoạn: Giai đoạn 3, sau khi MVP và dashboard đa hội thoại đã ổn định.
+6. Tính năng theo đối tượng sử dụng
+
+Bảng này phân biệt tính năng theo khách hàng bên ngoài so với nhân sự nội bộ nói chung. Phân quyền chi tiết theo từng cấp bậc trong nội bộ (Sale, Quản lý, Leader) đã nêu ở Mục 3.
+ | Khách hàng bên ngoài | Nhân sự nội bộ
+Mục đích | Tư vấn bán hàng, xử lý từ chối, trả lời kịp thời | Tra cứu nghiệp vụ, chính sách nội bộ
+Nguồn dữ liệu | Sản phẩm, chính sách, FAQ công khai | Lark Wiki, phân quyền theo phòng ban
+Công cụ đi kèm | CRM dashboard: lead, cơ hội bị lỡ, phân bổ sale | Không áp dụng
+7. Đối tượng khách hàng
+
+Bên ngoài: doanh nghiệp SME và brand cần chatbot bán hàng, tận dụng nền khách hàng hơn 2.000 khách Go Media đã có sẵn (facts đã chốt của GoTek).
+Nội bộ: chính GoTek dùng trước khi bán ra ngoài (dogfooding), phù hợp với quyết định trước đó là tài liệu nhạy cảm (lương, hợp đồng) tách kho riêng do core team quản lý, không đưa vào phạm vi AI.
+8. Bối cảnh cạnh tranh
+
+Nguồn: nghiên cứu thị trường 24/09/2026, truy cập trực tiếp trang giá/tính năng hoặc tài liệu chính thức của từng sản phẩm.
+Sản phẩm | Mô tả và mức độ khớp (a) đến (e) | Giá
+Intercom Fin AI Agent | RAG trên Help Center/PDF/webpage. Chỉ có tài liệu tắt AI toàn kênh, KHÔNG xác nhận tắt theo từng hội thoại riêng lẻ. Không có CRM lead theo vùng/ngành. | Per-outcome: 0,99 đô la/lượt giải quyết
+Zendesk AI | AI Agent trả lời khách + Copilot hỗ trợ nhân viên. Có handoff sang người nhưng chưa xác nhận toggle theo từng hội thoại. | 1,2-1,5 đô la/lượt giải quyết + 115 đô la/agent/tháng
+Haravan AI Chat (VN) | Huấn luyện trên dữ liệu bán hàng thật (sản phẩm, đơn, tồn kho), tối đa 50 kịch bản FAQ. Tự chuyển hội thoại cho nhân viên khi AI không tự tin. Có báo cáo lượt hội thoại, tỷ lệ chốt đơn. | 3-8 triệu VNĐ/tháng theo gói
+Tidio (Lyro AI) | Live chat SME + chatbot AI, có human takeover chuẩn ngành. Không có kho tri thức phân quyền, không có CRM lead đầy đủ. | Add-on Lyro từ 39 đô la/tháng
+Glean (enterprise search/RAG) | Permission-aware search tôn trọng phân quyền gốc từng nguồn dữ liệu. Có "deep-linked citation" nhưng tài liệu chính thức xác nhận: chưa hỗ trợ click để mở thẳng trang gốc ở bản hiện tại. | Không công khai, theo báo giá
+Onyx (mã nguồn mở) | Auto Sync Permissions đồng bộ ACL từ 11 connector (Confluence, Drive, Slack...). Tính năng phân quyền chỉ có ở bản Enterprise trả phí. | Bản Community miễn phí, Enterprise theo báo giá
+Dify (mã nguồn mở) | Lọc truy xuất theo metadata tùy chỉnh, không phải hệ ACL doanh nghiệp có sẵn. Có báo cáo lỗi công khai về kiểm soát quyền truy cập knowledge base chưa hoàn thiện. | Miễn phí (self-host), Cloud theo gói
+9. Rủi ro pháp lý Việt Nam
+
+Luật Trí tuệ nhân tạo, số 134/2025/QH15, hiệu lực 01/03/2026
+Chatbot phải để người dùng biết đang trò chuyện với AI (Điều 11).
+Phải duy trì khả năng giám sát và can thiệp của con người đối với hệ thống AI (Điều 4, Điều 14).
+Phải lưu nhật ký vận hành phục vụ kiểm tra, đánh giá hợp chuẩn.
+Mức rủi ro (cao/trung bình/thấp) áp dụng cho loại chatbot bán hàng SME chưa được xác định rõ trong luật, cần chờ nghị định hướng dẫn thi hành.
+Luật Bảo vệ dữ liệu cá nhân, số 91/2025/QH15, hiệu lực 01/01/2026
+Cần sự đồng ý rõ ràng, minh bạch trước khi xử lý dữ liệu cá nhân thu thập qua hội thoại.
+Cần đánh giá tác động bảo vệ dữ liệu (DPIA), lưu bằng văn bản.
+Dữ liệu khách hàng của các doanh nghiệp mua SaaS (Mục 4, Loại 2) cũng là dữ liệu cá nhân bên thứ ba mà GoTek xử lý hộ, chịu toàn bộ các nghĩa vụ nêu trên.
+Điểm cần lưu ý nhất: SME được giảm nhẹ nghĩa vụ tuân thủ, NHƯNG miễn trừ này không áp dụng nếu là bên cung cấp dịch vụ xử lý dữ liệu. Tức GoTek, với vai trò nhà cung cấp SaaS xử lý dữ liệu hội thoại cho nhiều SME khác, có thể KHÔNG được hưởng miễn trừ SME dù khách hàng của GoTek là SME. Đây là điểm cần luật sư xác nhận trước khi thương mại hóa, chưa phải kết luận chắc chắn.
+Cả hai luật có phần diễn giải trong brief này lấy từ nguồn thứ cấp (công ty luật, trang tổng hợp), dù ngày hiệu lực đã xác nhận chéo qua nhiều nguồn nhà nước đáng tin. Cần đối chiếu lại với toàn văn luật gốc trước khi đưa vào hợp đồng hoặc điều khoản dịch vụ chính thức.
+10. Rủi ro kiến trúc khi mở rộng từ nội bộ ra nhiều khách hàng
+
+Lộ trình đã thống nhất: test nội bộ tại GoTek trước (Mục 7, Mục 12), sau đó mới bán ra ngoài cho khách hàng doanh nghiệp. Rủi ro thật: mỗi doanh nghiệp khách hàng có sản phẩm, quy trình và văn hoá làm việc khác nhau. Nếu kiến trúc dữ liệu và logic AI được thiết kế gắn cứng theo cách GoTek vận hành, hệ thống có thể phải sửa lại đáng kể khi có khách hàng doanh nghiệp đầu tiên.
+Câu hỏi kiến trúc thuộc thẩm quyền của đội kỹ thuật: nên thiết kế dữ liệu tách theo từng khách hàng (multi-tenant) ngay từ đầu dù giai đoạn 1 chỉ dùng nội bộ, hay ưu tiên kiến trúc đơn giản cho nội bộ trước và chấp nhận cần tái cấu trúc khi có khách hàng đầu tiên? Hướng thứ nhất tốn thêm thời gian thiết kế ban đầu nhưng tránh rework lớn về sau. Hướng thứ hai ra MVP nội bộ nhanh hơn nhưng rủi ro chi phí sửa kiến trúc sau này chưa lường trước được.
+Gợi ý tách lớp khi thiết kế, input tham khảo cho đội kỹ thuật chứ không phải quyết định của brief này: phân biệt phần lõi logic AI dùng chung cho mọi khách hàng (RAG, phân tích khách hàng, CRM) và phần cấu hình riêng theo từng khách hàng (loại tài liệu, quy trình duyệt nội dung, giao diện thương hiệu). Tách rõ hai lớp này ngay từ đầu thường rẻ hơn nhiều so với tách ra sau khi đã viết lẫn vào nhau.
+11. Mô hình giá đề xuất
+
+Benchmark thị trường: Intercom Fin tính theo lượt giải quyết (0,99 đô la/lượt), Zendesk AI tương tự (1,2-1,5 đô la/lượt, cộng phí theo agent), Freshchat và Tidio dùng phí cố định theo agent cộng gói AI theo phiên hoặc hội thoại, Haravan AI Chat (đối thủ Việt Nam gần nhất về phân khúc khách hàng) dùng thuê bao cố định 3 đến 8 triệu VNĐ/tháng theo gói, cộng phí vượt mức.
+Đối chiếu với quyết định giá đã chốt trước đó cho nhóm ý tưởng chatbot doanh nghiệp: thuê bao theo gói hội thoại mỗi tháng, không tính theo lượt giải quyết ở giai đoạn MVP vì thiếu hạ tầng đo lường tin cậy. Quyết định này vẫn phù hợp sau nghiên cứu: mô hình per-resolution (Intercom, Zendesk) đòi hỏi định nghĩa rõ ràng thế nào là một lượt được giải quyết và hạ tầng đo lường chính xác, dễ phát sinh tranh chấp với khách hàng SME thiếu kinh nghiệm sử dụng.
+Khuyến nghị giữ nguyên: thuê bao cố định theo tier hội thoại mỗi tháng. Haravan AI Chat (3 đến 8 triệu VNĐ/tháng) là benchmark tham khảo gần nhất cho thị trường Việt Nam, vì cùng là công ty Việt nhắm tới phân khúc khách hàng tương tự GoTek. GoTek có thể định giá thấp hơn Haravan ở giai đoạn đầu (SaaS mới, chưa có track record) hoặc ngang bằng tùy chiến lược định vị thương hiệu, cần phía sản phẩm và Leader quyết định thêm ở bước sau.
+12. Lộ trình theo giai đoạn
+
+Ưu tiên xây dựng trước dẫn nguồn chủ động và handover chọn lọc, vì đây là hai USP thật chưa đối thủ nào công khai làm đúng, tạo khác biệt hoá rõ nhất (không đổi so với bản gốc).
+Test nội bộ tại GoTek trước bằng chính Lark Wiki thật của công ty, trước khi bán ra ngoài cho khách hàng doanh nghiệp (không đổi so với bản gốc).
+Toàn bộ tính năng trong tài liệu này, kể cả phần mới bổ sung, gộp theo ba giai đoạn dưới đây, để đội kỹ thuật thấy hướng đi đầy đủ nhưng không hiểu nhầm phải làm cùng lúc.
+Giai đoạn | Tính năng | Ghi chú
+MVP | Dẫn nguồn chủ động; Handover chọn lọc (sale chủ động dừng AI theo từng hội thoại); chat song song nhiều khách hàng ở mức cơ bản cho vai trò Sale. | Hai USP chưa đối thủ nào công khai làm đúng (Mục 2). Test nội bộ bằng Lark Wiki thật trước khi bán ra ngoài.
+Giai đoạn 2 | CRM dashboard tinh gọn; Phân quyền tri thức theo phòng ban; Phân quyền vai trò Quản lý và Leader; Dashboard đa hội thoại có AI phân tích tại chỗ; Wizard onboarding dữ liệu đầy đủ cho khách hàng mới; Khách hàng chủ động xin chuyển người thật. | Độ phức tạp kỹ thuật cao hơn, đặc biệt phần phân quyền tri thức theo phòng ban (Mục 3).
+Giai đoạn 3 | Cá nhân hoá phong cách AI theo từng sale; hoàn thiện kiến trúc multi-tenant nếu chưa làm từ đầu. | Chờ dữ liệu thực tế từ giai đoạn nội bộ và giai đoạn 2 trước khi mở rộng.
+Quyết định multi-tenant ở Mục 10 nên chốt sớm, ngay cả khi phần lớn tính năng liên quan chỉ triển khai ở Giai đoạn 2 hoặc 3, vì đây là quyết định kiến trúc nền tảng, sửa sau sẽ tốn kém hơn nhiều so với sửa trước khi viết code.
+13. Việc tiếp theo
+
+Đội kỹ thuật: đánh giá access control hiện có của Lark Wiki, chọn một trong ba cấp độ kiến trúc phân quyền RAG nêu ở Mục 3.
+Đội kỹ thuật: quyết định hướng kiến trúc đa khách hàng (multi-tenant) nêu ở Mục 10, càng sớm càng tốt vì ảnh hưởng thiết kế dữ liệu nền tảng.
+Phía sản phẩm: làm việc với luật sư hoặc tham khảo văn bản luật gốc (Luật Trí tuệ nhân tạo, Luật Bảo vệ dữ liệu cá nhân) trước khi hoàn thiện điều khoản dịch vụ chính thức.
+Phía sản phẩm: xác nhận lại khung phân quyền vai trò Sale, Quản lý, Leader ở Mục 3 nếu cơ cấu đội sale thực tế thay đổi.
+Mốc demo: hoàn thiện bản demo tích hợp tri thức và CRM dashboard vào đầu tháng 10/2026, theo đúng deadline core team đã chốt.
+14. Nguồn tham khảo
+
+Intercom Fin AI Agent: intercom.com/help (Fin AI Agent explained, Deploy Fin AI Agent over chat); giá: fin.ai/pricing
+Zendesk AI, giá: eesel.ai/blog/zendesk-ai-pricing
+Haravan AI Chat: haravan.com/pages/haravan-ai-chat
+Tidio, giá Lyro AI: chatarmin.com/en/blog/tidio-pricing
+Glean, deep-linked citations: docs.glean.com/user-guide/assistant/glean-chat/glean-chat-citations
+Onyx, connectors và phân quyền: docs.onyx.app/admins/connectors/overview
+Dify, lọc theo metadata: dify.ai/blog/dify-v1-1-0-filtering-knowledge-retrieval-with-customized-metadata
+Microsoft, quản trị phân quyền trước khi bật Copilot: learn.microsoft.com/en-us/microsoft-365/copilot/get-ready-copilot-sharepoint-advanced-management
+AWS Security Blog, ba cấp độ kiến trúc phân quyền RAG: aws.amazon.com/blogs/security/authorizing-access-to-data-with-rag-implementations
+Luật Trí tuệ nhân tạo số 134/2025/QH15: vanban.chinhphu.vn; Bộ Khoa học và Công nghệ, mst.gov.vn; Báo Chính phủ, baochinhphu.vn
+Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15: Bộ Công an, bocongan.gov.vn; Báo Chính phủ, baochinhphu.vn; GVLawyers, gvlawyers.com.vn (nguồn thứ cấp)
+GoTek, Nghiên cứu SaaS cho đội kỹ thuật (21-24/09/2026) và biên bản họp core team Q4/2026 (tài liệu nội bộ project).
+Các Mục 3 (Lớp 2), 4, 5, 10 và phần mở rộng của Mục 12, 13 trong bản này được viết trực tiếp từ yêu cầu bổ sung của phía sản phẩm ngày 24/09/2026, không dựa trên nguồn nghiên cứu thị trường mới.

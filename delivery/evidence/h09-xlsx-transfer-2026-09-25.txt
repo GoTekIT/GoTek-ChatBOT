@@ -1,0 +1,6 @@
+H09 XLSX transfer slice — 2026-09-25
+- Dependency: xlsx ^0.18.5 installed locally.
+- UI: Xuất XLSX and .xlsx file import; first worksheet maps columns title/content/active into existing strict API import contract.
+- Build PASS: tsc + Vite, 1911 modules; output JS 718.66 kB minified, 231.97 kB gzip.
+- Warning: Vite chunk-size warning and npm audit reported one high severity item; must review before staging.
+- Acceptance limitations: no authenticated browser flow, quota/duplicate policy and source-confirmed XLSX template/header contract still open.

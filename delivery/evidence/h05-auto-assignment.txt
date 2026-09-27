@@ -1,0 +1,6 @@
+2026-09-24
+implementation: src/server/widget.ts
+behavior: least-open active channel member assignment; nullable limit respected; unassigned fallback
+test: tests/widget.test.ts (real widget session asserts assigned_to)
+result: npm test PASS 17/17; npm run build PASS
+status: Implemented, test-verified; browser acceptance pending

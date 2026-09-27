@@ -1,0 +1,6 @@
+H09 recovery evidence
+- PostgreSQL was started locally on 127.0.0.1:55432.
+- npm run db:setup output: Applied 015_ai_rules.sql; Local database ready; runtime credentials stored privately.
+- Isolated rules-permissions checks printed 10/10 pass, but the process did not exit on its own and was interrupted; this is not a clean suite result.
+- Server processes loaded but did not bind 4317 during bounded curl observation.
+- H09 is not Verified or Accepted.

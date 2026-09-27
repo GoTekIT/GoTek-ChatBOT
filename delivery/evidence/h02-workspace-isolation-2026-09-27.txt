@@ -1,0 +1,15 @@
+TAP version 13
+# Subtest: H02 workspace resources stay tenant-bound and cross-tenant switch is denied
+ok 1 - H02 workspace resources stay tenant-bound and cross-tenant switch is denied
+  ---
+  duration_ms: 183.335084
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 918.655208

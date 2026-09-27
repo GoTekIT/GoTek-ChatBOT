@@ -1,0 +1,39 @@
+
+> gotek-chatbot@0.1.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: H01/H02/H16/H22 real PostgreSQL identity, isolation, revoke and token lifecycle
+ok 1 - H01/H02/H16/H22 real PostgreSQL identity, isolation, revoke and token lifecycle
+  ---
+  duration_ms: 628.303958
+  ...
+# Subtest: H32 bounded jobs: atomic enqueue, concurrent claim, stale/unknown recovery, tenant isolation
+ok 2 - H32 bounded jobs: atomic enqueue, concurrent claim, stale/unknown recovery, tenant isolation
+  ---
+  duration_ms: 150.822334
+  ...
+# Subtest: H28 platform role separate, capability grant, missing secret, metadata redaction and revoke
+ok 3 - H28 platform role separate, capability grant, missing secret, metadata redaction and revoke
+  ---
+  duration_ms: 343.091042
+  ...
+# Subtest: H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation
+ok 4 - H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation
+  ---
+  duration_ms: 269.062583
+  ...
+# Subtest: H28 support grant requires tenant approval, correct subject, scope, expiry and audit
+ok 5 - H28 support grant requires tenant approval, correct subject, scope, expiry and audit
+  ---
+  duration_ms: 341.916584
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1310.603

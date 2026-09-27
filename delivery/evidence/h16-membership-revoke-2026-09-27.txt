@@ -1,0 +1,15 @@
+TAP version 13
+# Subtest: H16 membership revoke is live for an existing session and cannot cross tenants
+ok 1 - H16 membership revoke is live for an existing session and cannot cross tenants
+  ---
+  duration_ms: 179.801583
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1034.14225

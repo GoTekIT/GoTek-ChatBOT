@@ -1,0 +1,11 @@
+
+## H11 configuration API verification — 2026-09-25
+- Fixed status schema syntax and added UUID validation plus standard HttpError 404.
+- Local integration test passed with two independent signed-in workspaces: create/list, default limits, cross-workspace list isolation and mutation denial, pause/readback, malformed ID, loopback rejection, max-pages validation and audit readback.
+- Build passed. Test creates local test workspaces retained for audit; no crawl/network fetch performed.
+- H11 is partial: configuration API only; UI, crawler, DNS/socket pinning, version publish and rollback remain open. Literal URL guard alone is NOT sufficient SSRF protection.
+
+Agent role coverage:
+- Test changes only its fresh fixture membership to Agent while retaining the authenticated session.
+- GET list, POST create and PATCH status all return 403; database readback confirms denied mutation preserved PAUSED status.
+- Focused integration test completed with exit 0.

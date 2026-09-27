@@ -1,0 +1,114 @@
+
+> gotek-chatbot@0.1.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: H06 local start inclusive, end exclusive, disabled day and full-day
+ok 1 - H06 local start inclusive, end exclusive, disabled day and full-day
+  ---
+  duration_ms: 105.144792
+  ...
+# Subtest: H06 overnight carries from starting weekday, including week rollover
+ok 2 - H06 overnight carries from starting weekday, including week rollover
+  ---
+  duration_ms: 0.486458
+  ...
+# Subtest: H06 DST uses actual local time for spring gap and repeated fall hour
+ok 3 - H06 DST uses actual local time for spring gap and repeated fall hour
+  ---
+  duration_ms: 1.642458
+  ...
+# Subtest: H04 channel persistence, retry identity, origin validation and tenant boundaries
+ok 4 - H04 channel persistence, retry identity, origin validation and tenant boundaries
+  ---
+  duration_ms: 368.439333
+  ...
+# Subtest: H04 installation endpoint is tenant-scoped and exposes only public SDK config
+ok 5 - H04 installation endpoint is tenant-scoped and exposes only public SDK config
+  ---
+  duration_ms: 96.632583
+  ...
+# Subtest: H05 assignment settings require workspace admin and persist explicit limit
+ok 6 - H05 assignment settings require workspace admin and persist explicit limit
+  ---
+  duration_ms: 97.776875
+  ...
+# Subtest: H05 channel agents are workspace-scoped, active-only and audited
+ok 7 - H05 channel agents are workspace-scoped, active-only and audited
+  ---
+  duration_ms: 73.855083
+  ...
+# Subtest: H04 channel enable state is admin-only and audited
+ok 8 - H04 channel enable state is admin-only and audited
+  ---
+  duration_ms: 80.084916
+  ...
+# Subtest: H05 removed channel agent releases open assignments and audits
+ok 9 - H05 removed channel agent releases open assignments and audits
+  ---
+  duration_ms: 204.439792
+  ...
+# Subtest: H03 message ordering/idempotency, takeover fencing, note boundary and tenant isolation
+ok 10 - H03 message ordering/idempotency, takeover fencing, note boundary and tenant isolation
+  ---
+  duration_ms: 198.517417
+  ...
+# Subtest: H01/H02/H16/H22 real PostgreSQL identity, isolation, revoke and token lifecycle
+ok 11 - H01/H02/H16/H22 real PostgreSQL identity, isolation, revoke and token lifecycle
+  ---
+  duration_ms: 806.809208
+  ...
+# Subtest: H32 bounded jobs: atomic enqueue, concurrent claim, stale/unknown recovery, tenant isolation
+ok 12 - H32 bounded jobs: atomic enqueue, concurrent claim, stale/unknown recovery, tenant isolation
+  ---
+  duration_ms: 154.331959
+  ...
+# Subtest: H28 platform role separate, capability grant, missing secret, metadata redaction and revoke
+ok 13 - H28 platform role separate, capability grant, missing secret, metadata redaction and revoke
+  ---
+  duration_ms: 508.128625
+  ...
+# Subtest: H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation
+ok 14 - H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation
+  ---
+  duration_ms: 141.199792
+  ...
+# Subtest: H28 support grant requires tenant approval, correct subject, scope, expiry and audit
+ok 15 - H28 support grant requires tenant approval, correct subject, scope, expiry and audit
+  ---
+  duration_ms: 386.567875
+  ...
+# Subtest: H04 actual visitor → inbox → agent → visitor API, note privacy and receipt
+ok 16 - H04 actual visitor → inbox → agent → visitor API, note privacy and receipt
+  ---
+  duration_ms: 347.700625
+  ...
+# Subtest: H03 conversation status transition is audited and tenant-scoped
+ok 17 - H03 conversation status transition is audited and tenant-scoped
+  ---
+  duration_ms: 168.484625
+  ...
+# Subtest: H03 inbox search and status filters stay tenant-scoped
+ok 18 - H03 inbox search and status filters stay tenant-scoped
+  ---
+  duration_ms: 110.054625
+  ...
+# Subtest: H05 concurrent visitor sessions respect automatic assignment capacity
+ok 19 - H05 concurrent visitor sessions respect automatic assignment capacity
+  ---
+  duration_ms: 166.509584
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2284.379709
+
+> gotek-chatbot@0.1.0 build
+> tsc --noEmit && vite build
+
+tests/widget.test.ts(29,97): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string | object | undefined'.

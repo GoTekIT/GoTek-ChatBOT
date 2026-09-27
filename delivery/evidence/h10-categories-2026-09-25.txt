@@ -1,0 +1,4 @@
+H10.02 categories local implementation
+Migration020 applied with tenant RLS/composite category FK. GET/POST category API Owner/Admin, normalized NFC names, case-insensitive duplicate rejection, requestId replay and audit. Knowledge create/edit assigns nullable category; list filters categoryId. UI creates/selects/filters real categories and renders names.
+Verification: knowledge-api.test.ts and knowledge.test.ts passed2/2. Covers replay, duplicate case, foreign category404, tenant list isolation, Agent403, assignment/filter/removal, existing concurrency/version/Unicode/pagination checks. Integrated build passed1913 modules.
+Remaining: browser acceptance, category editing/removal if required, full knowledge process/publish/retrieval/import/export. Not accepted.

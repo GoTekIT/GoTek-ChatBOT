@@ -1,0 +1,5 @@
+Full test suite evidence — 2025-09-25
+Command: npm test
+Result: 39 tests passed; 0 failed; 0 cancelled.
+Includes H06, H02/H03, H23, H28, H32 and H09 rules/concurrency/permissions/transfer/CRUD tests.
+Limitations: source tests are not staging acceptance and do not prove authenticated browser UX, provider receipts, XLSX, or complete H01-H32/E01-E12 scope.

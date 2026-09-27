@@ -1,0 +1,5 @@
+Actual HiChat UI read-only survey 2026-09-25
+Captured research/ui-evidence/h11-list-live.png and h11-create-live.png from authenticated sandbox. No source created, no crawl triggered.
+List: explanatory website-data panel; Nguồn web title/subtitle; Thêm nguồn web; search; status filter(all/active/paused/error); type filter(all/URL/Sitemap/RSS); empty-state first-source action.
+Create: modal with close/cancel, required name/URL/type; Crawl settings maximum pages20, maximum depth2, delay0seconds defaults; Create disabled empty.
+These images are real browser captures. Generated H11 module diagrams are not UI reference. Existing GoTek inline always-visible form differs; implement modal and filters against these observations, preserve actual backend and GoTek identity.

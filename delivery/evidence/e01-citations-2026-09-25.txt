@@ -1,0 +1,16 @@
+E01 active citations — 2026-09-25
+
+Implemented tenant-scoped citation source registry with source type, audience/version, source revocation, per-user access grants, answer citations, citation revocation, RLS, Owner/Admin mutation guards and audit. Routes: GET/POST /api/citations and POST /api/citations/:id/revoke; source/ACL service functions remain available for retrieval integration.
+
+Migration reconciliation:
+- Existing 023 legacy table was preserved as legacy_active_citations.
+- Migration 024 created the ACL source/permission/citation schema without deleting legacy rows.
+- Membership validation prevents granting a source to a user outside the workspace.
+
+Verification:
+- npm run db:setup applied migration024.
+- DB integration test tests/active-citations.test.ts: 1/1 passed; covers two-workspace tenant isolation, internal deny/grant/revoke, public source, source/citation revoke, foreign-workspace target rejection, Agent denial and audit.
+- npm test: 66/66 passed.
+- npm run build: 1,916 modules passed.
+
+E01 remains In progress: visitor/runtime citation rendering, UI surface and browser acceptance are still open.

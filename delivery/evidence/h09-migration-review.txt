@@ -1,0 +1,5 @@
+H09 migration review — source only, not runtime acceptance
+Inspected db/migrations/015_ai_rules.sql in full.
+Present: workspace foreign key; title/content length constraints 150/2000; version > 0; active flag; timestamps; FORCE ROW LEVEL SECURITY; USING and WITH CHECK tenant policy; grants to gotek_app.
+Open checks: database length constraints alone permit whitespace-only title/content (API validation must be inspected); no updated_at trigger (API must update explicitly); no optimistic concurrency guarantee in schema alone (UPDATE must check expected version); RLS does not enforce Owner/Admin role by itself (endpoint checks required).
+No defect is asserted for API behavior until rules.ts can be read. rules.ts and rules.test.ts reads timed out at 5 seconds. Migration was not applied in this review; cross-tenant/Agent negative tests remain required. H09 remains incomplete, including UI/import/export/runtime integration.

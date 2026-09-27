@@ -1,0 +1,6 @@
+H11 local implementation evidence — 2026-09-25
+UI: editable page/depth/delay limits; persisted limits rendered; cancel/success resets form.
+Redirect primitive: initial URL required, relative targets resolved, exact origin enforced; rejects scheme/port/host changes, credentials and newly unsafe DNS answers.
+Verification: tsx --test tests/web-source-security.test.ts tests/web-source-policy.test.ts: 6/6 passed. npm run build: passed, 1912 modules.
+GoTek technical decision: same-origin redirects only. Not claimed as HiChat observed behavior.
+Open: no network transport/crawler; IP pinning, jobs, publish/version flow and authenticated UI acceptance remain open.

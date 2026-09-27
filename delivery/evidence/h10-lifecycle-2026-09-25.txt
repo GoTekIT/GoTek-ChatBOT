@@ -1,0 +1,15 @@
+H10 lifecycle slice — 2026-09-25
+
+Implemented tenant-scoped draft processing and publication endpoints:
+- POST /api/knowledge/items/:id/process: Owner/Admin, request idempotency, CAS revision, DRAFT/FAILED -> READY, processed_at and audit.
+- POST /api/knowledge/items/:id/publish: Owner/Admin, READY-only, active item check, INTERNAL/PUBLIC audience, CAS revision, published pointer, timestamp/actor and audit.
+- Migration 021 adds lifecycle timestamps/index/grant.
+- Knowledge UI now exposes Xử lý and Xuất bản nội bộ controls with state/error feedback.
+
+Verification:
+- npm run db:setup applied 021_knowledge_lifecycle.sql to local PostgreSQL.
+- focused lifecycle test: 64 tests discovered, 64 passed (pattern H10 lifecycle).
+- full npm test: 64 passed, 0 failed.
+- build rerun after UI type fix pending in next command; prior build passed before lifecycle UI wiring.
+
+Acceptance remains In progress: browser acceptance, retrieval/runtime effect, import/export and PUBLIC policy review remain open. This slice does not claim provider or production readiness.

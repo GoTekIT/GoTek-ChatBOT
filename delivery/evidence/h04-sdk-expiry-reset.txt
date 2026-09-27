@@ -1,0 +1,5 @@
+2026-09-24
+scope: public visitor SDK reconnect after VISITOR_SESSION_EXPIRED
+change: reset token-scoped cursor/message/receipt/pending/prechat state before fresh session
+verification: node --check public/sdk.js PASS; npm run build PASS
+remaining: browser expiry/reconnect acceptance

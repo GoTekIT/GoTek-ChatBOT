@@ -1,0 +1,20 @@
+TAP version 13
+# Subtest: web refresh CLI rejects production, missing/invalid tenant and unsupported all mode with redacted logs
+ok 1 - web refresh CLI rejects production, missing/invalid tenant and unsupported all mode with redacted logs
+  ---
+  duration_ms: 712.661917
+  ...
+# Subtest: web refresh CLI --once exits idle and SIGTERM stops an idle real database loop cleanly
+ok 2 - web refresh CLI --once exits idle and SIGTERM stops an idle real database loop cleanly
+  ---
+  duration_ms: 625.209084
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1549.566292

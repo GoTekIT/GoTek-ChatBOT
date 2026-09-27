@@ -1,0 +1,5 @@
+2026-09-24
+scope: H03 conversation status mutation
+change: SELECT ... FOR UPDATE after tenant/channel membership authorization; previous status read under lock
+verification: npm run build PASS; npm test PASS 17/17
+remaining: staging two-client UI race acceptance

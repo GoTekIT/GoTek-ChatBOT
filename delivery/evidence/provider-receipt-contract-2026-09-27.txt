@@ -1,0 +1,20 @@
+TAP version 13
+# Subtest: provider receipt contract maps usage and text for every remote adapter
+ok 1 - provider receipt contract maps usage and text for every remote adapter
+  ---
+  duration_ms: 14.218542
+  ...
+# Subtest: provider receipt errors use stable codes and never include secret or response body
+ok 2 - provider receipt errors use stable codes and never include secret or response body
+  ---
+  duration_ms: 0.558791
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 171.870083

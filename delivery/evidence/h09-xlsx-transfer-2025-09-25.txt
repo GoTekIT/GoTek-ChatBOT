@@ -1,0 +1,6 @@
+H09 XLSX dependency security correction — 2025-09-25
+- npm audit identified high vulnerabilities in xlsx (prototype pollution, ReDoS; no fix available).
+- Dependency removed; UI is JSON/CSV only again.
+- npm audit --omit=dev: 0 vulnerabilities.
+- npm run build: PASS, 1910 modules.
+- XLSX remains open pending maintained/security-reviewed implementation decision.

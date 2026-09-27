@@ -1,0 +1,39 @@
+TypeScript baseline check (fails in existing tests/h16-membership-revoke.test.ts):
+tests/h16-membership-revoke.test.ts(23,28): error TS2345: Argument of type 'TestAgent<Test>' is not assignable to parameter of type 'SuperAgentTest'.
+  Type 'TestAgent<Test>' is not assignable to type 'RequestMethods<Test>'.
+    Types of property 'ACL' are incompatible.
+      Type '(url: string) => Test' is not assignable to type 'HttpMethod<Test>'.
+        Type '(url: string) => Test' is not assignable to type '(url: URLType, callback?: CBHandler | undefined) => Test'.
+          Types of parameters 'url' and 'url' are incompatible.
+            Type 'URLType' is not assignable to type 'string'.
+              Type 'URL' is not assignable to type 'string'.
+tests/h16-membership-revoke.test.ts(24,28): error TS2345: Argument of type 'TestAgent<Test>' is not assignable to parameter of type 'SuperAgentTest'.
+  Type 'TestAgent<Test>' is not assignable to type 'RequestMethods<Test>'.
+    Types of property 'ACL' are incompatible.
+      Type '(url: string) => Test' is not assignable to type 'HttpMethod<Test>'.
+        Type '(url: string) => Test' is not assignable to type '(url: URLType, callback?: CBHandler | undefined) => Test'.
+          Types of parameters 'url' and 'url' are incompatible.
+            Type 'URLType' is not assignable to type 'string'.
+              Type 'URL' is not assignable to type 'string'.
+
+Targeted H32.02:
+TAP version 13
+# Subtest: H32.02 stale lease becomes UNKNOWN for external work and cannot duplicate side effect
+ok 1 - H32.02 stale lease becomes UNKNOWN for external work and cannot duplicate side effect
+  ---
+  duration_ms: 71.447875
+  ...
+# Subtest: H32.02 failed local work reaches dead-letter after bounded attempts
+ok 2 - H32.02 failed local work reaches dead-letter after bounded attempts
+  ---
+  duration_ms: 9.044
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 296.350125

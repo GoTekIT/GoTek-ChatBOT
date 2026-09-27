@@ -1,0 +1,63 @@
+TAP version 13
+# Subtest: AI dispatch fence claims one queued source when workers race
+ok 1 - AI dispatch fence claims one queued source when workers race
+  ---
+  duration_ms: 100.64325
+  ...
+# Subtest: AI provider invocation error is terminal-unknown and is not immediately replayed
+ok 2 - AI provider invocation error is terminal-unknown and is not immediately replayed
+  ---
+  duration_ms: 8.680791
+  ...
+# Subtest: AI worker boundary refuses stale ownership and missing model before invocation
+ok 3 - AI worker boundary refuses stale ownership and missing model before invocation
+  ---
+  duration_ms: 0.927
+  ...
+# Subtest: AI worker invokes an enabled workspace model and appends a public reply
+not ok 4 - AI worker invokes an enabled workspace model and appends a public reply
+  ---
+  duration_ms: 204.754042
+  location: '/Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/tests/ai-reply-worker.test.ts:8:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      Comparison {
+    +   code: 'STALE_JOB_LEASE'
+    -   code: 'STALE_REPLY_OWNER'
+      }
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    code: 'STALE_REPLY_OWNER'
+  actual:
+  error: 'STALE_JOB_LEASE'
+  stack: |-
+    checkLease (/Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/src/server/ai-reply-worker.ts:131:39)
+    <anonymous> (/Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/src/server/ai-reply-worker.ts:172:34)
+    <anonymous> (/Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/src/server/ai-reply-worker.ts:129:11)
+    process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    async transaction (/Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/src/server/db.ts:4:144)
+    async waitForActual (node:assert:533:5)
+    async Function.rejects (node:assert:654:25)
+    async TestContext.<anonymous> (/Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/tests/ai-reply-worker.test.ts:39:3)
+    async Test.run (node:internal/test_runner/test:797:9)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  operator: 'rejects'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    async TestContext.<anonymous> (/Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/tests/ai-reply-worker.test.ts:39:3)
+    async Test.run (node:internal/test_runner/test:797:9)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 3
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1519.050875

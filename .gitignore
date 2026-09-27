@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.local/
+.env
+.env.*
+!.env.example
+.DS_Store
+__pycache__/
+
+# Regenerated document previews; preserve locally, omit from source handoff.
+research/handoff-render/
+research/handoff-v2-final-render/
+research/handoff-update/
+research/handoff-final/
+research/rendered/
+research/rendered-final/
+research/rendered-v2/
+research/handoff-v2-render/
+# Private credential material
+*.pem
+*.key

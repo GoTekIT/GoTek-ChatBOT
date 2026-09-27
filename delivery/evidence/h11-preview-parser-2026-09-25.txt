@@ -1,0 +1,5 @@
+H11 preview/parser evidence — 2026-09-25
+Added typed URL/RSS/Sitemap parser with HTML executable-markup stripping, entity decoding, XML well-formed checks, content-type/error handling and maxPages/maxBytes limits. Added POST /api/web-sources/:id/preview: Owner/Admin only, tenant scoped, rejects paused/missing source, fetches using persisted policy, parses real response, audits preview.
+UI now exposes Xem thử and displays returned items/content type/status. API error labels include fetch timeout/redirect/body-limit states.
+Verification: parser 4/4; H09 role transfer + H11 fetch/security focused suite 5/5; npm run build passed (1,912 modules).
+Open: no public network receipt in local evidence; crawler queue/depth/delay scheduling, durable fetched documents and authenticated browser acceptance remain open.

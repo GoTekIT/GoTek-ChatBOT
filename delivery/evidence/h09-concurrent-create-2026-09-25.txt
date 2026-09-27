@@ -1,0 +1,5 @@
+node --import tsx --test tests/rules-idempotency.test.ts
+PASS 1 test, exit 0.
+Six independent database transactions with identical workspace/requestId yielded one rule ID; database readback confirms exactly one rule and one ai_rule.created audit. Conflicting payload rejected with IDEMPOTENCY_CONFLICT.
+Build: npm run build passed.
+Scope: create-rule database concurrency, not bulk import idempotency or full H09 acceptance.

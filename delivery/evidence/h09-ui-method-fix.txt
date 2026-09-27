@@ -1,0 +1,5 @@
+H09 UI corrective review
+Observed toggle used POST but app.ts route requires PATCH. Corrected to PATCH.
+Observed create accessed event.currentTarget after await. Captured form before await and reset captured form after success. Clear old errors/status before submission.
+Targeted esbuild bundle passed, exit 0. No browser lifecycle proof in this check; no acceptance promotion.
+Prior UI evidence claiming working state controls was not browser verified.

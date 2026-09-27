@@ -1,0 +1,30 @@
+TAP version 13
+# Subtest: AI dispatch fence claims one queued source when workers race
+ok 1 - AI dispatch fence claims one queued source when workers race
+  ---
+  duration_ms: 99.036666
+  ...
+# Subtest: AI provider invocation error is terminal-unknown and is not immediately replayed
+ok 2 - AI provider invocation error is terminal-unknown and is not immediately replayed
+  ---
+  duration_ms: 9.736083
+  ...
+# Subtest: AI worker boundary refuses stale ownership and missing model before invocation
+ok 3 - AI worker boundary refuses stale ownership and missing model before invocation
+  ---
+  duration_ms: 0.734292
+  ...
+# Subtest: AI worker invokes an enabled workspace model and appends a public reply
+ok 4 - AI worker invokes an enabled workspace model and appends a public reply
+  ---
+  duration_ms: 216.43925
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1050.278166

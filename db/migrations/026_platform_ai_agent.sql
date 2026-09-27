@@ -1,0 +1,10 @@
+ALTER TABLE providers DROP CONSTRAINT IF EXISTS providers_adapter_check;
+ALTER TABLE providers ADD CONSTRAINT providers_adapter_check CHECK(adapter IN ('openai','anthropic','gemini','chatgpt','claude_code','custom_llm','local'));
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS base_url text;
+CREATE TABLE platform_agent_sessions(id uuid PRIMARY KEY,actor_id uuid NOT NULL REFERENCES users(id),title text NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE platform_agent_messages(id uuid PRIMARY KEY,session_id uuid NOT NULL REFERENCES platform_agent_sessions(id) ON DELETE CASCADE,role text NOT NULL CHECK(role IN ('user','assistant','system')),content text NOT NULL CHECK(char_length(content)<=20000),provider_id uuid REFERENCES providers(id),model_id uuid REFERENCES models(id),status text NOT NULL CHECK(status IN ('confirmed','unknown','failed')),request_id uuid NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),UNIQUE(session_id,request_id,role));
+ALTER TABLE platform_agent_sessions ENABLE ROW LEVEL SECURITY; ALTER TABLE platform_agent_sessions FORCE ROW LEVEL SECURITY;
+ALTER TABLE platform_agent_messages ENABLE ROW LEVEL SECURITY; ALTER TABLE platform_agent_messages FORCE ROW LEVEL SECURITY;
+CREATE POLICY platform_agent_sessions_scope ON platform_agent_sessions USING(current_setting('app.platform',true)='true' AND actor_id=nullif(current_setting('app.actor_id',true),'')::uuid) WITH CHECK(current_setting('app.platform',true)='true' AND actor_id=nullif(current_setting('app.actor_id',true),'')::uuid);
+CREATE POLICY platform_agent_messages_scope ON platform_agent_messages USING(current_setting('app.platform',true)='true' AND session_id IN (SELECT id FROM platform_agent_sessions WHERE actor_id=nullif(current_setting('app.actor_id',true),'')::uuid)) WITH CHECK(current_setting('app.platform',true)='true');
+GRANT SELECT,INSERT,UPDATE ON providers TO gotek_app; GRANT SELECT,INSERT,UPDATE ON platform_agent_sessions,platform_agent_messages TO gotek_app;

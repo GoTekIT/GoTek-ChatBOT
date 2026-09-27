@@ -1,0 +1,6 @@
+E06 onboarding data — 2026-09-25
+
+Added tenant/RLS onboarding_sources storage and Owner/Admin service/routes. Sources retain source type DOCUMENT/WEB/FAQ, audience INTERNAL/PUBLIC, PENDING/READY/BLOCKED state and blocked_reason. A blocked document cannot be marked indexed; audience is explicit and never auto-public.
+
+Routes: GET/POST /api/onboarding/sources; POST /api/onboarding/sources/:id/ready.
+Migration025 applied to local PostgreSQL. Focused E06 contract test passed; build 1,916 modules passed. Full runtime UI/browser acceptance and indexing worker remain open.

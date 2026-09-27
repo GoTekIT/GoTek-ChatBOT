@@ -1,0 +1,1 @@
+H09 list/readback correction: explicit loading and loaded states; empty state only after successful load; retry list control; create/state success distinguishes acknowledged mutation from failed list refresh. Targeted esbuild passed exit 0. Browser/error injection not run; H09 remains In progress.

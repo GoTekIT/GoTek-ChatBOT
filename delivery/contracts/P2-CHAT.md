@@ -1,0 +1,14 @@
+# D013 core chat persistence
+H03/H04: tenant/channel/visitor/conversation composite identity. Messages monotonic sequence per conversation, unique client UUID, public vs internal note. Public visitor queries must filter visibility; note never delivered to visitor. Reply ownership version increments on takeover; stale AI version rejected inside same conversation lock. Store and client receipt separate (saved is not delivered). No external channel send. This migration is foundation only; API/SDK/inbox/UI and end-to-end evidence required before acceptance. Populated HiChat screen reference still missing G003.
+
+Inbox API now exposes list (100 recent), cursor messages (100/page), versioned takeover, public reply/internal note. Tenant comes from session; Agent requires channel membership; Owner/Admin workspace scope. Channel disabled/unavailable is 404. Payload cannot set author or workspace. Cursor >0 retains sequence; saved message still not visitor receipt. UI and widget not yet present. Revocation checked on each request; in-flight race with channel membership mutation still to harden before acceptance.
+
+D014 visitor API: /widget-api/:publicKey independent from workspace cookie auth/CSRF, exact Origin allowlist + CORS, bearer visitor session hash stored server-side, 7-day local/test expiry. Public key resolves routing only via exact-key RLS policy. Every action checks active workspace/channel and matching visitor/channel; no client workspace/conversation ID accepted. GET messages projects public fields only; receipt updates only public agent/AI messages in own conversation. Bootstrap resume invalid token errors explicitly. Rate limited. Origin is browser restriction, not proof of visitor identity; anonymous session is only own-conversation credential. HMAC verified identities not yet implemented.
+
+Inbox UI /dashboard now list + timeline/composer with Mine/Unassigned/All, versioned takeover, reply/note selector, in-memory per-conversation drafts and same-ID retry. Polling API is interim transport (2s messages/3s list), not WebSocket acceptance. Source empty geometry known; populated panel/mobile parity still G003. Receipt label distinguishes saved from received. Exact browser interaction and transient poll/send race verification pending.
+
+
+### H03 source-aligned list controls
+Source re-inspected: research/ui-evidence/inbox-empty.png, 1280x720 dark empty state.
+Observed: search above list title; horizontal mine/unassigned/all tabs; centered unselected detail. Applied these control positions and order to existing GoTek UI with live server assignment filters.
+No invented counts or keyboard shortcut controls. Remaining differences: light tokens, settings sidebar instead of conversation/channel/label sidebar, global verification banner position, icons, desktop geometry and populated detail. Mobile arrangement remains GoTek provisional. Build is not visual acceptance.

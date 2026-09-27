@@ -1,0 +1,4 @@
+H10.02 local draft implementation
+Migration019 applied: tenant RLS, immutable knowledge versions and request replay records. Owner/Admin create/list/edit via /api/knowledge/items. Unicode100/2000 validation, optimistic revision, audit, internal draft only. UI /settings/knowledge supports search/filter/sort/cursor pagination and edit.
+Verification: tests/knowledge.test.ts plus knowledge-api.test.ts passed2/2; covers4 concurrent replay requests, immutable version history, audit, pagination, Unicode bounds, tenant isolation, current role403. Integrated build passed1913 modules.
+Remaining: category management, publish/process/retrieval/rollback, import/export and browser acceptance. Contract includes future scope; those features are not implemented by this slice.

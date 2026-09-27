@@ -1,0 +1,10 @@
+{
+  "skill_validator": "passed with system python3",
+  "modules": 32,
+  "subfunction_tickets": 158,
+  "extension_epics": 12,
+  "unique_backlog_ids": 170,
+  "missing_relative_references": [],
+  "installed_matches_workspace": true,
+  "behavioral_review": "Manual review only: planning remains planning; unknown UI remains P; build-only cannot be Accepted; H31 splits core ACL and post-core Lark. No product execution."
+}

@@ -1,0 +1,38 @@
+E01–E06 readiness audit — 2026-09-24
+
+Scope
+- This slice audits the current repository for E01 (active citations), E02 (CRM leads/opportunities), E03 (conversation AI analytics), E04 (Lark Wiki/internal assistant), E05 (business manager roles/dashboard), and E06 (three-group data onboarding).
+- No UI files, Inbox files, backlog, or checkpoint files were changed. No external provider, customer message, or production action was performed.
+
+Authoritative references inspected
+- delivery/NEXT_STEPS.md § “E01–E12 sau core”: dependencies and acceptance notes.
+- delivery/BACKLOG.csv rows E01–E06: all six remain Backlog.
+- src/server/app.ts, channels.ts, chat-store.ts, widget.ts, db migrations 001–014, and tests/*.test.ts.
+
+Current evidence
+- Core identity, workspace membership, channels, widget conversations, inbox messages, audit events and usage/job metadata exist.
+- No source/citation entity or retrieval ACL exists for E01.
+- No contact/lead/opportunity/stage/owner event model or API exists for E02.
+- No conversation analytics/panel data contract, stale marker, correction workflow, or policy gate exists for E03.
+- No Lark connector, Wiki document/index/cache/revoke model, or source-level ACL exists for E04.
+- Existing roles are platform/workspace/channel roles; no business role × action × scope matrix or manager dashboard/export contract exists for E05.
+- No ingestion batch, data-group/audience/publish state, quarantine reason, or onboarding reconciliation model exists for E06.
+
+Decision / implementation gate
+- E01–E06 are correctly not claimable as Implemented: their documented dependencies (H08/H10/H11/H13/H16/H17/H21/H24/H25/H28/H31 and citation/ACL/policy baselines) are not evidenced as complete in the current checkout.
+- Adding speculative tables or endpoints now would invent behavior where the handoff explicitly requires PO/policy decisions (E02 stage/conversion, E03 analytics policy, E05 business scopes). These remain decision gaps, not hidden implementation.
+
+Next actionable gates
+1. Establish source/citation and retrieval ACL contracts under H08/H10/H11/H31, then implement E01 and E04 against those contracts.
+2. Obtain PO decisions for E02 stage/conversion and E05 role scope/export before schema/API work.
+3. Define E03 policy, stale-data semantics and correction ownership before analytics implementation.
+4. Define E06 three data groups, audience rules, quarantine reasons and publish approval before ingestion implementation.
+
+Acceptance status
+- E01: Not started / dependency blocked; no parity claim.
+- E02: Not started / PO decision required.
+- E03: Not started / policy and data fixture required.
+- E04: Not started / connector and ACL baseline required.
+- E05: Not started / business role matrix required.
+- E06: Not started / data-group and audience schema required.
+- No backlog/checkpoint status was promoted by this audit.

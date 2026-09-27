@@ -1,0 +1,5 @@
+H09 UI slice
+- Added src/web/AiRules.tsx with real API list/search/create/state controls, bounded 150/2000 fields, loading/error/status notices, active/version/timestamp state.
+- Added /settings/ai-rules route and workspace navigation/title in src/web/main.tsx.
+- esbuild UI compile completed successfully; output /tmp/gotek-web.js and /tmp/gotek-web.css.
+- Browser verification and production Vite build remain pending. H09 is not accepted.

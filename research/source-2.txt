@@ -1,0 +1,153 @@
+GoTek ChatBOT - Bao Cáo & Mô Tả Dự Án
+Mục tiêu phạm vi khách hàng và điều kiện nghiệm thu
+Loại dự án | Nền tảng chatbot AI dạng SaaS cho website và các kênh được cấp quyền
+Trạng thái | MVP đang phát triển; đã có kiểm thử local, chưa nghiệm thu production
+Đối tượng đọc | Chủ sản phẩm, đội phát triển, đội vận hành và khách hàng thí điểm
+GoTek ChatBOT là nền tảng AI hỗ trợ doanh nghiệp tư vấn, bán hàng và chăm sóc khách hàng trong phạm vi dữ liệu đã được doanh nghiệp công bố. Hệ thống kết nối widget hoặc kênh được cấp quyền với kho tri thức, catalog, công cụ nghiệp vụ và quy trình chuyển nhân viên. Sản phẩm được thiết kế cho nhiều ngành; không hoạt động như một ChatGPT tổng quát và không tự khẳng định một giao dịch đã hoàn tất khi chưa có bằng chứng từ hệ thống nguồn.
+Kết luận sử dụng cho báo cáo: dự án đã có lõi SaaS, widget, catalog, RAG, handoff, quản lý provider/model và nhiều kiểm thử tự động. Để đưa vào pilot có kiểm soát và sau đó production, cần hoàn tất các cửa về provider thật, giao diện ba lớp người dùng, kết nối nghiệp vụ, quyền riêng tư, backup khôi phục và nghiệm thu trên trình duyệt và thiết bị thực.
+1. Tổng quan dự án
+Dự án giải quyết nhu cầu trả lời lặp lại trên website, khai thác tài liệu và catalog của doanh nghiệp, đồng thời giữ người thật trong quy trình xử lý các câu hỏi hoặc giao dịch cần xác nhận. Backend xác định tenant, bot, quyền, nguồn dữ liệu và hạn mức; model chỉ được sử dụng trong policy đã được cấp.
+Mục tiêu dự án
+Cung cấp một widget chat có thể nhúng vào website, nhận diện đúng bot và workspace của doanh nghiệp.
+Trả lời dựa trên tài liệu, chính sách, catalog và công cụ được workspace công bố; khi thiếu căn cứ phải nói rõ giới hạn và đề nghị chuyển người.
+Cho phép owner quản lý nguồn tri thức, bot, thành viên, hội thoại, ticket, consent, usage và các cấu hình cần thiết.
+Cho phép Platform Admin quản lý provider, model, capability, quota, routing, audit và kill switch mà không tự động đọc toàn bộ nội dung chat của tenant.
+Tạo nền tảng để mở rộng theo từng kênh và connector sau khi có quyền API, receipt và UAT riêng cho kênh đó.
+Vấn đề dự án cần giải quyết
+Nhân viên phải trả lời lặp lại các câu hỏi về sản phẩm, dịch vụ, chính sách, giá, tồn kho hoặc quy trình.
+Tài liệu doanh nghiệp nằm rải rác và thay đổi theo phiên bản, khiến câu trả lời dễ cũ hoặc thiếu nguồn kiểm chứng.
+Khách cần chuyển sang người thật mà không phải kể lại toàn bộ bối cảnh; nhân viên cần thấy đúng hội thoại và trạng thái xử lý.
+Chủ doanh nghiệp cần biết request nào dùng model nào, chi phí và lỗi ra sao mà vẫn giữ ranh giới dữ liệu riêng của từng workspace.
+2. Mô tả sản phẩm
+GoTek ChatBOT gồm ba phạm vi quyền phải được giữ tách biệt. Cách chia này quyết định dữ liệu nào được nhìn thấy, thao tác nào được phép và bằng chứng nào phải ghi lại.
+Vai trò | Quyền và nhiệm vụ | Giới hạn bắt buộc
+Platform Admin | Quản lý danh mục provider và model, capability, secret reference, routing, quota, audit, incident và hỗ trợ có thời hạn. | Không mặc định đọc toàn bộ nội dung chat hoặc tài liệu của tenant; key thô không trả về browser.
+Workspace Owner | Cấu hình bot, widget, domain, nguồn tri thức, catalog hoặc dịch vụ, thành viên, inbox, ticket, consent, automation, usage và billing. | Chỉ chọn model đã được cấp; dữ liệu, job và cache phải nằm trong tenant và bot đúng phạm vi.
+Workspace Staff | Tiếp nhận hội thoại, gửi tin nhắn nhân viên, nhận ticket và xử lý nghiệp vụ theo quyền được cấp. | Không đổi cấu hình nhạy cảm hoặc xem tenant khác; ghi chú nội bộ không được xuất ra khách.
+End Customer | Chat, xem thông tin đã publish, gửi lead có consent, yêu cầu handoff, xem trạng thái phiên hoặc đơn và gửi CSAT khi capability được bật. | Không thấy console, model key, tài liệu nháp, audit hoặc dữ liệu khách khác.
+Luồng hoạt động chính
+1.  Workspace tạo bot, chọn use case, cấu hình domain và thêm tài liệu, FAQ, chính sách, catalog hoặc dịch vụ.
+2.  Nguồn được đưa qua pipeline kiểm tra, parse, chunk, index; bản nháp chỉ phục vụ sau khi job thành công và owner publish.
+3.  Khách gửi câu hỏi qua widget hoặc kênh đã được cấp quyền. Backend xác định bot và tenant trước khi truy xuất dữ liệu hoặc gọi tool.
+4.  Bộ điều phối AI chọn retrieval hoặc connector phù hợp, kiểm tra capability và policy, rồi trả lời kèm nguồn khi có bằng chứng.
+5.  Nếu khách yêu cầu hoặc AI không có căn cứ, hệ thống tạo handoff hoặc ticket có consent; khi nhân viên tiếp nhận, AI dừng trả lời chồng.
+6.  Usage, audit, lỗi và trạng thái job được ghi để owner hoặc Platform Admin theo dõi; giao dịch có side effect phải có idempotency và receipt.
+Giá trị cung cấp
+Trả lời có phạm vi: câu trả lời đi theo dữ liệu đã publish của workspace, không tự mở rộng thành kiến thức chung.
+Hỗ trợ nhiều model: provider và model được quản lý tập trung; capability và policy được kiểm tra trước khi gọi.
+Chuyển người có kiểm soát: conversation, ticket, assignment, consent và trạng thái takeover tạo thành một quy trình có bằng chứng.
+Cách ly tenant: bot key, session, retrieval, tool, catalog và usage đều phải được kiểm tra cùng tenant và bot.
+Vận hành có thể truy vết: request, usage, lỗi, job, audit và notification có trạng thái riêng để đối soát.
+3. Tệp khách hàng mục tiêu
+Tệp khách hàng dưới đây là phân khúc ưu tiên đề xuất dựa trên phạm vi sản phẩm hiện tại. Đây là định hướng bán hàng và pilot; không phải bằng chứng rằng mọi phân khúc đã được xác nhận nhu cầu hoặc willingness to pay.
+Phân khúc | Dấu hiệu phù hợp | Giá trị nhận được | Người ra quyết định hoặc người dùng
+Cửa hàng trực tuyến và thương hiệu bán trực tiếp
+ | Website có sản phẩm, FAQ, chính sách và nhu cầu tư vấn trước mua. | Giảm câu hỏi lặp lại; tra catalog, giá, tồn kho; chuyển người khi cần; lưu lead hoặc đơn mô phỏng. | Chủ doanh nghiệp, trưởng vận hành, CSKH, marketing hoặc e-commerce.
+Doanh nghiệp dịch vụ có website | Không nhất thiết có catalog; có tài liệu dịch vụ, quy trình, bảng giá, lịch hoặc điều kiện tiếp nhận. | Trả lời theo tài liệu đã duyệt; thu nhu cầu tối thiểu; tạo yêu cầu handoff hoặc ticket. | Chủ doanh nghiệp, lễ tân, tư vấn viên, trưởng bộ phận dịch vụ.
+Đơn vị quản lý nhiều thương hiệu hoặc nhiều workspace | Cần tách tenant, phân quyền, quota, model và báo cáo theo workspace. | Quản trị nhiều bot với chính sách riêng; theo dõi usage và chất lượng; hỗ trợ có audit. | Platform hoặc account manager, quản trị vận hành, đội agency.
+Khách truy cập website | Người đang tìm hiểu sản phẩm hoặc dịch vụ và cần câu trả lời nhanh trên mobile hoặc desktop. | Hỏi đáp, xem thông tin publish, yêu cầu nhân viên, để lại lead có consent, xem trạng thái phiên hoặc đơn. | Người dùng cuối; không phải người mua license của GoTek.
+Tệp pilot nên ưu tiên
+Nên bắt đầu với một doanh nghiệp có website đang có lưu lượng hỏi đáp, một bộ tài liệu hoặc catalog tương đối ổn định, một người chịu trách nhiệm duyệt nội dung và một nhóm nhân viên tiếp nhận handoff. Pilot chỉ nên bật một website, một workspace và các capability đã được kiểm thử; không dùng pilot để đồng thời chứng minh đa kênh, thanh toán và connector chưa có receipt.
+Tệp chưa nên ưu tiên ở giai đoạn đầu
+Đơn vị cần hệ thống tự động ra quyết định có rủi ro cao mà không có người duyệt hoặc nguồn dữ liệu chính thức.
+Đơn vị yêu cầu GoTek cấp tài khoản dùng chung hoặc đưa API key vào frontend.
+Đơn vị yêu cầu cam kết giá, tồn kho, vận chuyển hoặc thanh toán thật khi chưa có connector và hệ thống nguồn để đối soát.
+4. Phạm vi chức năng
+Năng lực đã có bằng chứng kiểm thử local
+Account, workspace, owner/staff, bot key, widget, catalog và session chat theo tenant.
+Parse PDF, DOCX, TXT, MD, CSV hoặc JSON; retrieval tài liệu và câu trả lời có nguồn trong các scenario đã kiểm thử.
+Handoff có consent, ticket, staff takeover, gửi tin nhắn nhân viên và polling lịch sử ở mức MVP.
+Checkout mô phỏng, idempotency và rollback usage cùng transaction; chưa phải thanh toán hoặc trừ tồn kho thật.
+Platform Admin registry, model capability, tenant grant, policy runtime, adapter local và adapter provider.
+Ingestion job, claim, retry, backoff, stale recovery và worker bounded; owner publish mới làm tài liệu xuất hiện trong retrieval.
+Audit, rate limit, notification outbox và các guard chống lộ key, cross-tenant hoặc câu trả lời không có căn cứ trong test.
+Năng lực cần hoàn tất trước production
+Credential vault và provider thật với usage, timeout, fallback, kill switch, quota, redaction và đối soát hóa đơn.
+Browser UAT đầy đủ cho Platform Admin, Workspace Owner hoặc Staff và End Customer trên mobile, desktop, bàn phím và công nghệ hỗ trợ.
+Inbox agent có receipt, assignment, realtime hoặc cơ chế nhận tin được nghiệm thu; ticket có SLA, reopen, note, attachment và escalation rõ.
+Crawler và editor tri thức có scope, chống SSRF, version, draft, publish, rollback, freshness và đánh giá groundedness.
+Connector catalog, order, CRM, shipping hoặc channel thật theo từng quyền API, idempotency, receipt và UAT riêng.
+Backup database, uploads, schema, cấu hình và secrets; restore rehearsal có đối soát ACL, file, số lượng và side effect.
+Billing, subscription, entitlement, báo cáo có metric dictionary và lifecycle tenant nếu đưa ra gói thương mại đầy đủ.
+Phạm vi chưa được tuyên bố
+Không gọi checkout hiện tại là thanh toán thật, không gọi đơn mô phỏng là doanh thu đã xác nhận.
+Không gọi adapter hoặc test mock là đã nghiệm thu provider, GPU, VPS hoặc hiệu năng production.
+Không gọi widget website hiện tại là nền tảng đa kênh hoàn chỉnh khi từng kênh chưa có capability, identity mapping và receipt riêng.
+Không lưu hoặc chia sẻ raw API key trong frontend, Git, log hoặc prompt model.
+5. Điều kiện chức năng cần đạt
+Bảng dưới đây là ma trận điều kiện để đưa vào kế hoạch và checklist nghiệm thu. Cột điều kiện mô tả kết quả phải quan sát được; trạng thái dùng cho báo cáo này dựa trên source và test local hiện có.
+Mã | Hạng mục | Điều kiện cần đạt | Bằng chứng nghiệm thu
+F01 | Tài khoản và workspace | Đăng ký, đăng nhập, chọn workspace rõ ràng; mỗi request kiểm membership và tenant; owner/staff không đọc chéo. | Một workspace test và một tài khoản khác tenant bị từ chối đúng mã lỗi.
+F02 | Widget và khách | botKey chỉ định đúng một bot; origin allowlist, session, retry và mobile state hoạt động; không lộ secret. | Domain lạ bị chặn; reload không mất phiên hợp lệ; request lỗi không tạo tin hoặc đơn trùng.
+F03 | Kho tri thức | Nguồn có DRAFT, job, trạng thái, version, publish và rollback; chỉ bản publish phục vụ khách. | Job lỗi không làm mất bản tốt; tài liệu nháp không xuất hiện trong retrieval.
+F04 | Crawler | Giới hạn host, depth, dung lượng, thời gian; chặn loopback, mạng nội bộ, metadata endpoint, redirect nguy hiểm và DNS rebinding. | Test site tĩnh, site render bằng JS, 404, redirect và nguồn cấm có kết quả được ghi lại.
+F05 | AI và RAG | Model có capability; retrieval có tenant/bot filter; thiếu căn cứ thì nói rõ; tool có allowlist, timeout và giới hạn vòng gọi. | Bộ eval có câu hỏi đúng, không có đáp án, prompt injection, typo tiếng Việt và câu hỏi chéo tenant.
+F06 | Inbox và livechat | Assignment, agent reply, takeover, unread, receipt và trạng thái gửi được kiểm soát; AI không trả lời chồng. | Sau takeover, khách nhận đúng tin staff; AI không sinh thêm câu trả lời.
+F07 | Ticket và support | Ticket có consent, assignee, SLA, note nội bộ, reopen, escalation và idempotency. | Retry cùng khóa không tạo ticket thứ hai; note nội bộ không đi ra widget.
+F08 | Khách hàng và consent | Identity verified, consent theo mục đích, retention và unmerge; không gộp chỉ vì trùng tên. | Khách không có consent không tạo handoff; quyền xóa hoặc export có audit.
+F09 | Catalog và đơn | Giá, tồn kho, trạng thái và nguồn có timestamp; thao tác ghi yêu cầu xác nhận, idempotency và reconciliation. | Đơn test không trừ hàng thật; lỗi usage hoặc nguồn làm rollback toàn bộ side effect.
+
+Mã | Hạng mục | Điều kiện cần đạt | Bằng chứng nghiệm thu
+F10 | Connector và webhook | Secret ở backend hoặc vault; scope rõ; retry hữu hạn; receipt, dead letter và replay có kiểm soát. | Mỗi connector có test quyền, lỗi, timeout, duplicate và kết quả cuối.
+F11 | Automation và macro | Trigger, version, dry run, action ledger, idempotency, loop protection và partial failure. | Một workflow thành công, một workflow lỗi giữa chừng và một replay được đối soát.
+F12 | Báo cáo | Metric dictionary, mẫu số, drill down, ACL, export hoặc schedule delivery. | Số liệu trace được về event hoặc ledger; analyst không thấy dữ liệu ngoài quyền.
+F13 | Help Center | Nội dung public có audience, locale, publish, search, thu hồi index và cache. | Thu hồi một bài không còn xuất hiện trong kết quả mới và được audit.
+F14 | Phân quyền và audit | Owner, staff, editor, analyst, billing, platform admin và support grant có namespace, thời hạn và lý do. | Từng thao tác nhạy cảm có actor, target, fields, time, reason; support hết hạn tự mất quyền.
+F15 | Billing và quota | Usage ledger, subscription, entitlement, overage, refund và webhook provider chống cấp trùng. | Một event provider gửi lại không nhân đôi gói; quota vượt bị chặn an toàn.
+F16 | Đa kênh | Từng kênh có capability, identity mapping, token revoke, rate limit và receipt riêng. | Không dùng nút cấu hình làm bằng chứng; có UAT đầu cuối cho từng kênh được bật.
+F17 | Vận hành platform | Tenant lifecycle, provider health, job queue, abuse, incident, support access, kill switch và rollback. | Operator thực hiện được khóa, mở, replay hoặc rollback với log và kiểm tra sau thao tác.
+F18 | Backup và khôi phục | Backup DB, object, schema, config và secret reference; restore cô lập; ngăn phát lại side effect. | Restore tạo dữ liệu đúng số lượng, ACL, file và index; webhook hoặc giao dịch cũ không tự gửi lại.
+
+6. Điều kiện phi chức năng
+Nhóm | Điều kiện cần đạt
+Bảo mật | Không có raw key trong response, browser, log, audit hoặc prompt; kiểm tra XSS, CSRF, SSRF, rate limit, upload MIME, path traversal và quyền support.
+Riêng tư | Mặc định lưu metadata request, model, provider, time, request ID, usage, cost, latency, error và fallback; nội dung prompt hoặc completion chỉ lưu khi Content Audit được bật với policy, consent, redaction, retention, role hạn chế và access log.
+Cách ly tenant | Tenant ID được xác định ở backend; cache, object path, vector filter, conversation, tool, catalog và usage đều có scope tenant và bot; test chéo quyền phải thất bại.
+Độ tin cậy | Retry và idempotency cho tác vụ ghi; phân biệt unknown với failed; queue có backoff, stale recovery, dead letter và trạng thái cuối.
+Khả năng sử dụng | Mobile safe area, keyboard focus, tương phản, loading, empty, error, offline và retry rõ; không che hành động checkout hoặc handoff.
+Chất lượng AI | Đo grounded answer rate, retrieval recall, câu sai tự tin, handoff đúng, latency và cost trên bộ câu hỏi có nhãn; đổi prompt, model hoặc index phải chạy regression.
+Khôi phục | Chốt RPO, RTO, retention, vùng lưu và quyền xóa theo gói; diễn tập restore trước release và ghi kết quả, không suy ra từ việc có Git checkpoint.
+Pháp lý và thương mại | Chủ sản phẩm phê duyệt quyền gửi dữ liệu tới từng provider, API-on-API hoặc resale rights, DPA, hóa đơn, SLA, refund, thuế và nội dung ngành có yêu cầu riêng.
+7. Hiện trạng và cửa phát hành
+Cửa | Trạng thái | Bằng chứng hiện có | Điều kiện còn thiếu
+Kiểm thử source local | Đạt ở mức regression hiện tại | npm test ngày 24 09 2026: 92 pass, 0 fail, 0 skip. | Không thay thế UAT hoặc provider thật.
+Tenant và role boundary | Có bằng chứng local | HTTP integration kiểm tra readiness, account, customer, owner, staff, platform và cách ly tenant. | Cần browser UAT và permission matrix đầy đủ.
+Async knowledge | Đang hoàn thiện | Có job, claim, retry, stale recovery và test upload hoặc worker trong DB cô lập. | Cần chứng minh HTTP → queue → worker → publish → widget trên runtime triển khai.
+Provider thật và credential vault | Chưa đạt | Adapter và mock có test; secret reference và environment resolver mới là nền tảng. | Cần key thật do chủ hệ thống cấp, usage, fallback, redaction và đối soát.
+UI ba lớp | Chưa đạt | Có trang console, widget và platform admin ở mức source. | Cần UAT trình duyệt, mobile, accessibility, XSS, CSRF và session.
+Connector và giao dịch thật | Chưa đạt | Catalog sync key và đơn mô phỏng đã có nền tảng. | Cần API nguồn, quyền ghi, receipt, reconciliation và test lỗi.
+Backup và restore | Chưa đạt | Có checkpoint source và hướng dẫn backup. | Cần pg_dump, uploads, config, secret reference, restore và đối soát trong môi trường mới.
+Release candidate chỉ nên được xem xét sau khi các cửa còn thiếu có bằng chứng ký xác nhận. Một bộ test xanh chỉ xác nhận các scenario đã chạy; không chứng minh dữ liệu production, provider thật, hiệu năng tải, backup restore hoặc mức độ hài lòng khách hàng.
+8. Chỉ số đánh giá pilot
+Nhóm | Chỉ số | Cách chứng minh
+Chất lượng trả lời | Grounded answer rate, retrieval recall, tỷ lệ câu trả lời thiếu căn cứ và tỷ lệ citation hợp lệ. | Bộ câu hỏi có nhãn theo ngành; phân tích lỗi theo nguồn, model và phiên bản.
+Handoff | Tỷ lệ chuyển đúng người, thời gian tiếp nhận, tin nhắn bị trả lời chồng và tỷ lệ ticket có consent hợp lệ. | Log conversation, assignment, takeover, ticket và receipt.
+Kết quả nghiệp vụ | Lead, lịch hẹn, đơn hoặc trạng thái xử lý được xác nhận bởi hệ thống nguồn. | Không dùng câu nói của AI làm bằng chứng hoàn tất; đối soát event hoặc transaction.
+Vận hành | Latency, error rate, queue age, retry, dead letter, provider fallback, unknown usage và cost. | Request ID, usage ledger, notification outbox, provider receipt và dashboard.
+Trải nghiệm | Tỷ lệ lỗi trên mobile, thời gian tải widget, CSAT và tỷ lệ khách phải lặp lại bối cảnh. | Browser/device UAT, analytics có consent và khảo sát sau phiên.
+Trước khi mở pilot, chủ sản phẩm cần chốt ngưỡng chấp nhận cho latency, concurrency, CSAT, retention, RPO, RTO, chi phí và tỷ lệ handoff. Không tự gán một SLA hoặc tỷ lệ hoàn thành khi chưa có quyết định và dữ liệu đo.
+9. Rủi ro và điều kiện phụ thuộc
+Rủi ro | Ảnh hưởng | Biện pháp kiểm soát
+Chất lượng nguồn | Tài liệu cũ, thiếu version hoặc mâu thuẫn làm AI trả lời sai. | Owner duyệt bản publish; gắn hiệu lực và nguồn; có eval và quy trình sửa.
+Provider và quyền dữ liệu | Key, vùng xử lý, retention hoặc API-on-API chưa được phê duyệt. | Secret server-side; map model/version/region; DPA, receipt, SLA và kill switch trước live.
+Connector nghiệp vụ | API nguồn thiếu quyền hoặc không trả trạng thái cuối. | Read-only trước; write action chỉ sau idempotency, receipt và reconciliation.
+Nhân sự handoff | Không có người tiếp nhận làm trải nghiệm bị treo. | Chốt lịch trực, SLA, escalation, ngoài giờ và owner chịu trách nhiệm.
+Dữ liệu và privacy | Lưu quá nhiều nội dung hoặc gộp nhầm identity. | Metadata-first; consent theo mục đích; retention, deletion, export và audit.
+Khôi phục | Git có source nhưng không có DB, uploads hoặc secret backup. | Backup ngoài Git; restore rehearsal; tắt side effect trước khi chuyển traffic.
+10. Kiến nghị quyết định trước pilot
+1.  Chọn một ngành và một website pilot; chỉ định owner duyệt knowledge và manager chịu trách nhiệm handoff.
+2.  Chốt nguồn dữ liệu được phép dùng, vùng xử lý, provider hoặc model, thời hạn lưu và trường thông tin được thu thập.
+3.  Chốt các capability mở trong pilot: knowledge-only, catalog, lead, ticket, order mô phỏng hoặc connector read-only.
+4.  Chốt ngưỡng latency, concurrency, chi phí, CSAT, handoff, retention, RPO và RTO trước khi đo kết quả.
+5.  Chốt quy trình incident, rollback, kill switch, support access và người phê duyệt khi có lỗi hoặc yêu cầu xem nội dung.
+6.  Ký biên bản Go hoặc No Go sau browser UAT, security review, provider receipt và restore rehearsal.
+11. Tài liệu đối chiếu
+Bản mô tả này được tổng hợp từ source và tài liệu bàn giao trong repository. Các đường dẫn dưới đây là hồ sơ kỹ thuật để đối chiếu chi tiết:
+Tài liệu | Nội dung đối chiếu
+README.md | Mục tiêu, cách chạy demo, API, giới hạn MVP và ranh giới provider.
+docs/DEVELOPMENT-HANDOFF-2026-09-24.md | Mô hình ba lớp quyền, checkpoint, bằng chứng test và next steps.
+docs/PRODUCT-SCOPE-ARCHITECTURE.md | Phạm vi Platform Admin, Workspace User, End Customer và tenant-bound AI contract.
+docs/FEATURE-GAP-MATRIX-2026-09-23.md | Danh mục F01 đến F18 và điều kiện phát triển từng nhóm.
+docs/PROGRESS-STATUS-2026-09-23.md | Trạng thái tổng hợp, giới hạn và thứ tự triển khai.
+docs/BACKUP-HANDOFF-2026-09-24.md | Checkpoint source, khôi phục và yêu cầu backup dữ liệu vận hành.
+Phiên bản báo cáo này phản ánh trạng thái source và kiểm thử local tại ngày 24 09 2026. Khi có thay đổi provider, connector, quyền dữ liệu, schema hoặc release, cần cập nhật lại phần hiện trạng và ma trận điều kiện trước khi dùng làm biên bản nghiệm thu.

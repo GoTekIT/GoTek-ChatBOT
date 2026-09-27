@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: provider probe requires a configured chat model and valid nonempty inference
+ok 1 - provider probe requires a configured chat model and valid nonempty inference
+  ---
+  duration_ms: 4.928125
+  ...
+# Subtest: H28 platform role separate, capability grant, missing secret, metadata redaction and revoke
+ok 2 - H28 platform role separate, capability grant, missing secret, metadata redaction and revoke
+  ---
+  duration_ms: 334.828375
+  ...
+# Subtest: H28 Platform Agent history is actor-scoped
+ok 3 - H28 Platform Agent history is actor-scoped
+  ---
+  duration_ms: 194.321333
+  ...
+# Subtest: H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation
+ok 4 - H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation
+  ---
+  duration_ms: 45.500917
+  ...
+# Subtest: AI response quota keeps legacy workspaces unlimited until provisioned
+ok 5 - AI response quota keeps legacy workspaces unlimited until provisioned
+  ---
+  duration_ms: 17.83975
+  ...
+# Subtest: H09 concurrent transactions share request identity and audit only once
+ok 6 - H09 concurrent transactions share request identity and audit only once
+  ---
+  duration_ms: 119.644292
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2900.844083

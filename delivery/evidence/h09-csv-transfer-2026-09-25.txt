@@ -1,0 +1,5 @@
+H09 CSV transfer slice — 2026-09-25
+- UI supports Xuất CSV and Nhập JSON/CSV.
+- CSV header is `title,content,active`; title/content are quoted and escaped; malformed header/rows produce visible errors before network submission.
+- Build: npm run build PASS (1910 modules).
+- Limitations: XLSX not implemented; no authenticated browser mutation evidence in this run; duplicate/quota policy remains open.

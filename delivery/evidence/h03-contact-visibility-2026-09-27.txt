@@ -1,0 +1,15 @@
+TAP version 13
+# Subtest: H03 contact visibility: Agent cannot read CRM contacts and tenant owner cannot cross workspace
+ok 1 - H03 contact visibility: Agent cannot read CRM contacts and tenant owner cannot cross workspace
+  ---
+  duration_ms: 63.425334
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 251.066583

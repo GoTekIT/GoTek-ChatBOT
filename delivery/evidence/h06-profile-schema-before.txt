@@ -1,0 +1,47 @@
+TAP version 13
+# Subtest: H04 actual visitor → inbox → agent → visitor API, note privacy and receipt
+not ok 1 - H04 actual visitor → inbox → agent → visitor API, note privacy and receipt
+  ---
+  duration_ms: 348.048375
+  location: '/Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/tests/widget.test.ts:1:494'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    400 !== 200
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 200
+  actual: 400
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/tests/widget.test.ts:22:9)
+    process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    async Test.run (node:internal/test_runner/test:797:9)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: H03 conversation status transition is audited and tenant-scoped
+ok 2 - H03 conversation status transition is audited and tenant-scoped # SKIP test name does not match pattern
+  ---
+  duration_ms: 0.698917
+  ...
+# Subtest: H03 inbox search and status filters stay tenant-scoped
+ok 3 - H03 inbox search and status filters stay tenant-scoped # SKIP test name does not match pattern
+  ---
+  duration_ms: 0.066042
+  ...
+# Subtest: H05 concurrent visitor sessions respect automatic assignment capacity
+ok 4 - H05 concurrent visitor sessions respect automatic assignment capacity # SKIP test name does not match pattern
+  ---
+  duration_ms: 0.037917
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 3
+# todo 0
+# duration_ms 819.839708

@@ -1,0 +1,8 @@
+H11 preview access and public transport check
+- Expanded tests/web-sources.test.ts: preview endpoint returns401 for anonymous,404 for foreign tenant,400 invalid ID,409 SOURCE_PAUSED,403 Agent. Rejected preview does not record web_source.previewed. Test passed.
+- Actual fetchWebSource HTTPS request to https://example.com/: HTTP200, text/html,559bytes. This proves one public transport success only, not authenticated browser or crawler acceptance.
+- UI clears earlier preview before another request, disables preview for inactive source, and allows only HTTP/S hrefs from returned items. Added source error translations and typed preview response.
+- npm run build passed after these changes; 1912 modules.
+- saxes installed, npm audit reported0 vulnerabilities. Parser correction running separately; no full XML claim until its tests complete.
+
+Parser correction completed: strict saxes XML/CDATA/declaration/Atom, numeric hex entities and unsafe link filtering. Integrated parser + API test suite10/10 passed. HTML extraction still conservative cleanup; full HTML parser not implemented.

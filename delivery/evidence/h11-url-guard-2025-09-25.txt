@@ -1,0 +1,5 @@
+H11 URL guard evidence — 2025-09-25
+- `node --import tsx tests/web-source-security.test.ts`: 2 passed.
+- Blocks javascript, credentials/fragments, loopback, RFC1918, IPv6 local and cloud metadata hostname; redirect validation revalidates target and preserves source host.
+- `npm run build`: PASS.
+- Scope limitation: no H11 CRUD/crawler/job/provider receipt; H11 remains Backlog.

@@ -1,0 +1,5 @@
+Read-only HiChat sandbox UI survey — 2026-09-25
+Navigated public homepage > app > Settings > AI Settings > Rules. Existing sandbox session authenticated. No save/create/send actions performed.
+Actual screenshots: research/ui-evidence/h09-rules-live-2026-09-25.png and h09-rule-create-live-2026-09-25.png. Current narrow viewport633x837, dark appearance, bottom navigation and collapsible AI section selector. These are browser screenshots, not generated vectors.
+Observed rules list: explanatory panel, heading, add button, XLSX download, XLSX/CSV upload, search, checkbox/card with active badge. Add dialog title/content counters150/2000, Cancel and disabled Create while empty.
+Desktop screenshot and H10/H11-specific screenshots still pending. Do not use narrow screenshot to infer desktop dimensions.

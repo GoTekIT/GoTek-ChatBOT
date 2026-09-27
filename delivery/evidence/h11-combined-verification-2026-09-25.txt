@@ -1,0 +1,5 @@
+H11 combined verification — 2026-09-25
+Build: npm run build PASS (1912 modules).
+Tests: node --import tsx --test tests/web-source-security.test.ts tests/web-sources.test.ts tests/rules-transfer.test.ts => 4 passed, 0 failed.
+Coverage: URL/redirect safety primitives; two-workspace source CRUD/status/audit and Agent denial; H09 transfer regression.
+Not proven: crawler execution, network SSRF/DNS rebinding protection, source version/publish/rollback, browser authenticated UX.

@@ -1,0 +1,17 @@
+H09 browser preview evidence — 2026-09-24
+
+Runtime:
+- UI: Vite http://127.0.0.1:4317/
+- API proxy: http://127.0.0.1:4318/
+- GET /api/health => {"status":"ok","environment":"local-test","externalDelivery":false}
+
+Observed browser state (tab 3, route /settings/ai-rules):
+- Gotek Chatbot shell rendered.
+- Workspace settings navigation includes Quy tắc AI for Owner.
+- Email verification banner displayed.
+- Quy tắc AI heading and sandbox disclaimer displayed.
+- Create fields Tiêu đề/Nội dung, Thêm quy tắc, search, Tải lại and empty state rendered.
+
+Limitations:
+- No mutation was submitted during this evidence capture.
+- This preview does not prove H09 acceptance. Import/export, edit, idempotency, cross-tenant tests, and runtime AI effect remain open.

@@ -1,0 +1,5 @@
+H11 transport primitive evidence — 2026-09-25
+Implemented src/server/web-source-fetch.ts: approved DNS address is pinned via custom lookup, agent pooling disabled, manual redirect handling, exact-origin redirect policy, absolute AbortController deadline, streamed maxBytes enforcement, redirect budget and status/encoding errors.
+Verified: tests/web-source-fetch.test.ts + tests/web-source-security.test.ts + tests/rules-transfer-roles.test.ts passed (5/5); npm run build passed (1,912 modules).
+Security test intentionally uses private addresses and proves fail-closed before socket. A public-network success receipt is not claimed.
+Open: integrate fetcher into crawl jobs, parser, maxPages/depth/delay, authenticated UI acceptance and staging.

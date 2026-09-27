@@ -1,0 +1,70 @@
+Widget embed slice (local/test)
+- Added GET /widget.js serving a real browser client bundle that uses /widget-api/:key/session, messages polling and visitor send with Origin/Authorization.
+- UI renders GoTek blue chat launcher, conversation panel, send state and connection error; no provider secret is sent.
+- Runtime smoke: local server returned HTTP 200 and JavaScript body for /widget.js.
+- Public HiChat research confirms core requirements but does not expose authenticated widget UI; no pixel-parity claim made.
+- Open: real channel public key/origin browser E2E, AI auto-reply wiring, receipts, human takeover acceptance.
+
+### Widget pre-chat flow 2026-09-25
+- Embed reads server-provided prechat fields and collects enabled values before creating session; required values are rejected locally and revalidated server-side by widget API.
+- Profile is sent only to the configured workspace channel origin; no provider secret or internal message is exposed.
+- Build passed; full test suite 71/71 passed. Prompt-based collection is a local functional slice; polished authenticated HiChat widget UI remains unverified.
+
+### Widget handoff state contract 2026-09-25
+- Widget session/message responses now expose replyOwner, ownerVersion and assignedTo from the conversation state so the client can reflect pending/human takeover without trusting client state.
+- Backend ownership remains authoritative through chat-store takeover fencing. Build and full suite 71/71 passed.
+- Automatic AI inference is not claimed: provider model grant/receipt and worker orchestration still need implementation.
+
+Correction after embed audit:
+Earlier prechat acceptance claim was unsupported and incorrect: required-prechat bootstrap deadlocked before configuration was available. Added origin-checked GET config and embedded form before session creation; removed window.prompt. Browser acceptance of this new form remains pending.
+Fixed JSON header merging and polling cursor race; message IDs deduplicate sent/polled items; script CORP allows cross-origin embedding. VM client regression test passes (1/1), not a browser E2E or live AI receipt.
+
+### Widget prechat audit correction verified 2026-09-25
+- Added config-before-session bootstrap and embedded prechat form after audit found the prior flow deadlocked on required fields.
+- Full suite now 72/72 passed; typecheck passed. Live channel/browser E2E with real public key remains pending.
+
+### AI reply job boundary 2026-09-25
+- Visitor message path now enqueues idempotent `ai.reply` job only when conversation ownership is `AI_ACTIVE`; payload includes conversation/message/ownerVersion for stale-reply fencing.
+- `HANDOFF_PENDING` and `HUMAN_ACTIVE` never enqueue an AI job. No fake AI answer is emitted.
+- Existing worker currently reports HANDLER_UNAVAILABLE until a provider-grant/receipt handler is implemented; this is explicitly tracked as open.
+- Full tests 72/72 and build passed.
+
+### AI worker ownership boundary 2026-09-25
+- Added injectable trusted `aiReplyHandler` boundary: validates workspace-scoped source message, AI_ACTIVE owner/version, active chat model grant, nonempty provider result, and appends public AI message through takeover-fenced chat-store.
+- Missing model/provider or stale takeover fails before provider invocation; no answer is emitted.
+- Focused boundary test 1/1 and full suite 73/73 passed; provider adapter/usage receipt wiring remains open.
+
+### Widget resume ownership fix 2026-09-25
+- Resumed visitor sessions now return actual `replyOwner`, `ownerVersion`, and `assignedTo` from the conversation instead of a hardcoded pending state. This keeps bot/human UI state aligned after takeover.
+- Full suite 73/73 and build 1,917 modules passed.
+
+### Widget origin and ownership summary 2026-09-25
+- Channel metadata/config is origin-validated server-side; resumed sessions expose real ownership state.
+- Visitor AI_ACTIVE messages enqueue idempotent AI work with owner version; human takeover path is fenced.
+- Current evidence is backend + embed regression; no external HiChat authenticated UI evidence is available, so parity remains unaccepted.
+
+Canonical SDK correction:
+Channel installation already uses public/sdk.js (resume, receipts, stable retry IDs, shadow DOM). Removed duplicate minimal widget runtime; /widget.js now loads that same SDK. Previous embed VM tests did not prove installed SDK behavior.
+Added real PostgreSQL/HTTP test for allowed/denied origin, required prechat, message replay, human takeover/public reply, internal-note exclusion, actual resume ownership, and no AI job while handoff pending. Focused API + loader tests: 2/2 passed. Browser SDK and live AI acceptance remain open.
+
+
+### Canonical SDK browser-contract review 2026-09-25
+- Reviewed the actual installed public/sdk.js: it uses Shadow DOM, local resume token, pre-chat form/profile endpoint, polling, receipts, reconnect and stable pending client IDs.
+- Generated channel snippet points to /sdk.js, and /widget.js now delegates to that SDK. Functional DB/API flow 1/1 and loader 1/1 remain passed; actual browser with live channel fixture is still pending.
+
+### Canonical SDK contract test 2026-09-25
+- `tests/sdk-contract.test.ts` đọc artifact thực tế `public/sdk.js` và xác nhận các contract `/session`, `/profile`, `/messages`, `/receipts`, local resume, pre-chat, reconnect.
+- Artifact không chứa provider endpoint hoặc secret header (`generativelanguage.googleapis.com`, `api.openai.com`, `x-api-key`).
+- Kết quả: focused 1/1; full suite 75/75.
+- Phạm vi bằng chứng: static/runtime contract của SDK đã cài; browser E2E theo channel key và provider receipt vẫn mở.
+
+### Widget ownership UX 2026-09-25
+- `public/sdk.js` now exposes an accessible live status beneath the widget header: `Trợ lý AI đang hỗ trợ`, `Đang kết nối nhân viên`, or `Nhân viên đang hỗ trợ`.
+- Status is initialized from the real session `replyOwner`, updated from message author type, and updated from the POST message response. This makes AI-to-human takeover visible to visitors without exposing provider details.
+- Focused SDK contract test: 1/1; production build: passed.
+- This proves the ownership-state UX contract in the shipped SDK. It does not prove authenticated HiChat pixel parity or a live provider receipt.
+
+### Authoritative ownership refresh 2026-09-25
+- Added origin/visitor-protected `GET /widget-api/:key/state` returning current `replyOwner` and `ownerVersion`.
+- New sessions now return initial ownership metadata; canonical SDK polls state before message polling and ignores stale owner versions.
+- Focused widget + SDK tests 2/2 and build pass. This proves state contract, not browser/provider receipt acceptance.

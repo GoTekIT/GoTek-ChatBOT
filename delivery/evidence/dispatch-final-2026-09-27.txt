@@ -1,0 +1,35 @@
+TAP version 13
+# Subtest: worker estimates the complete grounded prompt and preserves provider receipts
+ok 1 - worker estimates the complete grounded prompt and preserves provider receipts
+  ---
+  duration_ms: 12.863375
+  ...
+# Subtest: AI dispatch fence claims one queued source when workers race
+ok 2 - AI dispatch fence claims one queued source when workers race
+  ---
+  duration_ms: 99.960583
+  ...
+# Subtest: AI provider invocation error is terminal-unknown and is not immediately replayed
+ok 3 - AI provider invocation error is terminal-unknown and is not immediately replayed
+  ---
+  duration_ms: 10.703625
+  ...
+# Subtest: AI worker boundary refuses stale ownership and missing model before invocation
+ok 4 - AI worker boundary refuses stale ownership and missing model before invocation
+  ---
+  duration_ms: 0.751834
+  ...
+# Subtest: AI worker invokes an enabled workspace model and appends a public reply
+ok 5 - AI worker invokes an enabled workspace model and appends a public reply
+  ---
+  duration_ms: 239.574084
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1349.818083

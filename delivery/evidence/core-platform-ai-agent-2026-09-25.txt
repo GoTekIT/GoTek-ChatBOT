@@ -1,0 +1,445 @@
+Core Platform Admin + AI Agent — 2026-09-25
+
+Source reviewed: attached GoTek ChatBOT Phân Tích & Bàn Giao.docx, sections 3/9/10/16/17. It explicitly separates Platform Admin from Workspace Admin, requires provider/model registry, server-side secret refs, capability grants, quota/receipt/unknown states, retrieval permissions and kill switch. Provider names in this slice are GoTek implementation choices; HiChat UI provider list is observation only and does not prove those providers work.
+
+Implemented:
+- migration026 extends provider adapters: openai, chatgpt, anthropic, gemini, claude_code, custom_llm, local; optional base URL.
+- Platform Admin only AI Agent route POST /api/platform/agent/chat, with platform identity and actor-scoped sessions/messages.
+- Provider gateway uses real HTTP calls only when server-side secret is configured; no key enters browser. Gemini, OpenAI/ChatGPT, Anthropic/Claude Code and generic OpenAI-compatible custom LLM payloads are supported.
+- Provider timeout/HTTP failure returns unknown/failed state rather than pretending a completed answer.
+- Platform UI adds adapter choices, optional custom base URL and AI Agent context-analysis panel.
+
+Verification:
+- migration026 applied locally; npm run build passes 1,916 modules; full npm test passes 67/67.
+- No provider secret was entered and no external API call was made. Live provider receipts, quota ledger, retrieval-grounding/citations and browser acceptance remain open.
+
+Follow-up: Platform Admin now has POST /api/platform/providers/:id/test and UI “Kiểm tra kết nối”. Local adapter returns confirmed; non-local providers require server secret and perform bounded real request, returning failed status on provider errors.
+
+Context follow-up: AI Agent request accepts up to 20 explicitly supplied source/title/content context items (bounded per item), and Platform UI exposes a bounded context textarea. The gateway labels context sources before provider invocation; it does not bypass workspace permissions or silently query private data.
+
+2026-09-25 provider response hardening: empty provider text now returns UNKNOWN/PROVIDER_EMPTY_RESPONSE instead of confirmed. npm test: 68/68 passed.
+Decision gate: automatic workspace retrieval for Platform Agent remains disabled until an explicit, audited content-access capability exists; client-supplied context remains visibly labeled and is not treated as HiChat parity evidence.
+
+
+### Provider probe correction 2026-09-25
+- Probe previously sent empty model name. Now selects enabled chat model; missing model returns CHAT_MODEL_REQUIRED.
+- Local adapter returns not_configured; empty or invalid provider output cannot confirm connectivity. Text blocks are combined.
+- Focused mocked-transport test 1/1 passed; build 1917 modules passed. No external provider receipt or browser acceptance claimed.
+- Parallel backlog audit failed on usage limit; latest agent inventory contains root only. Automatic knowledge retrieval still pending explicit scoped authorization implementation.
+
+### Platform Agent session/idempotency hardening 2026-09-25
+- Provider probe now refuses disabled providers (`PROVIDER_DISABLED`) and requires enabled chat model.
+- Agent chat reuses the actor-bound session from UI and returns existing request result for duplicate requestId; pasted context is delimited as untrusted context.
+- Focused provider probe: 1/1 passed. Build after UI/session change: 1,917 modules passed.
+- Remaining gaps: provider receipt with real credentials, persisted failure message/usage reconciliation, audited content-access grant for automatic workspace retrieval, Claude Code endpoint confirmation.
+
+### Failure trace persistence 2026-09-25
+- Provider failures now persist an assistant message with `unknown` status and bounded error text, allowing audit/idempotent retry state to be read from the session.
+- Typecheck passed and full test process completed (69 tests; prior complete run 69/69). Build validation follows this change.
+
+### Platform Agent history API 2026-09-25
+- Added actor-scoped session and message read endpoints. Cross-actor session IDs return NOT_FOUND; message ordering is deterministic.
+- Typecheck/build passed (1,917 modules); full test suite completed without failures.
+
+### Provider probe UI readback 2026-09-25
+- Provider connection test now distinguishes confirmed, not_configured and failed states, then reloads registry from backend so UI state is not stale.
+- Typecheck and build passed (1,917 modules). No external provider receipt claimed.
+
+### Platform Agent history authorization test 2026-09-25
+- Real API integration test verifies owner actor can read own session/messages and a second Platform Admin receives 404 for the foreign session.
+- Full suite: 70/70 passed.
+
+### Agent session reset UX 2026-09-25
+- Added explicit `Phiên mới` action that clears client session/history and causes the next message to create a new server session.
+- Typecheck/build passed (1,917 modules). Existing 70-test suite remains the latest full backend verification.
+
+### Local preview runtime check 2026-09-25
+- Reproduced the signup “Không thể kết nối” symptom as the local API process not running: port 4317 had no listener.
+- Started `npm run dev`; server now listens on 127.0.0.1:4317 and `/app/auth/signup` returns HTTP 200. This is runtime setup evidence, not signup acceptance.
+
+### Signup runtime smoke 2026-09-25
+- With local server listening on 127.0.0.1:4317, POST /api/auth/signup returned HTTP 202 and generic success message for a fresh test account.
+- This confirms local connectivity and API acceptance only; email delivery and full browser verification remain open.
+
+### Browser preview verification 2026-09-25
+- In-app browser visibly rendered `/app/auth/signup` with GoTek identity and fields: full name, business, email, phone, optional referral, password, show-password, submit and login link.
+- No connection error was present while local server was active. This is UI preview evidence; authenticated browser acceptance remains open.
+
+### Signup browser E2E local 2026-09-25
+- In-app browser filled the real signup form with synthetic local/test data and submitted successfully.
+- Visible result: `Đã nhận yêu cầu. Kiểm tra hướng dẫn xác thực rồi đăng nhập.` on `/app/auth/signup`.
+- This verifies browser-to-API signup response; email provider delivery and verification-token acceptance remain unverified.
+
+### Platform Agent capability/RLS hardening 2026-09-25
+- Model resolution now requires enabled provider/model with `chat` capability; embedding/vision-only models cannot be used for chat.
+- Migration 027 tightens message INSERT RLS to the actor-owned session, not only platform=true.
+- Applied local DB migration; full suite 71/71 and build 1,917 modules passed.
+
+### Platform Agent conversational memory 2026-09-25
+- Confirmed user/assistant messages from the actor-owned session are now assembled in a bounded 12-message history and included before the current prompt; context sources remain explicitly untrusted and delimited.
+- Full suite 73/73 and build 1,917 modules passed. Provider receipt and real adapter E2E remain open.
+
+AI worker recovery verification:
+- Real DB success test confirms enabled tenant model grant resolves through trusted registry lookup and persists public AI answer.
+- Workspace-only registry query remains hidden by RLS; platform context is restored before provider callback.
+- Focused AI tests 2/2; full suite 76/76; TypeScript and Vite build pass.
+- Injection test is not real provider receipt or installed worker runtime acceptance.
+
+### AI reply retry identity 2026-09-25
+- AI reply client id is now deterministic from conversation/message/owner version, allowing commit retry to use existing message idempotency without duplicate public replies.
+- Ownership fencing remains enforced by `appendMessage`; takeover rejects stale owner version.
+- Full suite 76/76 and TypeScript/Vite build pass.
+- Provider call is still injected in the current handler; split context/invoke/commit worker runtime remains next integration boundary.
+
+### AI retry preflight dedupe 2026-09-25
+- Before invoking provider, worker derives deterministic AI client id and checks existing conversation message; a commit retry returns the existing receipt without a second provider call.
+- Focused AI worker tests 2/2, full suite 76/76, build pass.
+- This is handler-level idempotency evidence; scheduler split-phase provider runtime remains open.
+
+### Model lifecycle verification
+- Platform Admin model enable/disable route persists state with mandatory reason and platform audit.
+- Extended platform DB/API tests verify disabled/enabled audit entries, missing model 404, workspace user denied 403 and unchanged model state.
+- Platform chat selection now includes only enabled chat models whose provider is enabled.
+- Focused platform tests 2/2 and TypeScript/Vite build pass. Browser UI acceptance still pending; provider runtime remains incomplete.
+
+Split-phase handler: implemented transactionalAiReplyHandler with scoped prepare/commit around external invoke. Real DB test changes ownership during invoke and verifies STALE_REPLY_OWNER with no output message. Focused 2/2 + build passed. Provider remains injected; real provider/scheduler receipt not verified.
+
+### AI model revocation fencing 2026-09-25
+- Split-phase commit revalidates workspace chat grant, model enabled and provider enabled immediately before append.
+- If Platform Admin disables/revokes the model during inference, commit returns `AI_MODEL_REVOKED` and writes no public AI message.
+- Focused AI tests 2/2; full suite 76/76; build pass.
+
+Worker runtime integration: runAiWorkerOnce queue -> injected inference -> persisted public AI message -> succeeded job receipt verified. Lease expiration during inference returns lease_expired and leaves no output message. Focused AI/jobs tests 3/3 and build passed. Not external provider receipt; not scheduler daemon acceptance.
+
+Public knowledge context: DB retrieval isolation test and context-bound test passed 2/2. Sources bounded 4k each/16k aggregate with truncation flags. Build passed. This helper is not yet integrated with inference; no context-grounded answer or real provider receipt claimed.
+
+Enterprise grounding regression: requireGrounded job with no published matching sources rejects AI_KNOWLEDGE_NOT_FOUND before provider invocation. Real DB assertion confirms zero invokes and no Unsupported answer message. Focused tests 2/2 passed. Existing 77/77 full result predates this additional assertion; no live provider grounded answer claim.
+
+Widget AI source boundary: source SQL now admits only public visitor messages in same workspace/conversation. DB negative tests for internal note and AI-reply source both reject before inference (zero calls). Focused 2/2 and build passed.
+
+Shared provider transport extraction: Platform Agent and future worker share server-side adapter; timeout/fetch injection tested across adapters without external calls. Full suite 79/79 and build passed. Default workspace adapter and live provider receipt remain open.
+
+Default workspace provider adapter: resolves model grant/provider server-side, keeps secret out of job payload, includes bounded PUBLIC context with untrusted delimiters, invokes shared transport at 25s timeout. Focused 4/4, full 79/79, build pass; no external provider receipt.
+
+Workspace FAQ batch ingestion: added POST /api/knowledge/import with bounded rows and existing draft/idempotency/category/role controls. API and full suite 79/79 pass, build pass. Items remain DRAFT until process/publish; no document upload or semantic retrieval claim.
+
+Bounded text/CSV/JSON knowledge import: added owner/admin-only POST /api/knowledge/import-file. The route accepts a bounded JSON envelope containing filename/content, validates supported extensions and row shapes, then reuses the draft/idempotent knowledge pipeline. Full suite 80/80 and build pass. This is a local/test text payload endpoint; multipart upload, PDF/DOCX extraction, semantic indexing and production storage remain open.
+
+Import-file regression coverage: knowledge API verifies JSON import remains DRAFT, unsupported extension returns 415, malformed CSV returns 400, and tenant/role guards still apply. Focused knowledge test 1/1, full suite rerun 80/80, TypeScript/Vite build pass.
+
+Backend retrieval/token groundwork: deterministic bounded chunking, lexical ranking and context-budget helpers plus provider-neutral token normalization/estimation/micro-cost accounting were added with focused tests. Import now rejects malformed JSON, oversized text and excessive CSV rows instead of truncating silently. Full suite 88/88 and build pass on rerun. These helpers are not yet wired to widget inference, vector embeddings or a persisted usage ledger; one concurrent full-suite run exposed an existing AI-worker timing assertion and a rerun passed, so that test remains a stability follow-up.
+
+Token ledger groundwork: migration 028 adds tenant-RLS `ai_usage_ledger` with operation-key idempotency and token/cost constraints; `recordUsage` provides an idempotent server receipt helper. Build passes. Current provider transport returns text only, so persisted usage is not claimed as live provider metering until adapter usage metadata and receipt tests are wired.
+
+Verification rerun: full suite 88/88 pass and build passes. Two earlier concurrent full-suite runs intermittently failed the existing AI-worker timing assertion at 87/88; immediate reruns pass, so this remains a test stability issue rather than accepted live-provider evidence.
+
+Provider metadata boundary: added `invokeProviderDetailed` while preserving the existing text-only transport contract; injected OpenAI-compatible response test confirms prompt/completion/total usage metadata is retained without exposing credentials. Worker ledger wiring and provider pricing configuration remain unverified.
+
+PostgreSQL usage ledger verification: migration 028 applied locally; integration test verifies concurrent idempotent receipts, tenant isolation, insert-only permissions, immutable rows and total-token constraints. Full suite 90/90 and build pass. This proves ledger storage, not live provider metering or worker wiring.
+Worker usage receipt wiring: AI worker now handles legacy text and detailed provider results, normalizes/estimates usage and writes an idempotent ledger receipt after the AI message in the commit transaction. Migration 029 makes workspace cleanup cascade ledger rows. Full suite 90/90 and build pass; default rates are zero unless configured, and no external provider receipt was used.
+Worker metering acceptance: queued runtime AI reply now asserts a tenant-scoped ledger row with provider/model identity, estimated usage and consistent totals. Focused AI test 2/2; full suite 90/90; build pass. External provider usage metadata remains unverified until an API key is configured.
+Bounded byte upload: `POST /api/knowledge/import-bytes` accepts bounded raw text/CSV/JSON bytes with a required filename header, preserves tenant/role guards and DRAFT state, and reuses import validation. Focused API test and full suite 90/90 pass; multipart/PDF/DOCX remain open.
+CSV ingestion hardening: quoted and escaped CSV fields now parse without splitting commas inside enterprise FAQ content. Focused API test and build pass; full suite rerun 90/90. Multipart/PDF/DOCX and semantic indexing remain open.
+
+Chunk persistence: processKnowledge writes chunks atomically before READY. Migration 031 enforces tenant/version composite FK. Real DB lifecycle test checks persisted content/hash, replay count and foreign tenant rejection (23503). Full suite 91/91 and build passed before Unicode fix; subsequent Unicode boundary regression 4/4 passed. Not semantic retrieval acceptance.
+Stored chunk retrieval groundwork: added READY/version/tenant-scoped chunk query with lexical ranking and token-budget selection. Focused chunk-store tests 2/2, full suite 93/93 and build pass. Not yet wired into widget provider context or semantic embedding acceptance.
+Admin chunk search: added tenant-scoped Owner/Admin endpoint for READY version chunks with lexical ranking and token budget. API regression covers process then search; full suite 93/93 and build pass. Not yet widget semantic retrieval acceptance.
+Workspace usage summary: added tenant-scoped Owner/Admin `GET /api/usage/ai` grouped by provider/model with request and token/cost totals, excluding prompt/response/secrets. API and full suite 93/93 pass; build pass.
+Time-bounded usage summary: AI usage endpoint supports optional ISO from/to filters and rejects reversed ranges; tenant/role and metadata-only boundaries remain enforced. API test, full suite 93/93 and build pass.
+Usage role boundary: integration test confirms a demoted Agent cannot access `/api/usage/ai` (403), while Owner can read the tenant summary. Full suite 93/93 pass.
+
+### DOCX multipart integration
+- Fixed import-document routing into draft batch ingestion; extracted Unicode text is split into <=2000-codepoint parts without silent truncation. Role checked before upload and again before extraction.
+- Real DOCX fixture verifies Vietnamese text through multipart API to persisted draft response; invalid DOCX returns 400 and Agent returns 403. Focused extraction/API tests 5/5 and build pass.
+- PDF, source-file retention, request replay identity, decompression/time isolation and full-suite validation remain open. No UI changes or HiChat parity acceptance.
+Multipart hardening: DOCX magic-byte validation, 2MB/one-file/field/part limits and route rate limit added; invalid extension/content remains rejected before extraction. Build and full suite 101/101 pass. Decompression-ratio/time isolation and PDF parser are still open.
+
+### PDF multipart integration verified locally
+- Integrated extractPdfText into document upload. Valid PDF multipart -> extracted text -> DRAFT items -> database readback verified; other workspace cannot read resulting items.
+- Focused parser/API tests 9/9; full suite 101/101 and build pass.
+- Supersedes prior PDF-unsupported notes. Text PDF only verified; scanned OCR, complex layout/Unicode fonts, parser resource isolation, source retention and upload replay remain open. UI unchanged; not HiChat parity acceptance.
+
+Document replay verification: PDF multipart retry with X-Gotek-Import-Id returns identical persisted draft IDs/response; changed bytes with same key return 409. Focused API test and build pass; no claim of new full-suite run.
+
+Partial provider usage: reproduced/fixed undefined total field rejection. Anthropic/Gemini fixtures normalize input 20/output 5 into total 25, estimated=false. Focused provider/accounting 9/9 and build pass; not live provider receipt.
+
+Provider total-token compatibility: ledger now accepts provider totals including cached/reasoning classes (total >= input+output) while rejecting totals below the sum. Local migration 032/033 applied; usage integration and full suite 102/102 pass.
+
+[2026-09-25 backend verification] `npm run build` PASS; `npm test` PASS 102/102. Verified tenant/RLS, knowledge import and chunk persistence, DOCX/PDF multipart replay, usage ledger, provider usage normalization, and worker metering. Open evidence remains semantic/vector retrieval, OCR, durable file storage, live provider receipt, daemon runtime, and widget end-to-end knowledge retrieval.
+
+### Grounded prompt token accounting
+- Fallback usage estimates now include system policy, question and serialized public knowledge context via the same workspacePrompt builder as the provider adapter. Reported provider token counts still take precedence.
+- Focused tests: 8/8 pass including worker PostgreSQL tests and context metering regression. Build pass. Estimates are approximate, not provider receipts. No UI changes.
+- Parallel agents could not deliver due usage limits; live agent inventory shows only root. Semantic retrieval and parity audit remain open.
+
+### Widget published-chunk retrieval
+- buildWidgetAiContext now queries persisted chunks of active published READY PUBLIC versions, with workspace predicates on all joins. Legacy versions without chunks use published content. Context limits remain enforced.
+- Provisional GoTek lexical policy: strip common question words, require all remaining terms with PostgreSQL simple text search, rank bounded candidates. Not semantic retrieval or proven HiChat backend behavior. Original question is preserved in the provider prompt.
+- Regression: natural question finds published source; another workspace cannot retrieve it; INTERNAL knowledge excluded. Initial OR-term matching admitted weak one-word matches; tightened to AND before verification.
+- Focused retrieval/worker/metering tests 4/4 PASS; TypeScript/Vite build PASS. No UI changes or live provider calls. Semantic/embedding and browser E2E remain open.
+
+### Knowledge revocation fence for AI replies
+- AI commit revalidates distinct source versions under workspace-scoped publication row locks before appendMessage. Inactive, INTERNAL, replaced publication or foreign-tenant source rejects with AI_KNOWLEDGE_REVOKED. Locks persist through message commit; provider I/O remains outside transaction.
+- Focused tests 4/4 PASS; real PostgreSQL tests cover public acceptance, duplicate version deduplication, internal/inactive/foreign denial; worker boundary regression covers rejected commit. Build PASS.
+- Remaining: coordinated concurrent publish/reply stress case, provider cost receipts for discarded replies, UI error/retry acceptance. No HiChat internal-backend equivalence claimed.
+
+[Full regression] After widget published-source retrieval and revocation fencing, `npm test` passed 103/103 and `npm run build` passed. A SQL parameter regression was caught by widget-context-bounds and fixed before final run. No UI changes; listed acceptance gaps remain open.
+
+[Regression rerun] Full suite passed 103/103 after correcting retrieval SQL parameter compatibility; build passed. Widget public context and AI revocation fence remain covered. No UI changes.
+
+[Chunk integrity] Added SHA-256 verification on stored chunk reads; tampered content is excluded before ranking/context. Focused retrieval/worker tests 6/6 and build pass. Full-suite rerun pending.
+
+[Full regression after chunk integrity] `npm test` PASS 104/104. Build PASS. Hash verification is covered by tampered-content test and existing tenant/widget/AI suites. No UI changes.
+
+[Platform Admin boundary review] Confirmed provider/model/grant management and Platform Agent routes require active platform_admins session, redact secret refs from registry, and resolve credentials server-side. Workspace routes cannot add/read provider secrets. Live provider configuration remains pending.
+
+### Runtime recovery and widget integrity correction
+- Started npm run dev in supervised exec session 56307. HTTP /api/health returned local-test ok, externalDelivery false; /app/auth/signup HTTP 200; /widget.js served compatibility loader. These are HTTP smoke checks, not signup or browser E2E acceptance.
+- Correction: prior chunk integrity change covered retrieveStoredChunks only, not buildWidgetAiContext. Now widget context also excludes stored chunks with mismatched SHA-256 before provider context construction. Legacy no-chunk fallback remains.
+- Focused widget bounds/integrity and PostgreSQL retrieval tests 3/3 PASS; build PASS. Previous 104-test result predates this correction.
+
+[Real HTTP auth smoke] Against local server 127.0.0.1:4317, health/signup/login/session/me/role denial/invalid password/logout/revocation all passed via scripts/local-auth-smoke.ts. This confirms backend connectivity behind the prior signup error; it is not browser UX acceptance. No external delivery.
+
+[Regression after HTTP smoke] Full test suite passed 105/105. Combined with real local HTTP auth smoke and widget integrity focused checks. No production deployment or external provider calls.
+
+[Browser signup smoke] Real local browser submission from signup page completed and rendered success message; prior connection error did not reproduce. Email verification and full authenticated browser UX remain unaccepted.
+
+[UI route audit] Local browser login route rendered expected auth controls and links. Signup route submission previously passed. Workspace console and HiChat visual parity still require screen-by-screen evidence; no unsupported parity claim made.
+
+[Authenticated console smoke] Disposable local Owner successfully logged in via browser. General settings and Knowledge routes rendered real controls and empty state; route wiring is present. Full save/error and HiChat visual parity acceptance remains pending.
+
+[Dashboard/inbox audit] Authenticated local Owner browser rendered conversation filters/empty state and inbox refresh/new-channel controls. No live visitor conversation or channel wizard acceptance yet; parity remains unclaimed.
+
+[Channel wizard audit] Browser observed real 3-step Website channel wizard, domain/greeting/theme inputs, collaborator selection and create gating. No channel was saved; generated widget key/install and live visitor E2E remain unverified.
+
+[Real channel/embed smoke] Browser Owner created and persisted an active Website channel in local/test. Step 4 showed channel UUID, registered origin restriction, public embed script/token and baseUrl. No provider secret exposed. Live visitor page and AI/human takeover E2E remain pending.
+
+### Widget relevance ordering correction
+Widget relevance ranking corrected to use question tsquery instead of audience; PostgreSQL top-1 regression with competing PUBLIC-word source passes. Focused 3/3 and build pass; semantic retrieval remains open.
+The previous parameter compatibility patch left ORDER BY using PUBLIC instead of lexical question terms. Fixed ranking expression; filtering and tenant guards unchanged. No UI changes.
+
+### Integrity filtering before result limit
+Widget rejects corrupt chunks in SQL before ranking/LIMIT; real PostgreSQL regression verifies valid second candidate returned with limit=1. Focused tests 3/3 and build pass.
+Fixture corruption rolled back. Semantic retrieval and provider/browser end-to-end acceptance remain open.
+
+[Resume AI] Backend endpoint implemented; focused unit test passes assigned-agent/admin transition, wrong-agent denial, stale version and already-AI state. Build PASS. Real DB/API/browser acceptance pending.
+
+### Resume AI API/DB integration evidence
+Resume AI verified via Express HTTP handlers and real PostgreSQL: concurrent requests yield 200/409, exactly one audit, visitor state AI_ACTIVE/version 3, no old-message enqueue, late human reply rejected, next visitor retry enqueues exactly one job. Focused tests 2/2 pass; browser/provider acceptance open.
+
+### Widget retry across ownership changes
+Widget message retries now lock conversation and detect prior receipt before AI enqueue. PostgreSQL/API tests cover old human-phase retry after resume and AI-phase retry after takeover/resume; no new jobs or idempotency conflicts. Focused 2/2 and build PASS; browser acceptance pending.
+
+### Visitor human handoff backend
+Visitor POST /widget-api/:key/handoff added: origin/session guarded, strict empty payload, serialized AI_ACTIVE to HANDOFF_PENDING transition increments owner_version once under concurrent requests. Subsequent visitor messages enqueue no AI jobs. API/PostgreSQL and chat ownership tests 2/2 PASS; build PASS. SDK/UI integration and live provider in-flight handoff acceptance remain open.
+
+### Visitor handoff during inference integration
+In-flight AI handoff now verified through actual visitor HTTP handler and real PostgreSQL, replacing direct SQL ownership mutation in worker integration test. Handoff returns version 2 and AI commit rejects STALE_REPLY_OWNER; obsolete output absent from messages. Injected provider only, not live model. Focused 3/3 PASS.
+
+### Explicit human request inbox visibility
+Explicit visitor handoff reopens resolved/snoozed conversations while preserving HUMAN_ACTIVE assignee and ownership version. Repeated pending handoff does not advance version. API/PostgreSQL regression 3/3 PASS. Provisional GoTek reopen policy; HiChat parity and browser controls still unverified.
+
+### Unconfigured AI handoff
+Worker now hands off with non-sensitive public unavailable message for missing model/config/secret instead of silent unknown job. Real DB test covers no model grant: zero provider calls, one fallback message and HANDOFF_PENDING. Worker tests 2/2 and build PASS. Other provider failures and browser acceptance remain open.
+
+### Runnable local AI worker
+Added npm run worker:ai: explicit UUID-scoped local/test CLI, existing provider adapter, one-shot/loop, bounded idle retry, status-only logs, SIGINT/SIGTERM graceful stop and pool close, production rejection. One-shot against local smoke workspace returned idle; build PASS. Real queued CLI delivery and multi-tenant scheduling remain open.
+
+### CLI queued delivery integration
+CLI integration verified with actual child process and isolated PostgreSQL workspace: ai.reply job succeeded with one attempt/handoff receipt, one public fallback, HANDOFF_PENDING; second --once returned idle. Fixture cleaned. No external provider calls. tests/worker-cli.test.ts PASS; daemon lifecycle/multi-tenant scheduling still open.
+
+2026-09-25 worker lifecycle: tests/worker-cli.test.ts passed real child-process --once delivery plus continuous worker idle/SIGTERM shutdown. Exit code 0, no leaked process observed. Local/test only; no provider call or production scheduling.
+
+### Document import receipts and provider errors integration
+- DOCX/PDF import now persists a tenant-scoped receipt with filename, MIME, byte size, SHA-256 and imported count. GET /api/knowledge/imports/:id enforces existing Owner/Admin role and tenant scope. Import and receipt commit atomically; idempotent document retry returns the same importId. Failed parsing rolls back: durable failed-attempt tracking and original binary storage remain open.
+- Resolved parallel migration numbering: embeddings 034, imports 035; both applied locally. Embedding branch is incomplete/unwired to provider generation and needs model-space compatibility and malformed-vector review; no semantic parity claim.
+- Removed unfinished Platform Agent workspace-context addition pending explicit access/scope contract; no new implicit platform access to tenant knowledge.
+- Provider transport classifies timeout/network/invalid JSON without sensitive response leakage.
+- Validation: knowledge-api + provider-transport tests 6/6 PASS, TypeScript PASS. Real DB/API verifies upload receipt, tenant denial and retry; no live provider call, UI changes or production acceptance.
+
+### Embedding retrieval compatibility guard
+- Semantic query now requires an explicit embedding model identifier and filters persisted candidates by model plus dimensions. Malformed vectors are rejected whole (never repaired by dropping elements); zero query/candidate vectors are rejected.
+- Focused retrieval/context tests 5/5 PASS and TypeScript PASS. Semantic assertions use mocked DB contract, lexical tenant/audience checks use actual DB. Provider embedding generation, real semantic DB/model end-to-end and relevance calibration remain open.
+
+### Persisted embedding result guard and DB evidence
+Added trusted storeKnowledgeEmbedding helper: strict finite nonzero vector, version/chunk/content-hash compare, READY version and actual content SHA-256 check before update. Stale or foreign source returns EMBEDDING_SOURCE_CHANGED. No public endpoint accepts vectors.
+Real PostgreSQL regression stores fixture vector, retrieves published source despite different wording, excludes another model and another workspace, rejects stale hash and cross-tenant write. Focused tests 6/6 PASS; TypeScript PASS. Fixture vectors are synthetic; provider generation/grant revalidation orchestration and relevance evaluation remain open.
+
+### Durable uploaded originals in local/test
+- Migration 036 stores bounded original bytes in a separate tenant-RLS table, transactionally with DOCX/PDF receipt and draft import. Metadata reads do not serialize file bytes.
+- Authenticated Owner/Admin GET /api/knowledge/imports/:id/file checks SHA-256 and size before attachment download with no-store. Legacy receipts without bytes return IMPORT_FILE_NOT_STORED; no invented original.
+- Real HTTP/PostgreSQL test verifies downloaded DOCX bytes equal fixture exactly, attachment/no-store headers, foreign workspace 404 and unauthenticated 401. Knowledge API suite PASS; TypeScript PASS. No UI edits. Production object storage/retention and failed-import history remain open.
+
+### Tenant upload history backend
+Added GET /api/knowledge/imports with strict bounded limit, status filter and tenant-validated keyset cursor (created_at,id). Metadata-only projection excludes original bytes.
+Real API/PostgreSQL assertions passed for two pages, same receipt after retry, completed/failed filters, foreign cursor/list isolation, anonymous denial, and live Agent role denial for both list and file download. Knowledge API integration PASS; TypeScript PASS. Durable failed-attempt capture and UI integration remain open; not Accepted.
+
+### Document parsing failures persist
+Document importer now commits known extraction failures as FAILED receipts and retains original bytes before returning the original HTTP error status/code plus importId/requestId. Same request/payload replays the failure receipt; different payload retains idempotency conflict semantics. Unknown infrastructure errors still roll back rather than being labeled parser failures.
+Real API/PostgreSQL test: invalid DOCX returns 400 INVALID_DOCUMENT, identical retry returns same receipt, FAILED history contains one record/count zero, no draft knowledge created. Existing successful upload/download/pagination suite PASS; TypeScript PASS. Multipart rejection, empty file and downstream batch-validation failure tracking remain open.
+
+### Integrated regression after import storage/history and embedding guards
+`npm test` completed with exit code 0: 110 tests, 110 passed, 0 failed, 0 skipped (16.3 seconds). Includes actual PostgreSQL/API tests for knowledge upload/history/download, workspace isolation, ownership handoff/resume and local worker subprocess; provider adapters and semantic query vectors remain fixture-based. This replaces the earlier 105-test baseline for the current checkout. Full HiChat acceptance, actual provider receipts and UI parity remain unproven. No production changes.
+
+### Platform Admin chat request replay
+Added actor-scoped request ledger (037) and transaction advisory lock before Platform Agent session creation/model invocation. Identical concurrent payloads replay the exact response, including local not_configured; changed content under same requestId returns 409.
+Real HTTP/PostgreSQL regression confirms concurrent initial chat requests create one session/one user message, equal responses and conflict on changed payload. Platform suite 2/2 PASS; TypeScript PASS. Local adapter fixture only: live provider side-effect recovery on process crash remains open, as does removing transaction across provider I/O.
+
+### Platform Agent prompt bounds
+Current request is excluded from history query and emitted once as question. Prompt builder keeps most recent 12k history characters and 16k source-content characters, uses JSON for untrusted references, preserves full current question. These are character budgets, not measured provider token limits. Focused prompt/platform tests 3/3 PASS and TypeScript PASS. No live provider receipt or quality acceptance.
+
+### Platform Agent adapter-path concurrency evidence
+Real Express/PostgreSQL test with intercepted provider fetch verifies two concurrent identical chat requests invoke OpenAI-compatible adapter exactly once; current question appears once in outgoing prompt, assistant response is persisted, later retry returns exact confirmed response with no extra invocation, one user/assistant pair per request. Platform tests 2/2 PASS. This is transport-fixture evidence, not an external provider receipt; process-crash recovery remains open.
+
+### Platform Agent concurrent distinct turns
+Existing-session chat acquires a session row lock before reading history and updates activity timestamp. Concurrent distinct turns are serialized so the second provider prompt includes the first committed assistant response. Real HTTP/PostgreSQL test with intercepted provider transport passes, as does updated_at advancement; focused platform suite 2/2 PASS, TypeScript PASS. The order is lock acquisition order, not client timestamp order. Transaction still spans inference; crash recovery and short-transaction orchestration remain open.
+
+### Grounded widget full backend flow
+Added tests/grounded-widget-flow.test.ts exercising real HTTP signup/login; Platform Admin provider/model enable/grant; workspace JSON knowledge import/process/publish; channel creation/install key; visitor session/resume AI/message enqueue; default worker provider adapter/context; persisted AI reply visible in widget; retry with one invocation; human takeover/reply and no AI job for later human-owned message.
+PASS and TypeScript PASS. Provider fetch intercepted with fixture answer/usage; this proves backend wiring, not external inference quality or HiChat/UI acceptance. Test workspaces remain isolated local fixture records.
+
+### Revocation during inference hands off
+Worker fallback now includes AI_MODEL_REVOKED and AI_KNOWLEDGE_REVOKED. Existing owner-version/lease checks still gate fallback publication. Grounded widget integration revokes model grant via Platform API during intercepted provider call: obsolete response is absent, visitor sees safe unavailable notice and HANDOFF_PENDING. Worker/integration tests 3/3 PASS; TypeScript PASS. Knowledge revoke fallback included but not separately exercised this turn; no live provider claim.
+
+### Disable workspace during inference
+Transactional AI handler now holds active-workspace SHARE lock during preparation and final commit; fallback transaction uses same gate. Provider I/O remains outside these transactions. Real API test disables workspace during intercepted inference: output is absent, job becomes unknown (no automatic retry), next worker run reports workspace_disabled. Worker/integration 3/3 PASS; TypeScript PASS. Provider expense reconciliation for discarded output remains open.
+
+### Provider failure handoff
+Worker classifies transport timeout/network/HTTP 4xx-5xx/invalid JSON/empty output as unavailable and commits one safe handoff notice under existing lease, ownership and active-workspace guards. No automatic provider retry. Job success here denotes a committed handoff receipt, not successful inference or known billing outcome.
+Grounded real API/DB integration exercises five intercepted transport failures: each invokes once, returns HANDOFF_PENDING, exposes no raw provider detail and next worker tick is idle. Focused worker/integration 3/3 PASS; TypeScript PASS. Live provider and uncertain expense reconciliation remain open.
+
+### Provider failure versus human takeover race
+Real HTTP/DB grounded flow now takes over through inbox API while intercepted provider throws timeout. Worker returns unknown, no fallback message is appended, HUMAN_ACTIVE and advanced owner version remain unchanged. Integration PASS. This proves fallback ownership fencing for that race, not live provider behavior.
+
+### Full regression after provider failure and tenant-disable fencing
+`npm test` current checkout: 112 tests, 112 passed, 0 failed, 0 skipped, exit code 0 (16.6s). Includes grounded widget/provider wiring, provider failure handoff, human-takeover race, workspace disable during inference, upload history/file storage and Platform Agent concurrency. This is local/test evidence only; actual provider receipt, HiChat screen parity and full H/E acceptance remain open.
+
+### Build and migration smoke after backend slices
+`npm run build` passed TypeScript and Vite production-local build (1917 modules; dist generated). `npm run db:setup` completed with all migrations already applied. This proves compile/startup migration consistency only; no staging or production deployment, live provider receipt or UI parity acceptance.
+
+### Provider embedding transport contract
+Added server-side invokeEmbedding for OpenAI-compatible/custom and Gemini response shapes. It returns only a validated finite nonzero vector plus model name; timeout/network/HTTP/JSON/invalid-vector errors are stable and secrets are never returned. Focused embedding/provider tests 6/6 PASS and TypeScript PASS. This is transport only: model grant resolution, chunk batching, persistence orchestration and live provider receipt remain open.
+
+### Granted embedding batch orchestration
+Added trusted embedKnowledgeBatch: bounded ordered published PUBLIC chunk selection, active tenant + enabled embedding grant/model/provider locks in short transactions, provider I/O outside transaction, current grant/publication/hash checks at commit. Stores registry model UUID as embedding identity; reruns skip completed matching-model chunks.
+Real API/PostgreSQL grounded test grants embedding model, stores injected vector, repeats with zero calls, revokes grant during inference and verifies no vector committed. Integration PASS; TypeScript PASS. No CLI/job scheduling or query embedding wiring yet; concurrency duplicate costs, embedding usage ledger and external receipt remain open.
+
+### Embedding transport routing guard
+Unsupported adapters now fail before fetch; custom_llm requires explicit endpoint rather than silently sending to OpenAI. Empty input/model/key rejected, null responses and vectors over persistence limit (4096 dimensions) become stable invalid-embedding errors. Focused transport tests 2/2 PASS; TypeScript PASS. Scheduling/query embedding and live receipts remain open.
+
+### Runnable local embedding worker
+Added npm run worker:embedding with explicit workspace/version/model selectors, production rejection, bounded batch size and status-only JSON logs. It invokes the trusted embedding batch and resolves provider secrets server-side; README documents API quota impact and one-operator-per-scope limitation. CLI tests 1/1 PASS; TypeScript PASS. No live provider call, scheduler concurrency, or cost-reconciliation claim.
+
+### Embedding identity compatibility fix
+Embedding persistence now stores the provider model name (the identity used by semantic retrieval) while authorization still uses the registry model UUID. Batch selection compares the same provider name, so reruns skip completed chunks correctly. Focused grounded/retrieval tests 4/4 PASS; TypeScript PASS.
+
+### Correction: registry identity for embeddings
+The earlier provider-name compatibility change was incorrect: retrieval accepts an identity parameter, it does not require a provider name. Reinstated registry UUID for batch selection/storage to prevent same-name provider model collision. Real DB regression now actually retrieves the batch-produced vector using registry UUID, rejects name-only query and verifies rerun skips the chunk. Grounded integration PASS; TypeScript PASS. Legacy name-keyed vectors require regeneration, not blind reassignment.
+Parallel agents scheduler_multitenant, usage_reconciliation and websource_sync all terminated at usage limit without reported implementation; root continued locally.
+
+### Granted question embedding context pipeline
+Added retrieveEmbeddedContext trusted helper: active workspace/embedding grant resolution, provider call outside transaction, post-call grant/config validation and public tenant/model-scoped semantic retrieval. Real DB integration verifies differently-worded question reaches injected embedding transport and retrieves chunk produced by batch under same registry identity. Integration and TypeScript PASS. Helper not yet wired to live widget worker, relevance threshold/quality evaluation and provider receipt still open.
+
+### Query embedding grant-revocation integration
+Real Platform API revokes embedding grant during injected question-vector inference; retrieveEmbeddedContext rejects MODEL_NOT_GRANTED after call and returns no context. A subsequent query with revoked grant is rejected before provider invocation (call count remains one). Grounded integration PASS; provider is fixture only. Widget runtime wiring remains open.
+
+### Embedding batch exclusion
+Added nonblocking PostgreSQL session advisory lock keyed by workspace/version (shared across model choices because chunks have one vector slot). A duplicate active batch returns EMBEDDING_BATCH_BUSY before inference. Lock connection carries no long-running transaction; finally unlocks or destroys connection on unlock failure. Real DB test attempts nested concurrent batch during provider callback and rejects it, then subsequent rerun skips completed chunks. Grounded integration and TypeScript PASS. Crash-after-provider cost reconciliation and scheduler remain open.
+
+### Embedding source revalidation before provider I/O
+The batch worker now rechecks PUBLIC publication state and the current chunk hash immediately before each provider request, in addition to commit-time fencing. If a chunk was edited or unpublished after selection, it returns EMBEDDING_SOURCE_CHANGED (or the publication error) without spending another provider call. TypeScript PASS; a full integration rerun remains pending.
+
+### Widget worker semantic retrieval wiring
+The AI reply preparation now discovers a separately granted embedding model server-side. Before chat provider invocation, the trusted worker requests semantic context using that model and replaces lexical context when successful; expected embedding configuration/provider failures fall back to the already validated lexical context. The final commit fences whichever sources were used. TypeScript and focused embedding/CLI tests PASS. Full grounded widget regression remains pending; no UI changes.
+
+### Semantic retrieval widget regression
+After runtime wiring, `npx tsx --test tests/grounded-widget-flow.test.ts` passed (1/1). The real PostgreSQL/API flow still covers published enterprise knowledge, granted provider, widget response, grant revocation, provider failures and human takeover; no UI changes were made. This is local fixture evidence, not a live provider receipt or HiChat acceptance.
+
+### Full backend regression after semantic wiring
+`npm test` passed 115/115 with the current local PostgreSQL runtime. Coverage includes tenant/RLS isolation, widget ownership/handoff, provider transport and fallback, H10 knowledge lifecycle/retrieval/embeddings, H11 fetch policy/parser, H23 usage ledger and H28 Platform Agent. This is local automated evidence; browser parity, live provider receipts and staging acceptance remain open.
+
+
+### Call-path audit correction
+Correction after direct call-path review: previous semantic widget wiring claim was inaccurate. Embedding call was in legacy aiReplyHandler only; production-path transactionalAiReplyHandler remained lexical. Removed misplaced nested-transaction call and unnecessary embedding lookup. Semantic helper and batch remain implemented separately; runtime integration and relevance evaluation OPEN. Existing grounded test did not prove semantic widget invocation. runAiWorkerAll is an unverified draft, not a deployed scheduler.
+
+### Tenant job claim fencing
+`claimJob` and `runWorkerOnce` now accept the handler kind allow-list, so a worker for `ai.reply` cannot claim crawler or unrelated tenant jobs. H32 regression passes 1/1 and TypeScript passes. This is a claim-level primitive only; a multi-tenant daemon, fairness policy and scheduler deployment remain open.
+
+### Transactional widget semantic retrieval integration
+The production `transactionalAiReplyHandler` now discovers an active embedding grant, performs question embedding outside the DB transaction, replaces lexical context when semantic sources are returned, applies grounded enforcement after final context selection, and preserves lexical fallback only for classified provider/configuration failures. Ownership/lease and final publication fences remain in the existing path. TypeScript and worker/widget focused tests 3/3 PASS. A dedicated paraphrase widget test and relevance threshold policy remain open; no live provider receipt.
+
+### Full regression after transactional semantic integration
+`npm test` passed 115/115. This confirms no regression across current local backend contracts after adding embedding lookup and outside-transaction semantic retrieval to the transactional AI worker. It still does not prove live provider receipt, calibrated relevance, browser parity or staging acceptance.
+
+### Local multi-tenant AI worker mode
+Added `worker:ai --all` for local/test dispatch. It discovers only active workspaces server-side under the platform context, processes them sequentially through the existing tenant-scoped claim/lease path, and emits status-only aggregate JSON. `GOTEK_WORKER_WORKSPACE` and `--all` are mutually exclusive. TypeScript PASS. This is not a production daemon or fairness/receipt acceptance.
+
+### Multi-tenant worker guard regression
+TypeScript and targeted worker/job tests pass (2/2): kind-fenced claims remain tenant-scoped and the existing child-process CLI handoff remains idempotent. `--all` is still local/test-only and has no production deployment evidence.
+
+### Scheduler backpressure/privacy correction
+Read-only scheduler audit found a hot-loop risk when any tenant succeeds. `--all` now sleeps 250ms between passes and logs only aggregate state counts, not workspace UUIDs. Targeted worker/job tests 2/2 and TypeScript PASS. Fairness, bounded concurrency and production daemon deployment remain open.
+
+### Semantic paraphrase runtime evidence
+Semantic runtime correction: embedding grant lookup moved inside platform registry context; prior placement was hidden by RLS. Real widget/API/PG test now restores grant and vector AFTER revocation fixture, proves zero lexical matches for How long is coverage?, asserts exactly one embedding call before one chat call, and reads grounded reply from public messages. TypeScript and focused integration PASS. Provider responses synthetic; relevance, race fencing and live receipt remain open. Previous full test process handle disappeared; no new full-suite success claimed.
+
+### Takeover during semantic retrieval
+Added short pre-chat transaction after embedding: validates active workspace, job lease, AI ownership/version and current published sources. Real API takeover during injected embedding yields one embedding call, ZERO chat calls and HUMAN_ACTIVE preserved. TypeScript and grounded integration PASS. Final commit fence remains; instantaneous post-check races are still fenced at commit, not claimed impossible before external I/O.
+
+### Scheduler RLS discovery correction
+Corrected --all tenant discovery: app.platform does not bypass workspace RLS, so previous implementation could silently discover zero tenants. Migration 038 adds a restricted SECURITY DEFINER function returning only active UUIDs in keyset pages <=100, PUBLIC execute revoked. Worker uses it without exposing workspace rows. Real PostgreSQL test verifies two active tenants visible, disabled excluded, no duplicates and full workspace SELECT still denied by RLS. TypeScript/test PASS; multi-tenant job execution and bounded total scheduling remain open. Prior audit claiming discovery was sound was incorrect.
+
+### Chat grant final-commit lock
+Final chat commit now checks chat capability and locks grant/model/provider rows FOR SHARE through reply/usage commit. TypeScript and focused metering/grounded tests pass (2/2). Existing real API revocation-before-commit test remains green; deterministic two-connection revoke-between-check-and-insert coverage still pending. Not a full concurrency acceptance claim.
+
+### Final provider grant lock regression
+A parallel real-PostgreSQL test proves final chat commit locks grant/model/provider rows through append and usage: admin FOR UPDATE NOWAIT receives 55P03 while AI reply transaction holds FOR SHARE; reply persists after release. Added chat capability check to default provider resolution. TypeScript, grant-lock test and focused worker tests pass. This proves lock fencing, not full revocation-before-provider or production acceptance.
+
+### Focused scheduler and AI safety regression
+TypeScript plus five focused tests passed: restricted active-tenant discovery, kind/tenant job fencing, CLI handoff, semantic widget flow with takeover, and final provider grant lock. This is the strongest current local backend evidence; full suite, browser, live provider and staging gates remain separate.
+
+### Bounded scheduler passes
+Bounded multi-tenant scheduler to one <=100-ID page per call; CLI retains keyset cursor and wraps on exhaustion. SIGTERM/SIGINT stops between tenants after in-flight work. Removed result casts; idle backoff restored to 1s, productive 250ms. TypeScript and existing discovery/single-tenant CLI tests pass; page traversal/shutdown integration still pending. --all --once explicitly means one page (README).
+
+### Scheduler page and stop regression
+Real PostgreSQL scheduler regression now inserts 105 empty tenants and calls runAiWorkerAll itself: first page exactly 100, stop-before-work preserves cursor, stop-after-two preserves remaining three, exhaustion resets cursor to null, and no provider call occurs. Fixture rows cleaned. TypeScript and focused test PASS. This verifies cooperative stop callback, not OS signal/child-process daemon shutdown.
+
+### Full regression after scheduler and provider fencing
+`npm test` passed 117/117. This includes the newly added final grant-lock test and restricted scheduler discovery/page/stop tests, alongside existing widget, knowledge, provider, quota, crawler security and Platform Agent coverage. It remains local automated evidence; browser parity, live provider receipt and staging acceptance are open.
+
+### Semantic embedding grant final fence
+When semantic context is selected, final AI commit now locks and revalidates the embedding grant/model/provider alongside the chat grant before publishing the reply. A revoked embedding model therefore cannot leave an already-produced semantic answer visible. TypeScript and focused context/grant/widget tests 3/3 PASS. Dedicated revoke-after-embedding barrier test remains open.
+
+### Embedding revocation fallback
+`AI_EMBEDDING_REVOKED` is now included in the worker's safe handoff class. If semantic context becomes invalid before final commit, the visitor receives the existing non-sensitive unavailable/handoff path and the job is completed without publishing a stale AI answer. TypeScript and focused widget/CLI/grant-lock tests 3/3 PASS.
+
+### Safe embedding-revoke regression
+After adding `AI_EMBEDDING_REVOKED` to safe handoff, TypeScript and five focused AI/worker tests pass. Existing ownership fencing, semantic widget flow, CLI idempotent handoff and final provider lock remain green. No UI or production deployment performed.
+
+### Current backend milestone audit
+The local backend safety milestone remains green: full suite 117/117 from the prior run, plus current focused fallback suite 5/5. Remaining backlog is broad and includes browser/HiChat visual parity, provider/live receipts, inbox UI behaviors, crawler durable refresh, quota reconciliation and release staging; these are not silently marked complete.
+
+### H11 refresh queue API
+H11 refresh request API added: Owner/Admin role, session tenant, active source lock, strict request UUID; durable web.refresh job with maxAttempts=3, replay same job and single audit under concurrent retries. API/PG test covers concurrency, foreign/anonymous denial and paused source. Worker execution/version storage/publish are still unimplemented; queued is not refreshed. TypeScript and H11 API test PASS.
+
+### H11 durable source snapshots
+H11 snapshot slice implemented in parallel: migration039 tenant/source/job composite FKs + RLS + insert-only snapshots; Owner/Admin history/detail APIs; runWebRefreshOnce captures one document outside transactions and locks/rechecks workspace/source/config/lease on commit. Real PG tests prove hash/content persistence, isolation, immutable grants, replay without refetch, pause/change/expired lease rejection and old snapshot retention. TypeScript + H11 focused tests 2/2 PASS. Not full crawler: no recursive traversal, automatic retry/failure history, knowledge conversion/publish or CLI scheduling yet. Generic failures currently unknown. Contract delivery/contracts/H11-REFRESH.md.
+
+### H11 API-to-snapshot readback
+Extended real API/PostgreSQL integration: authenticated refresh request, worker capture with injected HTML transport, snapshot history/detail readback, successful job replay, foreign-tenant/anonymous detail denial. `npx tsx --test tests/web-sources.test.ts` PASS 1/1. This proves local queue/storage/readback, not live website fetch or published knowledge. Parallel CLI and AI semantic provenance work remains in flight; no UI edits.
+
+### H11 local worker entry point integrated
+Added npm run worker:web, explicit workspace UUID, --once/loop, production guard, redacted state logs and graceful idle SIGTERM. Root verified TypeScript plus web-refresh-cli/web-refresh-worker/web-sources suites: 4/4 PASS. Real PG and child-process checks; network responses injected in snapshot tests. In-flight fetch shutdown, recursive crawling, retries, draft conversion and publish acceptance remain open. README documents usage and limitations.
+
+### Semantic provenance fix and H11 draft foundation
+Root re-ran tests/ai-semantic-provenance.test.ts PASS 1/1: lexical fallback survives unused embedding grant revocation; actual semantic use remains fenced with no answer/usage commit after revocation. Embedding transport is injected, not live receipt. Migration040 applied: WEB knowledge source plus immutable tenant/version snapshot mappings. Knowledge source filter now applies MANUAL/WEB in SQL. Snapshot import service/API is still in progress in assigned parallel branch, not complete. Contract appended to H11-REFRESH.md.
+
+### H11 import audit and current parallel work
+Snapshot-to-draft service/route now integrated. Added knowledge.web_imported audit in same transaction; concurrent replay emits exactly one event verified through audit API. TypeScript and tests/web-sources.test.ts PASS. New independent agents own only embedding transport handler/test and new long-text import tests; root owns routes/service/docs. Refresh-to-existing-item requires explicit target/version conflict handling and source identity mapping; it is not yet implemented, and repeated snapshots can still create separate draft items. No UI changes or acceptance claim.
+2026-09-26 root verification: tsc PASS; tests/ai-embedding-fallback.test.ts tests/ai-semantic-provenance.test.ts tests/web-snapshot-knowledge.test.ts tests/web-sources.test.ts: 4/4 PASS after local PG port restoration. Parallel agent turns errored; saved code was independently tested.
+
+### Generation replacement identity
+Publish now deactivates parent items absent from the selected child UPSERT items. Rollback compares item identity across the full prior manifest instead of only part index, removing replacement items before restoring original versions. Real PG runtime test uses a different item at index0 plus RETIRE tail and verifies child activation, old item deactivation, and inverse rollback state. TypeScript and focused test PASS. Reordering/visibility/concurrency/provenance acceptance remains open.
+
+### H13 contact foundation verified
+Migration042 and contacts create/list APIs implemented; fixed previously ignored cursor. Real API/PostgreSQL test verifies optional email/phone, concurrent request replay, payload conflict, same-name distinct IDs, keyset traversal, foreign cursor rejection, tenant isolation and audit counts. TypeScript and tests/contacts.test.ts PASS. Owner/Admin only currently; agent/team access, profile editing, merge, UI and full H13 acceptance remain open.

@@ -1,0 +1,6 @@
+Runtime import isolation
+Node standalone imports pg/argon2/express/cookie-parser/helmet/express-rate-limit/zod: OK.
+Trivial tsx script: OK.
+tsx dynamic import app.ts and widget.ts: timeout at 8s.
+Esbuild transpile app/widget: succeeds.
+No server listener or browser acceptance.

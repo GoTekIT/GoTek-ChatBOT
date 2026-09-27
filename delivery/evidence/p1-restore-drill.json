@@ -1,0 +1,342 @@
+{
+  "timestamp": "2026-09-27T15:26:55.905Z",
+  "source": "gotek_chatbot",
+  "target": "gotek_restore_4a44a63d0bbd46f6b6995510fd73fd6c",
+  "status": "PASS",
+  "durationMs": 3418,
+  "counts": {
+    "active_citation_permissions": 157,
+    "active_citation_sources": 313,
+    "active_citations": 313,
+    "ai_reply_dispatches": 171,
+    "ai_rules": 1512,
+    "ai_usage_ledger": 252,
+    "audit_events": 24150,
+    "challenges": 5347,
+    "channel_members": 408,
+    "channels": 639,
+    "contact_merge_history": 141,
+    "contact_tag_links": 64,
+    "contact_tags": 73,
+    "contacts": 253,
+    "conversations": 658,
+    "data_collection_completions": 0,
+    "data_collection_configs": 0,
+    "data_collection_mutations": 0,
+    "data_collection_outbox": 0,
+    "invitations": 202,
+    "jobs": 2415,
+    "knowledge_categories": 190,
+    "knowledge_chunks": 752,
+    "knowledge_import_files": 193,
+    "knowledge_imports": 195,
+    "knowledge_items": 2451,
+    "knowledge_mutations": 6127,
+    "knowledge_versions": 3360,
+    "legacy_active_citations": 0,
+    "local_delivery": 5537,
+    "memberships": 6332,
+    "messages": 2825,
+    "model_grants": 448,
+    "models": 467,
+    "onboarding_sources": 0,
+    "platform_admins": 838,
+    "platform_agent_messages": 58,
+    "platform_agent_requests": 37,
+    "platform_agent_sessions": 16,
+    "platform_audit": 3239,
+    "providers": 382,
+    "quota_budgets": 1298,
+    "schema_migrations": 57,
+    "sessions": 1373,
+    "support_grants": 654,
+    "usage_operations": 801,
+    "users": 6267,
+    "visitors": 658,
+    "web_snapshot_knowledge": 129,
+    "web_source_document_groups": 36,
+    "web_source_generation_parts": 110,
+    "web_source_generations": 52,
+    "web_source_snapshots": 102,
+    "web_sources": 202,
+    "workspaces": 7160
+  },
+  "contentHashes": {
+    "active_citation_permissions": "33bb4407af4b047d65d7a4dbee4d670ec1a404ebddc9814ca7a65d02c62e4197",
+    "active_citation_sources": "0d844a33e20c9c34159bcc479b7342e334ab2127ef6fe4e2f8dad5b6cfd8963d",
+    "active_citations": "40230b138c0552dd2669950661c7dd6444fb3b3aab9c5aa3a8f5fb4d1b532a8d",
+    "ai_reply_dispatches": "6cabae8d5e122b8cdc956be48c92555c94a4de0c5be005c8f59a765c2613ba1f",
+    "ai_rules": "ba7387de6af9086ab3cb26ad88991f090bc8c24660ba83c2ce25f7b9383ba411",
+    "ai_usage_ledger": "4ff2d4879cce491518014dafd08b41ec0e04cdc4e110a6099b2b33e66435f334",
+    "audit_events": "ee7b76972bdf1784294305e51f94274c76ccffb4f6ab3fa017ba02bc28403596",
+    "challenges": "7981f79c67526ed6a48bfd10529a94ab7740dcea84140c5dc6dfa7b43768b4d8",
+    "channel_members": "590bb7604a8738c0b5e60a7f6feaa2849326888749e17018aa3a0e81b1d35691",
+    "channels": "b2e48968973aa482e2e073ca100949da5c62d189628660980915a63dd2776036",
+    "contact_merge_history": "e58fe4026df09ed2be29284d4a22f0e382d273f0d7b1c70cfae7b4bd7484bb64",
+    "contact_tag_links": "b0968a021e4021124546403333159c166926a4c28d906430fd8a2eee77add34c",
+    "contact_tags": "b4c4b13114c977711952f7f29464a27178d9f543b6eca9b1015de8c93e69dc8b",
+    "contacts": "a438b21dc05adee8415aba06607bab4becebf6dc7fed2535b729859b0d595c34",
+    "conversations": "cfd5846b1a240149e984bf41b8c85cb57594b45b0f0b21aa1885ad37312b78c0",
+    "data_collection_completions": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "data_collection_configs": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "data_collection_mutations": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "data_collection_outbox": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "invitations": "e7ba14a97d7bbe69bed6cc3eb8d73214bff22780f245fc1697d69d809a00ca99",
+    "jobs": "db9c4829a5e89ba4e7cc24f5c26720a9ce2a89f445a12f3b94bf6bb0abc91ceb",
+    "knowledge_categories": "fdee7c6ecddbde4c8b43a1cb23fc764a35d0697c25ad59e5dc3bb3435426c9ba",
+    "knowledge_chunks": "1fe50dddde3332ab5b2612604dd27437eb9922f2f1bfbc9818ad4aa3bd5801db",
+    "knowledge_import_files": "01407288f9456f9cbd10f39ad4abe404f5c78f6ddab4538a7920e9a14d3ae30c",
+    "knowledge_imports": "fff890baff67a392eb4d8c89dc898eb1638fe72e3a824bd39ab88207842ef0bc",
+    "knowledge_items": "2fcf1ebc873a21360e29c7594a460e5a467727f6ad2855dbd135acc328a8dd69",
+    "knowledge_mutations": "1ef67042a6bb4c5a8273c1cf43b891d8d485c3cfa1049dca1002e1127745f3fa",
+    "knowledge_versions": "6dbeb21ce5b5b97a1cbddd5892e72fc4946f83fe2f81770ed4dab99c28cc8a63",
+    "legacy_active_citations": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "local_delivery": "db212f004158af8d1f0cc8be0e20e5bc2cc1c4c4144aa7733688aa667608a4e4",
+    "memberships": "c56633a91a371bad44e0374f9b511b39752966ea36b62e336d635a8f8f7e750c",
+    "messages": "586110fcc5b073a7b516e4ae25ed7baeb54d5e8a29c5f5fd262285e4b28df168",
+    "model_grants": "7ef7431b01d31168f1f90f77c174c59c6715b3cb3cc793fe9ed14aa5605c502d",
+    "models": "33bf43fe5eb2cb0d81e63a13c0fd8c106b7d858f8bd58287155663bc6055b5b0",
+    "onboarding_sources": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "platform_admins": "c19b0ae1aadadf8c3bb6efb28bb97868aac7f1c8cdcce9540a7a346470432f54",
+    "platform_agent_messages": "862a8850b4c38be1e67c88df597df64f64340b01540cf474bb91e98ee469e24e",
+    "platform_agent_requests": "cae56600310c6d027a0535758446a9eb93f18b0c0dd4afe5c412242ff5e202b6",
+    "platform_agent_sessions": "dc8ced76b94f46da83d22c14d918093a202b4074e29c594bf0e48b6eb863041b",
+    "platform_audit": "929595b777f4dff061f1447d58a7f46fc7a71aca14698ba94c899865c096af52",
+    "providers": "455b3055ec41fa89cdde31d02f14ef085167196900e41fc74d28055b6a4eef6b",
+    "quota_budgets": "94ee9bbaa89c37e04d8f821e0446598d19cc684298808c87272b505c4bf0989d",
+    "schema_migrations": "7847ae0557e267b96401cd1716c2e258ca831338f8562b1df181bbcab6cd0929",
+    "sessions": "1e0dd969ead4e7015d9ab503b81cf4a74790596e5896f700eb7b2f8eb780392d",
+    "support_grants": "f1dcd358b35608a191a3eff2183a1e3581bb22fb8a37a6aa49f441babd2f1f44",
+    "usage_operations": "0c5aea5bc9a9fa476d80e4c20220ebd6cf46cfd1b3c736528859e8bb5e3b566f",
+    "users": "82c9e996040348abbcb6eb692f2aa08e1a894e9d202786bea749b968361bb261",
+    "visitors": "1b224d388fe96020da75791c1ea6ece34eb106c7c3be578bd0d01e6cd034b97d",
+    "web_snapshot_knowledge": "48bf75e4a83c142b323da08ff8bd9691ee767e4dfa58a8912595f0bac93c88f3",
+    "web_source_document_groups": "30d522bdb4eeeb725613629340c5800e92a75528b18494210971fbe8198474e5",
+    "web_source_generation_parts": "c10810025d0002bfcc7e317369c6603784398c1979eaa4f640c1a546a89dbc6d",
+    "web_source_generations": "cb0902ac3b1071c8be74d602fb241a552c3fdfe7d4b9ff54ff46a7e9177f9488",
+    "web_source_snapshots": "25a2a2d4c15dd76b019aaf0654352aef41257df5860c52a71c6e1662fa6c745e",
+    "web_sources": "139a07dc66aa8c9f3a93bac1cbbf7cdc35f1afa4ac2e04fc1fae579728c583e2",
+    "workspaces": "fe5e9aa005d04167e27769374d93f3f75a809da10aa757e6d441cb90533018c9"
+  },
+  "backupSha256": "f7db355de21715b3f862db477d7da0e2a80dd6f03f38c9d6fc57d25468d46c9d",
+  "policies": [
+    {
+      "tablename": "active_citation_permissions",
+      "policyname": "active_citation_permissions_scope"
+    },
+    {
+      "tablename": "active_citation_sources",
+      "policyname": "active_citation_sources_scope"
+    },
+    {
+      "tablename": "active_citations",
+      "policyname": "active_citations_scope"
+    },
+    {
+      "tablename": "ai_reply_dispatches",
+      "policyname": "ai_reply_dispatches_scope"
+    },
+    {
+      "tablename": "ai_rules",
+      "policyname": "ai_rules_scope"
+    },
+    {
+      "tablename": "ai_usage_ledger",
+      "policyname": "ai_usage_ledger_scope"
+    },
+    {
+      "tablename": "audit_events",
+      "policyname": "audit_scope"
+    },
+    {
+      "tablename": "channel_members",
+      "policyname": "channel_member_scope"
+    },
+    {
+      "tablename": "channels",
+      "policyname": "channel_public_lookup"
+    },
+    {
+      "tablename": "channels",
+      "policyname": "channel_scope"
+    },
+    {
+      "tablename": "contact_merge_history",
+      "policyname": "contact_merge_history_scope"
+    },
+    {
+      "tablename": "contact_tag_links",
+      "policyname": "contact_tag_links_scope"
+    },
+    {
+      "tablename": "contact_tags",
+      "policyname": "contact_tags_scope"
+    },
+    {
+      "tablename": "contacts",
+      "policyname": "contacts_scope"
+    },
+    {
+      "tablename": "conversations",
+      "policyname": "conversations_scope"
+    },
+    {
+      "tablename": "data_collection_completions",
+      "policyname": "data_collection_completions_tenant"
+    },
+    {
+      "tablename": "data_collection_configs",
+      "policyname": "data_collection_configs_tenant"
+    },
+    {
+      "tablename": "data_collection_mutations",
+      "policyname": "data_collection_mutations_tenant"
+    },
+    {
+      "tablename": "data_collection_outbox",
+      "policyname": "data_collection_outbox_tenant"
+    },
+    {
+      "tablename": "invitations",
+      "policyname": "invitation_scope"
+    },
+    {
+      "tablename": "jobs",
+      "policyname": "job_scope"
+    },
+    {
+      "tablename": "knowledge_categories",
+      "policyname": "knowledge_categories_scope"
+    },
+    {
+      "tablename": "knowledge_chunks",
+      "policyname": "knowledge_chunks_scope"
+    },
+    {
+      "tablename": "knowledge_import_files",
+      "policyname": "knowledge_import_files_scope"
+    },
+    {
+      "tablename": "knowledge_imports",
+      "policyname": "knowledge_imports_scope"
+    },
+    {
+      "tablename": "knowledge_items",
+      "policyname": "knowledge_items_scope"
+    },
+    {
+      "tablename": "knowledge_mutations",
+      "policyname": "knowledge_mutations_scope"
+    },
+    {
+      "tablename": "knowledge_versions",
+      "policyname": "knowledge_versions_scope"
+    },
+    {
+      "tablename": "legacy_active_citations",
+      "policyname": "active_citations_scope"
+    },
+    {
+      "tablename": "messages",
+      "policyname": "messages_scope"
+    },
+    {
+      "tablename": "model_grants",
+      "policyname": "grants_platform"
+    },
+    {
+      "tablename": "models",
+      "policyname": "models_platform"
+    },
+    {
+      "tablename": "onboarding_sources",
+      "policyname": "onboarding_sources_scope"
+    },
+    {
+      "tablename": "platform_agent_messages",
+      "policyname": "platform_agent_messages_scope"
+    },
+    {
+      "tablename": "platform_agent_requests",
+      "policyname": "platform_agent_requests_actor"
+    },
+    {
+      "tablename": "platform_agent_sessions",
+      "policyname": "platform_agent_sessions_scope"
+    },
+    {
+      "tablename": "platform_audit",
+      "policyname": "platform_audit_scope"
+    },
+    {
+      "tablename": "providers",
+      "policyname": "providers_platform"
+    },
+    {
+      "tablename": "quota_budgets",
+      "policyname": "quota_scope"
+    },
+    {
+      "tablename": "support_grants",
+      "policyname": "support_subject_read"
+    },
+    {
+      "tablename": "support_grants",
+      "policyname": "support_tenant"
+    },
+    {
+      "tablename": "usage_operations",
+      "policyname": "usage_scope"
+    },
+    {
+      "tablename": "visitors",
+      "policyname": "visitors_scope"
+    },
+    {
+      "tablename": "web_snapshot_knowledge",
+      "policyname": "web_snapshot_knowledge_scope"
+    },
+    {
+      "tablename": "web_source_document_groups",
+      "policyname": "web_source_document_groups_scope"
+    },
+    {
+      "tablename": "web_source_generation_parts",
+      "policyname": "web_source_generation_parts_scope"
+    },
+    {
+      "tablename": "web_source_generations",
+      "policyname": "web_source_generations_scope"
+    },
+    {
+      "tablename": "web_source_snapshots",
+      "policyname": "web_snapshot_scope"
+    },
+    {
+      "tablename": "web_sources",
+      "policyname": "web_sources_scope"
+    },
+    {
+      "tablename": "workspaces",
+      "policyname": "workspace_scope"
+    }
+  ],
+  "quarantine": {
+    "serverStarted": false,
+    "workerStarted": false,
+    "sessionsCleared": true,
+    "challengesCleared": true,
+    "deliveryCleared": true,
+    "invitationsRevoked": true,
+    "jobsQuarantined": true,
+    "providersDisabled": true,
+    "modelGrantsRevoked": true,
+    "supportGrantsRevoked": true,
+    "visitorSessionsExpired": true
+  },
+  "limitations": [
+    "Database only: object storage and vector index not implemented yet",
+    "No production RPO/RTO acceptance",
+    "Backup contains test credentials; private local storage, not committed"
+  ]
+}

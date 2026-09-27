@@ -1,0 +1,5 @@
+H09 browser edit gate — 2026-09-24
+- Route requested: http://127.0.0.1:4317/settings/ai-rules
+- Browser state: Gotek local/test login screen (Email, Mật khẩu, Đăng nhập); authenticated session no longer present.
+- No credential input performed.
+- Result: browser edit/save/reload acceptance not verified. API tests/build remain separate evidence.

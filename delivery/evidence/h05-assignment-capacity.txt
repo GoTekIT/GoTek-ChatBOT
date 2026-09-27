@@ -1,0 +1,15 @@
+TAP version 13
+# Subtest: H05 assignment capacity serializes concurrent widget sessions and takeover rejects stale owner
+ok 1 - H05 assignment capacity serializes concurrent widget sessions and takeover rejects stale owner
+  ---
+  duration_ms: 302.11125
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2829.367542

@@ -1,0 +1,5 @@
+2026-09-24
+scope: H03.04 Inbox drafts
+change: hydration guard before localStorage write; malformed stored value ignored
+verification: npm run build PASS; npm test PASS 17/17
+remaining: browser reload/restore acceptance

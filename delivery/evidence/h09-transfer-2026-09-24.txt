@@ -1,0 +1,21 @@
+H09 transfer slice evidence — 2026-09-24
+- Focused test: `node --import tsx tests/rules-transfer.test.ts` => 1/1 pass.
+- Build: `npm run build` => tsc + Vite pass, 1910 modules.
+- Browser route `/settings/ai-rules` visibly includes Xuất JSON and Chọn tệp.
+- API contract: GET `/api/ai/rules/export` returns workspace-scoped JSON without IDs; POST `/api/ai/rules/import` validates strict rows, creates only in current workspace, never overwrites, and audits each import.
+- Scope limitation: handoff asks XLSX/CSV; JSON is interim and does not satisfy final H09 acceptance.
+
+Roundtrip correction:
+- Found export includes version/exportedAt but strict importer rejected those fields. Import schema now accepts version 1 and an ISO exportedAt; unknown versions still fail 400.
+- Integration test submits the exact exported response, asserts new rule ID and preserved title. Clean TAP exit 0 (1 test); build passes 1910 modules.
+- Test pool teardown now runs even after assertion failure.
+
+Idempotency evidence update 2026-09-25:
+- `tests/rules.test.ts` now asserts same workspace/requestId + same payload returns the original rule ID, while a conflicting payload returns 409.
+- Focused TAP assertion passed; `npm run build` passed (1910 modules).
+
+2026-09-25: expanded API integration evidence (clean exit 0).
+- A valid first row followed by an invalid second row returns 400 VALIDATION; exact rule export and audit readbacks unchanged.
+- Import rejects caller-supplied rule IDs.
+- A second signed-in workspace exports no first-workspace rules; importing into second workspace leaves first workspace export unchanged.
+- Does not test forced database failure mid-batch or retry idempotency; those remain open.

@@ -1,0 +1,7 @@
+Core retrieval authorization — 2026-09-25
+
+Added GET /api/knowledge/retrieve and Owner/Admin-only GoTek preview. Retrieval is tenant-scoped and returns only active knowledge items whose published version is READY; audience PUBLIC/INTERNAL is explicit. It returns versioned citation metadata. Widget-facing helper forces PUBLIC and reports NO_PUBLISHED_SOURCE when empty. Search treats user symbols literally, avoiding SQL wildcard broadening.
+
+DB/API integration test covers draft and READY-unpublished exclusion, public/internal separation, tenant isolation, published pointer stability after draft edit, inactive exclusion, citation version, Agent 403, anonymous 401 and literal percent query. Focused test 1/1 passed; full suite 68/68 passed; build 1,917 modules passed.
+
+This is deterministic lexical retrieval, not yet embedding/vector RAG or a provider receipt. AI Agent automatic retrieval wiring and browser acceptance remain open.

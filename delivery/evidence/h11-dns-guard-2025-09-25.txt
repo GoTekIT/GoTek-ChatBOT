@@ -1,0 +1,4 @@
+H11 DNS guard evidence — 2025-09-25
+- 2 focused tests passed; build passed.
+- Test resolver demonstrates public host resolving to RFC1918 is blocked, localhost/metadata blocked, safe public address accepted, redirect target revalidated.
+- Production crawler not enabled. Socket pinning and DNS rebinding race defense remain required before any network fetch.

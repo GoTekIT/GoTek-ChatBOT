@@ -1,0 +1,6 @@
+H01 local token verification
+Scope: real PostgreSQL + HTTP API, synthetic account only.
+Focused test: 1/1 passed.
+Verified: signup creates local delivery for the exact test user; verification sets verified_at; replay and expired token rejected.
+Fixture cleanup now uses a transaction and deletes dependent rows before user/workspace; earlier failures were cleanup FK violations.
+Not verified: external email receipt, production configuration, browser verification link.

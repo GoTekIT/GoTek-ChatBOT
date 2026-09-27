@@ -1,0 +1,5 @@
+Command: node --import tsx --test tests/rules-csv.test.ts
+Result: 2 passed, 0 failed, exit 0.
+Cases: UTF-8 BOM, Vietnamese, quoted commas and quotes, embedded CRLF/LF, trailing CRLF; reject unknown/empty active, extra columns, unclosed or misplaced quotes, header-only file.
+Build: npm run build passed.
+Scope: parser roundtrip only; not full import workflow, XLSX or HiChat parity acceptance.

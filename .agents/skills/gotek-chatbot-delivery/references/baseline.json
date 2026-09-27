@@ -1,0 +1,8 @@
+{
+  "baseline": "GoTek handoff v2.0 2026-09-24",
+  "source_sha256": "7fc390cf2376778a0e3a62da7958a3d7e6d9fd1129ac3b7a356d75fe56a9de78",
+  "modules": 32,
+  "subfunction_tickets": 158,
+  "post_core_groups": 12,
+  "note": "Snapshot; prefer newer user-approved workspace decisions. Internal [[anchor|label]] notation preserves handoff references; search headings in Markdown."
+}

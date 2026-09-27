@@ -1,0 +1,4 @@
+HiChat UI reference survey — 2026-09-25
+Actual authenticated hichat.asia sandbox was read only. Desktop 1440 screenshot: research/ui-evidence/h09-rules-1440-live.png. H09 list/create: h09-rules-live-2026-09-25.png and h09-rule-create-live-2026-09-25.png. H10: h10-knowledge-1440-live.png. H11: h11-list-live.png and h11-create-live.png.
+Observed structure used for GoTek UI: dark shell, top verification banner, rail/sidebar, AI settings tabs, explanatory panel, modal create flow, search/filter controls and empty-state CTA. H09/H11 UI branches used these observations with native DOM dialogs and scoped CSS. No generated vector substituted for screenshot evidence.
+Gaps: H10/H11 populated/error states and full browser acceptance in local app remain open; screenshots prove HiChat source observations, not GoTek parity acceptance.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "GoTek Chatbot Delivery"
+  short_description: "Triển khai GoTek Chatbot theo đặc tả HiChat"
+  default_prompt: "Dùng $gotek-chatbot-delivery để lập và kiểm tra công việc cho hạng mục GoTek Chatbot theo hồ sơ bàn giao."

@@ -1,0 +1,15 @@
+{
+  "F01_F18": true,
+  "H01_H32": true,
+  "sections_13": true,
+  "no_credentials": true,
+  "sources_embedded": true,
+  "navigation_bookmarks": true,
+  "rendered_pages": 29,
+  "visually_reviewed_pages": 29,
+  "visual_layout_pass": true,
+  "latest_render": "research/handoff-update",
+  "unchanged_verified_pages": "1-21",
+  "updated_pages_visually_reviewed": "22-29",
+  "reports_label_team_lark_forms": true
+}

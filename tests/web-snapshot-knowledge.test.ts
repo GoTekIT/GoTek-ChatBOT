@@ -1,0 +1,62 @@
+import {test,after} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import pg from 'pg';
+import {pool,scope,transaction} from '../src/server/db';
+import {enqueueJob} from '../src/server/jobs';
+import {importWebSnapshotKnowledge} from '../src/server/web-snapshot-knowledge';
+import {updateKnowledge} from '../src/server/knowledge';
+const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+after(async()=>{await pool.end();await admin.end();});
+test('web snapshot import preserves Unicode, remains private draft, rejects invalid input atomically and replays original provenance',async()=>{
+ const workspace=randomUUID(),other=randomUUID(),user=randomUUID(),source=randomUUID();
+ const actor={workspace_id:workspace,user_id:user,role:'Owner'};
+ await admin.query('INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,$3,$4,$5)',[user,`${user}@test.invalid`,'Snapshot import','000','fixture']);
+ await admin.query('INSERT INTO workspaces(id,name) VALUES($1,$2),($3,$4)',[workspace,'Snapshot import',other,'Other import']);
+ await admin.query('INSERT INTO web_sources(id,workspace_id,name,url,type,created_by) VALUES($1,$2,$3,$4,$5,$6)',[source,workspace,'Import','https://example.com/','URL',user]);
+ const snapshot=async(document:unknown)=>{
+  const job=await transaction(async db=>{await scope(db,workspace);return enqueueJob(db,workspace,{kind:'web.refresh',key:randomUUID(),payload:{sourceId:source},external:false});});
+  const id=randomUUID();await admin.query('INSERT INTO web_source_snapshots(id,workspace_id,source_id,job_id,content_hash,document) VALUES($1,$2,$3,$4,$5,$6)',[id,workspace,source,job.id,'a'.repeat(64),document]);return id;
+ };
+ const run=(id:string,body:unknown={itemIndex:0,title:'Đọc nguồn web'},who=actor)=>transaction(async db=>{await scope(db,who.workspace_id);return importWebSnapshotKnowledge(db,who,source,id,body);});
+ const counts=async()=> (await admin.query('SELECT (SELECT count(*) FROM knowledge_items WHERE workspace_id=$1) AS items,(SELECT count(*) FROM knowledge_versions WHERE workspace_id=$1) AS versions,(SELECT count(*) FROM web_snapshot_knowledge WHERE workspace_id=$1) AS links,(SELECT count(*) FROM audit_events WHERE workspace_id=$1) AS audits',[workspace])).rows[0];
+ try{
+  const content='  '+('Dữ liệu 😀 doanh nghiệp\n'.repeat(240))+' kết thúc  ';
+  const id=await snapshot({kind:'URL',items:[{title:'Original',text:content}]});
+  const result=await run(id);assert.ok(result.items.length>2);
+  assert.equal(result.items.map((x:any)=>x.content).join('').replace(/\s/gu,''),content.replace(/\s/gu,''));
+  result.items.forEach((x:any,i:number)=>{assert.equal(x.partIndex,i);assert.equal(x.state,'DRAFT');assert.ok(Array.from(x.content).length<=2000);assert.ok(!x.content.includes('\ufffd'));});
+  const stored=(await admin.query('SELECT audience,source_type,published_version_id FROM knowledge_items WHERE workspace_id=$1',[workspace])).rows;
+  assert.equal(stored.length,result.items.length);stored.forEach(x=>{assert.equal(x.audience,'INTERNAL');assert.equal(x.source_type,'WEB');assert.equal(x.published_version_id,null);});
+  const original=result.items[0];
+  const edited=await transaction(async db=>{await scope(db,workspace);return updateKnowledge(db,actor,original.itemId,{title:'Biên tập',content:'Nội dung mới',expectedRevision:1,requestId:randomUUID()});});
+  assert.notEqual(edited.draft_version_id,original.draftVersionId);
+  const before=await counts();
+  const replay=await run(id);assert.deepEqual(replay,result);assert.deepEqual(await counts(),before);
+  await assert.rejects(run(id,{itemIndex:0,title:'Thay tên'}),{code:'IDEMPOTENCY_CONFLICT'});
+  await assert.rejects(run(id,undefined,{...actor,role:'Agent'}),{code:'FORBIDDEN'});
+  await assert.rejects(run(id,undefined,{...actor,workspace_id:other}),{code:'NOT_FOUND'});
+  assert.equal(await transaction(async db=>{await scope(db,other);return (await db.query('SELECT * FROM web_snapshot_knowledge WHERE snapshot_id=$1',[id])).rowCount;}),0);
+  const sitemap=await snapshot({kind:'SITEMAP',items:[{url:'https://example.com/'}]});
+  await assert.rejects(run(sitemap),{code:'SOURCE_REQUIRES_CRAWL'});
+  const empty=await snapshot({kind:'RSS',items:[{text:' \n\t '}]});
+  await assert.rejects(run(empty),{code:'SOURCE_CONTENT_EMPTY'});
+  await assert.rejects(run(id,{itemIndex:999,title:'Missing'}),{code:'SOURCE_CONTENT_EMPTY'});
+  await assert.rejects(run(id,{itemIndex:-1,title:'Negative'}),{name:'ZodError'});
+  const oversized=await snapshot({kind:'URL',items:[{text:'😀'.repeat(200001)}]});
+  await assert.rejects(run(oversized),{code:'SOURCE_CONTENT_LIMIT'});
+  assert.deepEqual(await counts(),before,'all rejected imports leave knowledge, provenance, and audit unchanged');
+ }finally{
+  await admin.query('DELETE FROM web_snapshot_knowledge WHERE workspace_id=$1',[workspace]);
+  await admin.query('UPDATE knowledge_items SET draft_version_id=NULL,published_version_id=NULL WHERE workspace_id=$1',[workspace]);
+  await admin.query('DELETE FROM knowledge_versions WHERE workspace_id=$1',[workspace]);
+  await admin.query('DELETE FROM knowledge_mutations WHERE workspace_id=$1',[workspace]);
+  await admin.query('DELETE FROM knowledge_items WHERE workspace_id=$1',[workspace]);
+  await admin.query('DELETE FROM audit_events WHERE workspace_id=$1',[workspace]);
+  await admin.query('DELETE FROM web_source_snapshots WHERE workspace_id=$1',[workspace]);
+  await admin.query('DELETE FROM jobs WHERE workspace_id=$1',[workspace]);
+  await admin.query('DELETE FROM web_sources WHERE workspace_id=$1',[workspace]);
+  await admin.query('DELETE FROM workspaces WHERE id=ANY($1::uuid[])',[[workspace,other]]);
+  await admin.query('DELETE FROM users WHERE id=$1',[user]);
+ }
+});

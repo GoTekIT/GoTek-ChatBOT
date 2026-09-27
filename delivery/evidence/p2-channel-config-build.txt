@@ -1,0 +1,5 @@
+2026-09-24
+command: npm run build
+result: PASS (tsc --noEmit; vite build)
+artifact: src/web/ChannelConfiguration.tsx
+scope: H05 UI save separation, assignment controls, pre-chat validation

@@ -1,0 +1,15 @@
+{
+  "version": "2.0",
+  "pages": 74,
+  "anchors": 61,
+  "internal_links": 499,
+  "missing_anchors": [],
+  "images": 49,
+  "diagrams": 45,
+  "H01_H32": true,
+  "E01_E12": true,
+  "subfunctions": 158,
+  "F01_F18": true,
+  "visual_review": "Reviewed all 74 pages via full-page inspection (30–45) and layout contact sheets (1–29,46–74); final changed pages 2,32,35,42 checked separately. No clipping or overlap observed.",
+  "sha256": "4a01762f6db3d0eb667ce12008566262f42d5d0831cccc84feab91c9d6c26007"
+}

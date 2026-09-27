@@ -1,0 +1,5 @@
+H11 fetch policy evidence
+- Focused test: 1 passed.
+- Validates max pages/depth/body bytes/timeout/redirects/delay and rejects out-of-range values; redirect/body budget assertions throw.
+- Build passes.
+- Policy is a reusable primitive only; no network fetch was executed.

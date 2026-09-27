@@ -1,0 +1,5 @@
+H09 corrective review/build
+- Read-only review found Agent navigation exposed an Owner/Admin-only route; corrected in main.tsx by role-gating /settings/ai-rules.
+- api.ts now maps non-JSON/malformed responses to ApiError(INTERNAL), preserving user-facing error state.
+- npm run build completed: tsc --noEmit and Vite transformed 1909 modules; dist generated successfully.
+- Remaining gaps: optimistic expectedVersion, create idempotency, overlapping list request ordering, browser verification, import/export and AI execution. H09 remains In Progress.

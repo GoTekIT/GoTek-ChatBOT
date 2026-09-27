@@ -1,0 +1,5 @@
+H12 data collection slice — 2026-09-25
+
+Implemented migration022 and tenant/RLS backend for configuration, fields, MISSING/COLLECTING state, completion dedupe, sync outbox and Owner/Admin controls. Routes: GET/PUT /api/data-collection and POST /api/data-collection/complete. Added GoTek settings UI at /settings/data-collection with save/error/status states.
+
+Verification: npm run db:setup applied 022_data_collection.sql; npm run build passed 1,916 modules; full npm test passed 65/65. Contract test is present; complete route browser acceptance and destination provider receipts remain open.

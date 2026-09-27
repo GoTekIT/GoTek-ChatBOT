@@ -1,0 +1,10 @@
+H09 bundled runtime smoke (local/test)
+- Runtime: Node 20 + esbuild bundle, PostgreSQL 16 local 127.0.0.1:55432, no external delivery.
+- Bundle command used server entry with express/cookie-parser/helmet/rate-limit/zod external and pg/argon2 external; listener printed LISTEN_OK.
+- GET /api/health returned 200: {"status":"ok","environment":"local-test","externalDelivery":false}.
+- Signup returned 202; login returned 200; authenticated GET /api/ai/rules returned 200 and [] for a fresh workspace.
+- This proves API boot/auth/list smoke only. It does not prove create/update/state UI, cross-tenant/Agent negative runtime, concurrency, import/export, or AI execution. H09 remains In progress.
+- Follow-up authenticated smoke created a rule (version 1) and PATCH state returned active=false/version 2; this proves create/state persistence in the local bundle only.
+- `vite build` was attempted with a 15s bound and timed out; no claim of production build.
+
+Correction 2026-09-24: a later `npm run build` completed successfully (tsc + Vite; 1909 modules). The earlier timeout note applies only to the prior bounded attempt and is not the current build result.

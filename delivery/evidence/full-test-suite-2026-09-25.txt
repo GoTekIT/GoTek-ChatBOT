@@ -1,0 +1,7 @@
+Full local test suite — 2026-09-25
+Command: npm test
+Result: 63 tests passed, 0 failed, 0 cancelled, 0 skipped.
+Command: npm run build
+Result: passed; TypeScript check and Vite build, 1,915 modules.
+Includes H10 category/draft, H09 transfer, H11 URL security/transport/parser/config, H03/H06/H23/H28/H32 checks.
+Repository verification only; no browser, staging, provider receipt or production acceptance claim.
