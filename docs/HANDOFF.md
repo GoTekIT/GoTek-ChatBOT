@@ -2,7 +2,7 @@
 
 ## Current state
 
-Checkout `codex/chatbot-delivery` đang ở MVP core backend, checkpoint hiện tại được xây trên commit đã push `c6921b94a0f3eeb56e3fc555243d1fba3e2c90b2` và sẽ được ghi lại bằng commit/push riêng sau khi kiểm tra tài liệu. Source có backend Express/PostgreSQL, React/Vite web, public widget SDK, migrations tới `056_model_grant_expiry.sql`, workers và test suites. Core slices có bằng chứng local; toàn sản phẩm vẫn **IN PROGRESS**.
+Checkout `codex/chatbot-delivery` đang ở MVP core backend. Handoff checkpoint tài liệu + hardening đã được push sau commit nền `c6921b94a0f3eeb56e3fc555243d1fba3e2c90b2`; dùng `git log -1` để lấy commit hiện hành. Source có backend Express/PostgreSQL, React/Vite web, public widget SDK, migrations tới `056_model_grant_expiry.sql`, workers và test suites. Core slices có bằng chứng local; toàn sản phẩm vẫn **IN PROGRESS**.
 
 ## Last thing being worked on
 

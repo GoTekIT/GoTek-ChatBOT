@@ -1,6 +1,6 @@
 # Current snapshot
 
-Ngày audit: 2026-09-27. Branch: `codex/chatbot-delivery`. Checkpoint này xây trên HEAD đã push `c6921b94a0f3eeb56e3fc555243d1fba3e2c90b2`; commit/push mới sẽ là snapshot tài liệu + hardening sau kiểm tra. Trạng thái: **MVP — In Progress; documentation pause**.
+Ngày audit: 2026-09-27. Branch: `codex/chatbot-delivery`. Checkpoint tài liệu + hardening đã được push trên nền `c6921b94a0f3eeb56e3fc555243d1fba3e2c90b2`; dùng `git log -1` để lấy commit snapshot hiện hành. Trạng thái: **MVP — In Progress; documentation pause**.
 
 Source, migration và test là bằng chứng triển khai; `delivery/BACKLOG.csv` là phạm vi chi tiết; tài liệu này tổng hợp trạng thái. Không có bằng chứng hoàn tất toàn bộ backend hay HiChat parity. `delivery/CHECKPOINT.md` giữ lịch sử; entry mới hơn thay thế nhận định cũ khi có bằng chứng sửa lỗi.
 
