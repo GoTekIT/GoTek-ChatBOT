@@ -1,0 +1,25 @@
+GoTek Chatbot — P0 knowledge/widget boundary audit
+Date: 2026-09-27 (Asia/Ho_Chi_Minh)
+Snapshot: c6921b94a0f3eeb56e3fc555243d1fba3e2c90b2
+Scope: src/server/knowledge-retrieval.ts, src/server/widget.ts
+
+Command:
+  npx tsx --test --test-concurrency=1 tests/grounded-widget-flow.test.ts tests/widget-api-flow.test.ts tests/knowledge-retrieval.test.ts tests/widget-boundary.test.ts tests/widget-context-bounds.test.ts
+
+Result: 8/8 PASS (serial focused run; no full-suite claim).
+
+Verified boundaries:
+- Retrieval joins only the scoped workspace, active item, selected audience and the item's published READY version.
+- Widget AI context forces PUBLIC audience for both lexical and embedding paths; INTERNAL sources are excluded.
+- Embedding retrieval requires the requested model and vector dimensions, verifies chunk content hashes, and bounds each source to 4,000 characters and the aggregate to 16,000 characters.
+- Visitor history sent to retrieval is limited to public visitor/agent/AI messages; provider context contains citations without a workspace identifier.
+- `assertWidgetSourcesCurrent` rechecks active PUBLIC READY publication pointers and locks the item/version rows until the surrounding transaction commits.
+- Widget channel lookup requires a valid public key, exact Origin, enabled channel, and active workspace. Visitor tokens are channel-scoped and expired tokens fail.
+- Widget messages expose only `visibility='public'`; internal staff notes remain inaccessible to the visitor.
+- Handoff requests cannot select an agent or resume AI, and ownership/version fences are preserved.
+- Context size, corrupted chunks, cross-tenant retrieval, INTERNAL knowledge and wrong-origin/public-key cases are covered by the focused tests above.
+
+Audit conclusion:
+No concrete tenant/privacy leak or stale-publication defect was identified in the assigned files during this audit. No source code change was made. This evidence is local fixture/test evidence only; it does not establish HiChat parity, live-provider receipt, browser acceptance, staging or production readiness.
+
+Not run: full `npm test`, browser/live-provider acceptance, deployment or production checks.

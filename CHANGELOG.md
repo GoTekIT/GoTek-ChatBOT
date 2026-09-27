@@ -8,5 +8,9 @@
 - Preserved existing source, delivery evidence, migrations and unfinished work; no feature was marked complete solely from a file name.
 - Added fresh P0.1 focused core acceptance evidence: 9/9 local integration tests covering tenant, widget, knowledge, grounded AI fixture, quota and audit boundaries.
 - Fixed expired model-grant enforcement in the AI worker before provider I/O; focused provider contract is 19/19 and full regression is now 174/174.
+- Hardened stale-job recovery for `running` rows with a NULL lease and added a tenant-isolation regression.
+- Added parallel audit evidence for jobs (NULL lease), knowledge/widget boundaries (8/8) and Platform Agent (9/9); Platform Agent billing/quota ownership remains explicitly unresolved.
+- Expanded README with role-based usage, state transitions, next-step gates, reference images and corrected Mermaid syntax; added `docs/USER-GUIDE.md`.
+- Re-ran the full serial suite after these changes: **175/175 PASS**. The next feature slice is paused while this documentation checkpoint is reviewed.
 
 This snapshot is not a production release.

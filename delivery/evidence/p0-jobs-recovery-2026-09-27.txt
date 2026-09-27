@@ -1,0 +1,33 @@
+Jobs recovery hardening evidence — 2026-09-27
+
+Scope
+- Audited `src/server/jobs.ts` lease recovery, bounded retry/dead-letter, unknown/no-resend behavior, idempotency and tenant-scoped access.
+- No provider secrets, credentials, payload bodies or runtime configuration are included here.
+
+Finding and fix
+- Before this change, `recoverStaleJobs` selected `state='running' AND lease_until<=now()`.
+- The deployed jobs schema permits a `running` row with a NULL lease (`lease_token` and `lease_until` are nullable). Such a row was never recovered and could remain stuck indefinitely.
+- Minimal fix: recovery now selects `state='running' AND (lease_until IS NULL OR lease_until<=now())`.
+- Recovery remains tenant-scoped by the caller's transaction-local RLS context. External stale work still transitions to `unknown`; local stale work transitions to `retry` or `dead` according to bounded attempts.
+
+Focused checks
+
+`npx tsx --test --test-concurrency=1 tests/jobs-recovery-null-lease.test.ts`
+- PASS 1/1. A NULL-lease local row recovers to `retry`; a same-shaped row in another tenant remains `running`.
+
+`npx tsx --test --test-concurrency=1 tests/h32-job-lifecycle.test.ts`
+- PASS 2/2. External stale work becomes `unknown` and cannot be claimed again; local failures reach `dead` after max attempts.
+
+`npx tsx --test --test-concurrency=1 tests/jobs.test.ts`
+- PASS 1/1. Idempotent enqueue, concurrent claim fencing, retry/dead behavior, external unknown recovery, rollback, tenant isolation, metadata redaction and worker outcomes remain green.
+
+`npx tsx --test --test-concurrency=1 tests/ai-dispatch-fence.test.ts`
+- PASS 2/2. Racing AI workers invoke one source only; handler/provider uncertainty is terminal `unknown` and is not immediately replayed.
+
+`npx tsx --test --test-concurrency=1 tests/ai-crash-recovery.test.ts`
+- PASS 1/1. SIGKILL during provider invocation survives restart as `unknown` with zero duplicate provider calls.
+
+`npx tsc --noEmit`
+- PASS.
+
+Not run: full `npm test`, production/staging worker, live provider receipt, browser acceptance and deployment checks. These remain separate acceptance gates.

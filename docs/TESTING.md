@@ -15,18 +15,21 @@ Các command tồn tại/được đối chiếu trong package/source. Lint: NOT
 
 ## Current verification
 
-Fresh handoff validation (2026-09-27): `npm run build` PASS; after the expired-grant fix, `npm test` PASS 174/174 (serial); P0.1 focused core acceptance PASS 9/9; `npm run db:restore-drill` PASS trên 55 bảng. Logs: `delivery/evidence/handoff-build-2026-09-27.txt`, `delivery/evidence/handoff-tests-2026-09-27.txt`, `delivery/evidence/build-after-expired-grant-2026-09-27.txt`, `delivery/evidence/core-after-expired-grant-2026-09-27.txt`, `delivery/evidence/p0-core-acceptance-2026-09-27.txt`, `delivery/evidence/p0-provider-contract-2026-09-27.txt`, `delivery/evidence/handoff-restore-drill-2026-09-27.txt`. `npx tsc --noEmit` được chạy trong focused provider audit và build. Kết quả này không thay thế browser/live-provider acceptance. Xem `delivery/evidence/` và checkpoint cho các lần chạy trước.
+Fresh handoff validation (2026-09-27): `npm run build` PASS; sau NULL-lease recovery hardening, `npm test` PASS **175/175** (serial); P0.1 focused core acceptance PASS 9/9; fresh `npm run db:restore-drill` PASS trên 55 bảng. Parallel audits: jobs regression 1/1 plus existing recovery suites, knowledge/widget 8/8, Platform Agent 9/9. Logs mới: `delivery/evidence/build-after-parallel-hardening-2026-09-27.txt`, `delivery/evidence/core-after-parallel-hardening-2026-09-27.txt`, `delivery/evidence/restore-after-parallel-hardening-2026-09-27.txt`, `delivery/evidence/p0-jobs-recovery-2026-09-27.txt`, `delivery/evidence/p0-knowledge-widget-2026-09-27.txt`, `delivery/evidence/p0-platform-agent-2026-09-27.txt`. Logs lịch sử vẫn giữ trong `delivery/evidence/`; `npx tsc --noEmit` được chạy trong build/focused audits. Kết quả này không thay thế browser/live-provider acceptance. Documentation pause đang bật; xem README và HANDOFF trước khi mở code.
 
 | Check | Current handoff result |
 |---|---|
 | Build | PASS (2026-09-27) |
 | Typecheck | PASS via build (2026-09-27) |
-| Tests | PASS 174/174 (2026-09-27, after grant expiry fix) |
-| Restore drill | PASS, 55 tables (2026-09-27) |
+| Tests | PASS 175/175 (2026-09-27, after parallel hardening) |
+| Restore drill | PASS, 55 tables (2026-09-27, after parallel hardening) |
 | Lint | NOT AVAILABLE |
 | Manual/browser end-to-end | NOT VERIFIED for complete scope |
 | Real provider API receipt | NOT VERIFIED |
 | P0.1 focused core acceptance | PASS, 9/9 local integration tests (2026-09-27) |
+| Jobs NULL-lease recovery | PASS, 1/1 new regression (2026-09-27) |
+| Knowledge/widget boundary audit | PASS, 8/8 focused tests (2026-09-27) |
+| Platform Agent audit | PASS, 9/9 focused tests; billing/quota policy open (2026-09-27) |
 
 ## Current verification matrix
 

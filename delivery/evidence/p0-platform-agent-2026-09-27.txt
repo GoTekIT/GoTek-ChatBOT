@@ -1,0 +1,41 @@
+P0 Platform AI Agent audit — 2026-09-27
+
+Scope
+- Audited `src/server/platform-agent.ts`, the platform agent route/identity boundary in
+  `src/server/platform.ts`, and migrations 026, 037, 048, 049 and 050.
+- This is a backend contract audit. No UI, live provider credential, staging or production
+  action was used. No secret, cookie or provider response body is recorded here.
+
+Focused verification
+- Command:
+  `npx tsx --test --test-concurrency=1 tests/platform.test.ts tests/provider-receipt-contract.test.ts tests/provider-runtime-errors.test.ts tests/platform-provider-probe.test.ts`
+- Result: **PASS, 9/9**.
+- Covered by the run:
+  - Platform role is separate from workspace role; provider/model metadata redacts secret refs.
+  - Platform Agent sessions and messages are actor-scoped; a second platform actor receives
+    `NOT_FOUND` for the first actor's session.
+  - Duplicate request IDs replay one durable result; changed payloads return
+    `IDEMPOTENCY_CONFLICT`; concurrent same-request calls invoke the provider once.
+  - A pending session turn returns `SESSION_BUSY`; a lease-expired dispatched turn is settled
+    as `unknown`, releases the session fence, and a late provider result is discarded.
+  - Provider adapter receipt/error normalization uses stable redacted error codes.
+
+Contract findings
+
+| Slice | Result | Evidence / boundary |
+|---|---|---|
+| Actor/session isolation | **PASS (local)** | `agentChatDetached` sets `app.platform`, `app.actor_id` and transaction-local workspace scope (`platform-agent.ts:13-19`); request/session/message queries include actor/session ownership (`:22`, `:48-55`, `:74-88`). RLS is enforced by migrations 026/027 and request RLS by 037. This does not prove browser or production acceptance. |
+| Provider/model lifecycle | **PASS, limited** | Model selection requires an enabled provider, enabled model and `chat` capability (`platform-agent.ts:8`). Missing non-local secret returns `PROVIDER_SECRET_MISSING` (`:38-39`). The agent lookup is platform-scoped and does **not** require a tenant `model_grants` row; tenant grant/expiry enforcement is present in `resolveModel`/worker paths, not this platform-admin assistant. Whether the platform assistant must consume a tenant grant is **NEEDS VERIFICATION** against product policy. |
+| Idempotency and failure state | **PASS (local)** | Payload hash + `(actor_id, request_id)` durable key, advisory lock, in-memory same-flight fence and replay are implemented (`:14-36`). Provider/expiry outcomes persist terminal `unknown` request and assistant state; late results cannot append (`:69-100`). |
+| Token usage and cost receipt | **GAP — not implemented in this slice** | Agent imports `invokeProvider` (text-only) and stores only response/status (`platform-agent.ts:3`, `:69-88`). It does not call `invokeProviderDetailed`, `normalizeTokenUsage`, `makeTokenMeterEvent` or `recordUsage`; `platform_agent_requests` has no usage/cost columns. The provider receipt tests prove transport metadata mapping only, not Platform Agent metering. |
+| Quota reservation/settlement | **GAP — not implemented in this slice** | `agentChatDetached` has no `reserveAiResponse`/`settleUsage` call. No `usage_operations` row or quota fence is created for a Platform Agent request, even when an optional `workspaceId` is supplied. The H23 quota tests cover workspace AI worker paths, not this route. |
+| Live receipt / vendor spend | **UNKNOWN / NEEDS VERIFICATION** | Focused tests use injected fetch/fixtures; no provider credential or external receipt was used. |
+
+Acceptance decision
+- Keep Platform AI Agent status **IN PROGRESS / DONE BUT NEEDS VERIFICATION** for the
+  tested actor, session, idempotency and unknown-state slices.
+- Do not claim H32.01/H32.02 token/cost/quota acceptance for Platform Agent. Closing that gap
+  requires an explicit product decision on whether platform-assistant turns are billable and,
+  if workspace-scoped, which grant/budget owns them, followed by an ordered migration and
+  provider receipt tests. Those files and contracts are outside this audit's authorized edit
+  boundary.

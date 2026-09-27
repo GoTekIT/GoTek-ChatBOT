@@ -569,3 +569,10 @@ Detailed current state and evidence are in `delivery/CHECKPOINT-LOCAL-BLOCKER.md
 - Provider audit found `defaultWorkspaceProviderInvoke` checked `active` but not `model_grants.expires_at` before transport. Added the expiry predicate so a grant that expires cannot initiate provider I/O.
 - Added `tests/provider-grant-expiry.test.ts`: expired grant returns `AI_MODEL_REVOKED` with zero transport calls; renewed grant reaches the injected transport.
 - Focused provider contract: **19/19 PASS**; full serial regression after the fix: **174/174 PASS**. Evidence: `delivery/evidence/p0-provider-contract-2026-09-27.txt`, `delivery/evidence/core-after-expired-grant-2026-09-27.txt`.
+
+## 2026-09-27 — parallel core audit and documentation pause
+- Jobs audit found a recoverability hole for legacy/malformed `running` rows with `lease_until IS NULL`. `src/server/jobs.ts` now recovers `lease_until IS NULL OR lease_until<=now()`; `tests/jobs-recovery-null-lease.test.ts` proves the local tenant row becomes `retry` while a same-shaped other-tenant row remains `running`.
+- Knowledge/widget audit found no concrete tenant/privacy or stale-publication defect in its assigned source. Focused boundary set: **8/8 PASS**; evidence `delivery/evidence/p0-knowledge-widget-2026-09-27.txt`.
+- Platform Agent audit: **9/9 PASS** for actor/session isolation, idempotency, lease recovery/unknown and redacted provider errors. Token/cost/quota ownership is explicitly **UNKNOWN / NEEDS VERIFICATION**; no migration was invented. Evidence `delivery/evidence/p0-platform-agent-2026-09-27.txt`.
+- Shared validation after the parallel changes: `npm run build` PASS and `npm test` **175/175 PASS**. Evidence `delivery/evidence/build-after-parallel-hardening-2026-09-27.txt` and `delivery/evidence/core-after-parallel-hardening-2026-09-27.txt`.
+- Current mode is **DOCUMENTATION PAUSED**: README Mermaid flow was corrected, `docs/USER-GUIDE.md` was added, and the next implementation slice must not start until the handoff/checkpoint explicitly reopens it. No provider key, customer message, purchase or production deployment was used.

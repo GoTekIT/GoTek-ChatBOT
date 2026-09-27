@@ -21,6 +21,12 @@ Các mục dưới đây được rút từ source, `delivery/BACKLOG.csv`, chec
 - **Dependency:** PO/legal/ops quyết định; xem `delivery/decisions/H32_RETENTION_CLOSURE.md`.
 - **Acceptance:** ADR được chốt trước khi viết destructive purge/closure.
 
+### P0.4 Platform Agent billing/quota decision
+- **Description:** quyết định turn của Platform AI Agent có billable hay không; nếu có `workspaceId` thì grant/budget nào sở hữu reservation, token usage và cost ledger.
+- **Current evidence:** actor/session/idempotency/recovery 9/9 pass; route hiện lưu status/content nhưng chưa tạo `usage_operations`/`ai_usage_ledger` rows.
+- **Dependency:** product/finance/ops decision; không tự suy luận từ model grant workspace.
+- **Acceptance:** ADR + ordered migration (nếu cần), receipt/usage tests, unknown outcome and idempotency behavior documented.
+
 ## P1 — Needed for MVP
 
 - Hoàn tất H01–H06 browser acceptance, email/link expiry, workspace switching và widget embed.
@@ -46,8 +52,9 @@ Các mục dưới đây được rút từ source, `delivery/BACKLOG.csv`, chec
 
 ## Suggested order
 
-1. P0.1 core acceptance và fresh evidence.
-2. P0.2 credentials/provider receipt và quota audit.
-3. P0.3 policy H32.05.
-4. P1 browser/feature acceptance theo dependency.
-5. Chỉ sau đó mở rộng P2/P3 và staging.
+1. Documentation pause review and checkpoint synchronization.
+2. P0.1 core acceptance và fresh evidence.
+3. P0.2 credentials/provider receipt và quota audit.
+4. P0.3 H32.05 và P0.4 Platform Agent policy decisions.
+5. P1 browser/feature acceptance theo dependency.
+6. Chỉ sau đó mở rộng P2/P3 và staging.

@@ -39,10 +39,10 @@ sequenceDiagram
  participant P as Provider
  V->>A: Message + stable clientId
  A->>D: Append message and enqueue ai.reply
- W->>D: Claim lease; check owner/source/model/quota
+ W->>D: Claim lease, check owner/source/model/quota
  W->>P: Bounded grounded prompt outside transaction
  P-->>W: Result or uncertain failure
- W->>D: Revalidate owner/source; settle usage; append reply
+ W->>D: Revalidate owner/source, settle usage, append reply
  V->>A: Poll public messages and acknowledge receipt
 ```
 

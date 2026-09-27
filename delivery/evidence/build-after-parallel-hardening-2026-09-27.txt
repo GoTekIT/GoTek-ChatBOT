@@ -1,0 +1,13 @@
+
+> gotek-chatbot@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 1917 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.36 kB │ gzip:  0.26 kB
+dist/assets/index-BDQ3L0Kq.css   12.41 kB │ gzip:  3.05 kB
+dist/assets/index-dV2I6CcC.js   320.20 kB │ gzip: 95.32 kB
+✓ built in 1.61s

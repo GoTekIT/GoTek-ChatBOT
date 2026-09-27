@@ -53,3 +53,11 @@
 - **Severity:** High
 - **Description:** chưa có bằng chứng hosting/CI/CD/staging acceptance trong checkout.
 - **Status:** Open
+
+## KI-010 — Platform Agent usage/quota ownership chưa chốt
+- **Severity:** High
+- **Description:** `src/server/platform-agent.ts` đã có actor/session/idempotency/lease recovery, nhưng route hiện dùng text-only provider result và chưa ghi `usage_operations` hoặc `ai_usage_ledger`. Chưa biết turn platform có tính vào quota workspace hay platform budget riêng.
+- **Evidence:** `delivery/evidence/p0-platform-agent-2026-09-27.txt`, focused 9/9 PASS.
+- **Root cause:** product/finance/ops ownership policy chưa được quyết định; không được tự thêm migration dựa trên giả định.
+- **Suggested fix:** chốt P0.4 ADR, sau đó thiết kế migration/provider receipt tests nếu policy yêu cầu.
+- **Status:** Decision required / UNKNOWN / NEEDS VERIFICATION

@@ -53,8 +53,8 @@ Published/public knowledge only for widget; workspace membership and grants requ
 
 ## Open questions
 
-Full conversation history may not be available to future agents; this summary is distilled only from accessible context and repository evidence. Production host, provider credentials, email, retention policy, and HiChat acceptance artifacts remain unresolved.
+Full conversation history may not be available to future agents; this summary is distilled only from accessible context and repository evidence. Production host, provider credentials, email, retention policy, Platform Agent billing/quota ownership and HiChat acceptance artifacts remain unresolved.
 
 ## Context future AI must not lose
 
-Read `AGENTS.md`, `docs/PROJECT-STATUS.md`, `docs/HANDOFF.md`, then delivery checkpoint/contracts. Preserve incomplete source and evidence distinctions. “174 tests pass” is the current configured regression after the expired-grant fence; it does not accept all product groups.
+Read `AGENTS.md`, `docs/USER-GUIDE.md`, `docs/PROJECT-STATUS.md`, `docs/HANDOFF.md`, then delivery checkpoint/contracts. Preserve incomplete source and evidence distinctions. The latest configured regression is **175 tests pass** after NULL-lease recovery hardening; it does not accept all product groups. Documentation pause is explicit until the next checkpoint reopens implementation.

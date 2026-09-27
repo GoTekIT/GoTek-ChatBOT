@@ -94,6 +94,6 @@ All `/api/platform/*` routes require a session joined to active `platform_admins
 | GET `/api/platform/workspaces/:id`, PATCH `/api/platform/workspaces/:id/state` | Tenant inspection/state |
 | GET `/api/platform/support/:id` | Inspect explicit support grant |
 | GET `/api/platform/agent/sessions`, GET `/api/platform/agent/sessions/:id/messages` | Actor-owned platform-agent history |
-| POST `/api/platform/agent/chat` | Detached durable admin agent request; provider execution/receipt remains independently verifiable |
+| POST `/api/platform/agent/chat` | Detached durable admin agent request; actor/session/idempotency/recovery are covered locally, while token/cost/quota ownership and live receipt remain `UNKNOWN / NEEDS VERIFICATION` |
 
 Route names above are extracted from the current app/service code; exact request schemas evolve with Zod handlers and tests. There is no generated OpenAPI document. Treat undocumented endpoints or browser assumptions as **UNKNOWN / NEEDS VERIFICATION** and add tests before relying on them.

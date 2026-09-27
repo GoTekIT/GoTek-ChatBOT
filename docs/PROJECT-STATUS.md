@@ -1,6 +1,6 @@
 # Current snapshot
 
-Ngày audit: 2026-09-27. Branch: `codex/chatbot-delivery`. Commit tại đầu audit: chưa có commit trong checkout; hash của snapshot bàn giao lấy bằng `git rev-parse HEAD` sau commit. Trạng thái: **MVP — In Progress**.
+Ngày audit: 2026-09-27. Branch: `codex/chatbot-delivery`. Checkpoint này xây trên HEAD đã push `c6921b94a0f3eeb56e3fc555243d1fba3e2c90b2`; commit/push mới sẽ là snapshot tài liệu + hardening sau kiểm tra. Trạng thái: **MVP — In Progress; documentation pause**.
 
 Source, migration và test là bằng chứng triển khai; `delivery/BACKLOG.csv` là phạm vi chi tiết; tài liệu này tổng hợp trạng thái. Không có bằng chứng hoàn tất toàn bộ backend hay HiChat parity. `delivery/CHECKPOINT.md` giữ lịch sử; entry mới hơn thay thế nhận định cũ khi có bằng chứng sửa lỗi.
 
@@ -14,7 +14,7 @@ Source, migration và test là bằng chứng triển khai; `delivery/BACKLOG.cs
 
 ## Completed — các slice giới hạn
 
-Bằng chứng regression mới nhất: fresh post-fix run 174/174 PASS tại `delivery/evidence/core-after-expired-grant-2026-09-27.txt`. Fresh P0.1 core acceptance: `delivery/evidence/p0-core-acceptance-2026-09-27.txt`, 9/9 focused integration tests PASS. Kết quả này vẫn không thay thế browser/live-provider acceptance.
+Bằng chứng regression mới nhất: fresh post-parallel-hardening run 175/175 PASS tại `delivery/evidence/core-after-parallel-hardening-2026-09-27.txt`. Fresh P0.1 core acceptance: `delivery/evidence/p0-core-acceptance-2026-09-27.txt`, 9/9 focused integration tests PASS. Kết quả này vẫn không thay thế browser/live-provider acceptance.
 
 | Slice | Files chính | Trạng thái | Evidence và giới hạn |
 |---|---|---|---|
@@ -23,8 +23,11 @@ Bằng chứng regression mới nhất: fresh post-fix run 174/174 PASS tại `d
 | Widget token/origin và capacity/takeover | `src/server/widget.ts`, `src/server/chat-store.ts` | DONE | H04 boundary 1/1, H05 1/1 và regression |
 | Visitor profile validation | `src/server/widget.ts` | DONE | H06 targeted 1/1 và regression |
 | Audit keyset list/export | `src/server/audit-log.ts`, `src/server/audit-export.ts`, `src/server/app.ts` | DONE | `delivery/evidence/h22-audit-export-http.txt`; JSON envelope chứa NDJSON, không raw download |
-| Restore disposable DB + integrity/quarantine | `scripts/restore-drill.ts` | DONE | `delivery/evidence/p1-restore-drill.json`: 55 tables; không phải production RPO/RTO |
+| Restore disposable DB + integrity/quarantine | `scripts/restore-drill.ts` | DONE | `delivery/evidence/restore-after-parallel-hardening-2026-09-27.txt`: fresh PASS, 55 tables; không phải production RPO/RTO |
 | Provider error contract và expired grant fence | `src/server/provider-transport.ts`, `src/server/worker.ts` | DONE BUT NEEDS VERIFICATION | Injected transport/error tests; expired grant now blocks before transport (`tests/provider-grant-expiry.test.ts`). Không live provider |
+| Jobs recovery với lease thiếu | `src/server/jobs.ts`, `tests/jobs-recovery-null-lease.test.ts` | DONE BUT NEEDS VERIFICATION | NULL-lease local row recovery 1/1; tenant fence và external unknown vẫn pass. Chưa phải production worker acceptance |
+| Knowledge/widget boundary audit | `src/server/knowledge-retrieval.ts`, `src/server/widget.ts` | DONE BUT NEEDS VERIFICATION | Focused boundary 8/8; không phát hiện leak cụ thể trong scope. Không chứng minh HiChat/private backend parity |
+| Platform Agent actor/idempotency/recovery audit | `src/server/platform-agent.ts`, platform routes | DONE BUT NEEDS VERIFICATION | Focused 9/9; usage/quota ownership của platform turn còn UNKNOWN |
 | Expired session purge primitive | `src/server/session-maintenance.ts` | DONE | H23 checkpoint/tests; lịch chạy production chưa chốt |
 
 ## In Progress
@@ -40,6 +43,8 @@ Bằng chứng regression mới nhất: fresh post-fix run 174/174 PASS tại `d
 **Known issue:** provider receipts thực tế UNKNOWN / NEEDS VERIFICATION; giá/chất lượng/chi phí thực chưa được chứng minh bằng transport giả. P0.1 local fixture pass không đóng gate live.
 **Next exact step:** với credential test hợp lệ, chạy acceptance live bằng một model được cấp trên hai workspace fixture, kiểm chứng publish/retrieve/reply/citation và usage; nếu chưa có credential, tiếp tục hardening bằng injected transport.
 **Definition of done:** negative tenant/privacy cases pass, provider receipt và usage đối chiếu được, browser flow và lỗi được nghiệm thu.
+
+**Documentation pause:** feature implementation is paused after the parallel audit; only README/flow/evidence synchronization should proceed until `docs/HANDOFF.md` reopens a next slice.
 
 ### Nguồn web, knowledge import và publish
 
@@ -140,7 +145,7 @@ Xem [TODO](TODO.md). Core acceptance và fresh setup là ưu tiên trước feat
 
 ## Technical debt
 
-`app.ts` và `platform.ts` tập trung nhiều routes/logic; chưa refactor trong handoff. Không có lint script. Test tổng phải chạy serial theo package script, dùng PostgreSQL local. Chưa có coverage phần trăm được chứng minh. Metadata trạng thái delivery cần tiếp tục đồng bộ với evidence, tránh đếm test thành tỷ lệ product.
+`app.ts` và `platform.ts` tập trung nhiều routes/logic; chưa refactor trong handoff. Không có lint script. Test tổng phải chạy serial theo package script, dùng PostgreSQL local. Chưa có coverage phần trăm được chứng minh. Platform Agent hiện chưa ghi `usage_operations`/`ai_usage_ledger`; cần product decision trước migration. Metadata trạng thái delivery cần tiếp tục đồng bộ với evidence, tránh đếm test thành tỷ lệ product.
 
 ## Unknowns
 

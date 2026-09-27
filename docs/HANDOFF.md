@@ -2,15 +2,15 @@
 
 ## Current state
 
-Checkout `codex/chatbot-delivery` đang ở MVP core backend, chưa có commit lịch sử trong branch. Source có backend Express/PostgreSQL, React/Vite web, public widget SDK, migrations tới `056_model_grant_expiry.sql`, workers và test suites. Core slices có bằng chứng local; toàn sản phẩm vẫn **IN PROGRESS**.
+Checkout `codex/chatbot-delivery` đang ở MVP core backend, checkpoint hiện tại được xây trên commit đã push `c6921b94a0f3eeb56e3fc555243d1fba3e2c90b2` và sẽ được ghi lại bằng commit/push riêng sau khi kiểm tra tài liệu. Source có backend Express/PostgreSQL, React/Vite web, public widget SDK, migrations tới `056_model_grant_expiry.sql`, workers và test suites. Core slices có bằng chứng local; toàn sản phẩm vẫn **IN PROGRESS**.
 
 ## Last thing being worked on
 
-Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contract, expired-grant fence, audit export, restore integrity/quarantine. Bản handoff mới đã chạy `npm run build` PASS, `npm test` 174/174 PASS sau expired-grant fix, P0.1 focused acceptance 9/9 PASS và `npm run db:restore-drill` PASS trên 55 bảng; xem `docs/TESTING.md`, `delivery/evidence/p0-core-acceptance-2026-09-27.txt` và `delivery/evidence/p0-provider-contract-2026-09-27.txt`.
+Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contract, expired-grant fence, audit export, restore integrity/quarantine, NULL-lease recovery và ba audit boundary song song (jobs, knowledge/widget, Platform Agent). Validation sau hợp nhất: `npm run build` PASS, `npm test` **175/175 PASS**, P0.1 focused acceptance 9/9 PASS và restore drill PASS trên 55 bảng; xem `docs/TESTING.md` và `delivery/evidence/`.
 
 ## Exact point where work stopped
 
-Đang chuyển từ implement core sang audit/handoff. Chưa bắt đầu UI parity mới. Chưa có live provider/email receipt, staging deployment hay production release. `delivery/BACKLOG.csv` còn 107 Backlog/61 In progress/2 Implemented và cần đồng bộ sau acceptance.
+Đang ở **documentation pause** sau khi audit song song hoàn tất. README/user guide/flow đang được làm rõ; chưa bắt đầu UI parity mới. Chưa có live provider/email receipt, staging deployment hay production release. `delivery/BACKLOG.csv` còn 107 Backlog/61 In progress/2 Implemented và cần đồng bộ sau acceptance.
 
 ## Files currently involved
 
@@ -31,18 +31,19 @@ Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contrac
 
 - Không thể tuyên bố full H01–H32/E01–E12 accepted.
 - Provider live calls, external email, browser parity, JS crawler, staging/production chưa verify.
+- Platform Agent actor/session/idempotency/recovery có local evidence; billable token/quota ownership chưa chốt và chưa có usage ledger rows cho route này.
 - Retention/delete/tenant closure chưa có policy.
 - Signup browser error “Không thể kết nối” từ conversation chưa được tái hiện trong snapshot.
 - Cặp file suffix ` 2` còn tồn tại, chưa được phép xóa.
 
 ## Immediate next steps
 
-1. Đọc `README.md`, `AGENTS.md`, `docs/PROJECT-STATUS.md`, `docs/TESTING.md` và `delivery/CHECKPOINT.md`.
-2. Đọc log verification mới ở `delivery/evidence/handoff-*-2026-09-27.txt`; chạy lại trên checkout/môi trường của mình nếu cần tái lập.
-3. Chạy `npm run build`, `npm test` và, với PostgreSQL local, `npm run db:restore-drill` sau thay đổi code liên quan.
+1. Đọc `README.md`, `docs/USER-GUIDE.md`, `AGENTS.md`, `docs/PROJECT-STATUS.md`, `docs/TESTING.md` và `delivery/CHECKPOINT.md`.
+2. Trong documentation pause, chỉ sửa tài liệu/evidence và kiểm tra link/diagram; không mở H/E feature mới.
+3. Khi owner mở lại development, chạy `npm run build`, `npm test` và, với PostgreSQL local, `npm run db:restore-drill` sau thay đổi code liên quan.
 4. P0.1 focused flow đã có evidence 9/9; tiếp tục bằng fresh fixture hai workspace khi thay đổi core và ghi evidence mới.
 5. Với credentials được cấp riêng, chạy provider receipt và usage/quota matrix; redact mọi secret.
-6. Chốt `delivery/decisions/H32_RETENTION_CLOSURE.md` trước bất kỳ purge/closure code nào.
+6. Chốt `delivery/decisions/H32_RETENTION_CLOSURE.md` và Platform Agent billing policy trước migration/destructive code.
 7. Cập nhật PROJECT-STATUS/BACKLOG/CHECKPOINT cùng acceptance evidence; chỉ sau đó mở P1 feature hoặc UI browser acceptance.
 
 ## Do not break
@@ -62,4 +63,4 @@ Provider accounts nào được dùng cho staging? Email delivery nào? H32 rete
 
 ## Recommended next task
 
-Hoàn thiện P0.1 full acceptance matrix beyond the focused 9/9 local slice, then run P0.2 live provider receipt if the owner supplies credentials. Không làm thêm UI cho tới khi core path và failure states được nghiệm thu.
+Sau khi documentation pause được gỡ bằng một checkpoint mới: hoàn thiện P0.1 full acceptance matrix beyond the focused 9/9 local slice, rồi chạy P0.2 live provider receipt nếu owner cung cấp credential test. Không làm thêm UI cho tới khi core path và failure states được nghiệm thu.

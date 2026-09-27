@@ -56,11 +56,12 @@ Không có script lint. Xem [TESTING](docs/TESTING.md) trước khi chạy test.
 ## Documentation map
 
 1. [Start here](docs/00-START-HERE.md)
-2. [Project status](docs/PROJECT-STATUS.md)
-3. [Architecture](docs/ARCHITECTURE.md)
-4. [System flow](docs/SYSTEM-FLOW.md)
-5. [Development handoff](docs/HANDOFF.md)
-6. [AI agent instructions](AGENTS.md)
+2. [User guide](docs/USER-GUIDE.md)
+3. [Project status](docs/PROJECT-STATUS.md)
+4. [Architecture](docs/ARCHITECTURE.md)
+5. [System flow](docs/SYSTEM-FLOW.md)
+6. [Development handoff](docs/HANDOFF.md)
+7. [AI agent instructions](AGENTS.md)
 
 Nguồn yêu cầu: [handoff v2.0](delivery/GoTek_Chatbot_Skill_Dev_Kit/handoff/GoTek_ChatBOT_Ban_giao_Dev_Toan_bo.docx), [chỉ đạo](research/USER_DIRECTION.md), [ghi chép khảo sát HiChat](research/HICHAT_AI_SPEC.md), [checkpoint](delivery/CHECKPOINT.md). Tài liệu lịch sử/snapshot không thay thế trạng thái hiện hành và bằng chứng kiểm thử.
 
@@ -77,6 +78,10 @@ The repository contains GoTek assets and captured HiChat reference observations.
 | ![Knowledge reference](research/ui-evidence/h10-knowledge-1440-live.png) | Knowledge management layout and controls | Reference UX only |
 | ![Web sources reference](research/ui-evidence/h11-list-live.png) | Web source list and refresh states | Reference UX only |
 | ![Core scope map](delivery/GoTek_Chatbot_Skill_Dev_Kit/gotek-chatbot-delivery/assets/CORE.png) | Handoff scope illustration for the core | Planning/reference asset, not runtime architecture |
+| [H09 create screenshot](research/ui-evidence/h09-rule-create-live-2026-09-25.png) | Rule creation form captured during the HiChat study | Reference interaction only; not a GoTek acceptance result |
+| [H11 create screenshot](research/ui-evidence/h11-create-live.png) | Web-source creation state captured during the study | Reference interaction only; JS crawler parity is not established |
+| [Inbox empty screenshot](research/ui-evidence/inbox-empty.png) | Empty inbox visual state used for UX comparison | Reference visual only; current browser acceptance is open |
+| [GoTek brand palette](delivery/GoTek_Chatbot_Skill_Dev_Kit/gotek-chatbot-delivery/assets/brand-palette.png) | GoTek identity handoff asset | Brand reference; it does not describe runtime behavior |
 
 ## Product model
 
@@ -109,17 +114,34 @@ The core path connects business data to a bounded customer answer:
 
 The current state is **MVP / core backend in progress**. The initial handoff snapshot is `fb8f2589c30d1de936c3cb6b35e067fc2558322d` on branch `codex/chatbot-delivery`; the current commit also includes the expired-grant hardening, fresh core evidence and this expanded guide.
 
+### How to read the status and evidence
+
+This README separates three claims deliberately:
+
+1. **Implemented** means source code for the slice exists.
+2. **Verified** means an identified local test, build, restore drill or browser check passed and the evidence file is linked.
+3. **Accepted** means the required product owner/reference/live-provider/staging gate has also passed.
+
+The repository currently contains many **Implemented + Verified** slices, but no claim that the whole product or HiChat parity is **Accepted**. A screenshot, a route, a passing fixture or a component name is not enough to close a group. Missing external evidence must remain `UNKNOWN / NEEDS VERIFICATION`.
+
 ### Verified local evidence
 
 | Area | Current result | What this proves | What it does not prove |
 |---|---:|---|---|
-| Full configured regression after expired-grant fix | **174/174 PASS** | Existing serial unit/integration suites remain green | Full product acceptance or browser parity |
+| Full configured regression after parallel hardening | **175/175 PASS** | Existing serial unit/integration suites plus the NULL-lease recovery regression remain green | Full product acceptance or browser parity |
 | P0.1 focused core path | **9/9 PASS** | Auth, tenant isolation, widget, knowledge, grounded AI fixture, quota and audit boundaries | Live provider/email, browser, staging or production |
 | Provider/grant focused contract | **19/19 PASS** | Wire shapes, stable errors, endpoint policy, embedding and expired grant fence | Vendor latency, streaming, live receipt or cost |
+| Jobs recovery hardening | **1/1 new regression + existing jobs/AI recovery checks PASS** | A `running` row with a missing lease is recovered in its tenant; external unknown/no-resend semantics remain | Production worker crash/restart behavior |
+| Knowledge/widget boundary audit | **8/8 PASS** | Public publication, audience, origin, token, visitor context and bounded source checks | HiChat private backend or browser parity |
+| Platform Agent audit | **9/9 PASS** | Actor/session isolation, idempotency, lease recovery and redacted provider errors | Platform Agent token/cost/quota policy and live receipt |
 | TypeScript/build | **PASS** | `tsc --noEmit` and Vite build | Deployment readiness |
-| Restore drill | **PASS, 55 tables** | Disposable database restore, hashes, policy/RLS and quarantine checks | Production RPO/RTO or external object restore |
+| Restore drill after parallel hardening | **PASS, 55 tables** | Disposable database restore, hashes, policy/RLS and quarantine checks | Production RPO/RTO or external object restore |
 
-Evidence files are in [`delivery/evidence/`](delivery/evidence/). The source of truth for detailed status is [`docs/PROJECT-STATUS.md`](docs/PROJECT-STATUS.md); the next exact task is [`docs/HANDOFF.md`](docs/HANDOFF.md).
+Evidence files are in [`delivery/evidence/`](delivery/evidence/), including `core-after-parallel-hardening-2026-09-27.txt`, `build-after-parallel-hardening-2026-09-27.txt`, `restore-after-parallel-hardening-2026-09-27.txt`, `p0-jobs-recovery-2026-09-27.txt`, `p0-knowledge-widget-2026-09-27.txt` and `p0-platform-agent-2026-09-27.txt`. The source of truth for detailed status is [`docs/PROJECT-STATUS.md`](docs/PROJECT-STATUS.md); the resumable handoff is [`docs/HANDOFF.md`](docs/HANDOFF.md).
+
+### Documentation pause checkpoint
+
+**Current mode: DOCUMENTATION PAUSED (2026-09-27).** The three parallel backend audits have finished and their shared validation is green. Feature implementation is paused while this README, the flow diagrams and the handoff evidence are being made clear enough for a new developer to follow. Do not start a new H/E implementation from this file until the updated `docs/HANDOFF.md` and `delivery/CHECKPOINT.md` explicitly reopen the next slice.
 
 ### H/E group status at this snapshot
 
@@ -137,6 +159,16 @@ The backlog contains 170 rows: 107 `Backlog`, 61 `In progress`, and 2 `Implement
 ## End-to-end flows
 
 The diagrams below describe the implementation currently present in the repository. Read the linked system-flow document for preconditions, database changes and failure states.
+
+### Operator walkthrough
+
+**Workspace Admin/Owner:** create or enter the business workspace, configure a website channel and its exact origin, prepare a knowledge draft, process it, review the version and explicitly publish it as `PUBLIC`. Add active channel members before expecting an Agent to receive inbox work. The installation response contains an opaque public widget key and SDK snippet; it never contains a provider secret. Workspace settings and chat data are derived from the authenticated membership.
+
+**Visitor:** load the installed widget from the registered origin, create or resume a channel-scoped visitor session, complete mandatory pre-chat fields, send a message with a stable `clientId`, and poll public messages by sequence. The visitor sees public replies and receipts only. Internal notes, unpublished drafts, another tenant's messages and expired visitor tokens are rejected.
+
+**Agent:** open the scoped inbox, read only conversations allowed by membership/channel assignment, take over with the current ownership version, then send a public reply or an internal note. A takeover increments the ownership fence. If a worker returns after the fence changes, the stale answer is not appended.
+
+**Platform Admin:** register a provider using a server-side environment-variable reference, create/enable a model and capability, grant it to a workspace with an optional expiry, then use the separate Platform Agent session. Platform identity is not workspace membership. Platform Agent actor/session isolation and idempotency are verified locally; its billable token/quota policy remains `UNKNOWN / NEEDS VERIFICATION`.
 
 ### 1. Registration, verification and workspace session
 
@@ -218,13 +250,14 @@ sequenceDiagram
     W->>Q: Check workspace, rules, public knowledge, grant and quota
     W->>P: Grounded request with server-side secret
     P-->>W: Answer and usage metadata
+    H->>API: Takeover / resume AI with expected owner version
+    API->>Q: CAS owner version and record handoff state
     W->>Q: Recheck lease, owner version, grant and workspace state
     alt AI still owns conversation
         W->>Q: Commit public answer and settle usage
     else Human takeover or state changed
-        W->>Q: Record unknown/handoff; do not append stale answer
+        W->>Q: Record unknown or handoff, do not append stale answer
     end
-    H->>API: Takeover / resume AI with expected version
 ```
 
 Provider failure responses are redacted into stable codes. A grant expiry now stops provider transport before I/O. A dispatched result whose final state is unknown is not blindly retried.
@@ -293,6 +326,18 @@ The restore drill quarantines sessions, challenges, local delivery, invitations,
 | Expired model grant | `AI_MODEL_REVOKED` | Provider call blocked before transport |
 | Quota period closed/exceeded | `QUOTA_PERIOD_CLOSED` / `QUOTA_EXCEEDED` | No dispatch; owner must provision/renew |
 | Workspace disabled | `WORKSPACE_DISABLED` | Workers stop claiming/processing work |
+
+## State transitions a developer must preserve
+
+| Domain | Normal path | Terminal/exception path | Why the state matters |
+|---|---|---|---|
+| Identity | `signup pending → verified challenge → active session` | `expired/reused challenge`, revoked session, disabled workspace | A generic signup response protects account enumeration; verification/reset tokens are single-use and hashed |
+| Knowledge | `draft → processing → READY → explicitly PUBLIC published` | extraction failure, version conflict, rollback/retire | A stored upload is not retrievable visitor context until a READY version is published |
+| Conversation | `HANDOFF_PENDING ↔ AI_ACTIVE → human takeover` | stale owner, disabled channel, expired visitor token | `owner_version` prevents a late AI result from overwriting a human decision |
+| AI job | `queued → running lease → retry/dead` | external dispatch `unknown` | `unknown` is not success and is not a blind retry because the provider side effect may have happened |
+| Provider grant | `enabled provider/model → active grant → optional expiry` | revoked/expired/missing secret/capability | The worker blocks before provider I/O when the grant is not currently usable |
+| Platform Agent turn | `pending → dispatched → completed` | `SESSION_BUSY`, lease expiry, `unknown`, idempotency conflict | Actor/session/request fences prevent duplicate calls and cross-actor history |
+| Backup drill | `dump → disposable restore → hash/RLS/quarantine verify → drop` | integrity mismatch or unsafe credential state | The drill proves a local recovery procedure; it is not a production RPO/RTO commitment |
 
 ## Repository map and where to change what
 
@@ -384,6 +429,19 @@ The following is intentionally explicit so a new developer does not mistake a ro
 
 Do not close any of these from a green unit test alone. Use `UNKNOWN / NEEDS VERIFICATION` when the required external evidence or owner decision is absent.
 
+## Next steps after the documentation pause
+
+The next work is ordered by dependency and acceptance evidence, not by the number of screens:
+
+1. **P0.2 — live provider receipt (blocked on authorized test credentials).** Use two isolated local/test workspaces, one enabled model and a bounded public knowledge fixture. Record request ID, provider adapter, redacted receipt, normalized token usage, quota reservation/settlement and the resulting citation. Exercise success, timeout, malformed response, expired grant and human takeover during dispatch. Never commit a key or send a customer message.
+2. **P0.3 — browser vertical slice.** Fresh signup/verification/login, workspace/channel creation, widget installation from the exact origin, visitor pre-chat/message, inbox takeover, public reply and receipt. Record screenshots and network/error evidence. Revisit the earlier “Không thể kết nối” report only from a reproducible current browser run.
+3. **P1 — close the core acceptance matrix.** Reconcile each H01–H13, H16, H22–H23, H28 and H32 acceptance item against UI, backend/data, permission, failure-state, evidence and backlog row. Keep a group `IN PROGRESS` if any gate is missing.
+4. **P1 policy gate — Platform Agent billing.** Decide whether platform-admin turns are billable, which workspace/grant owns them when `workspaceId` is supplied, and whether usage belongs in `usage_operations`/`ai_usage_ledger`. Only then design an ordered migration and receipt tests; do not infer the policy from the current route.
+5. **P1 policy gate — retention/closure.** Approve owner, retention periods, legal hold, object/vector deletion and restore expectations in `delivery/decisions/H32_RETENTION_CLOSURE.md` before writing destructive code.
+6. **P2–P6 — remaining H14–H15, H17–H21, H24–H27, H29–H31 and E02–E12.** Implement one evidenced vertical slice at a time, retaining the same tenant, role, idempotency, error and documentation gates. Production remains out of scope until staging acceptance and release approval.
+
+When work resumes, start with `docs/HANDOFF.md`, update the checkpoint before coding, assign disjoint files to parallel workers and run the shared PostgreSQL suite serially. The detailed API, database, test and deployment constraints remain in the linked docs below.
+
 ## Parallel delivery protocol
 
 Parallel work is allowed only with disjoint file ownership:
@@ -399,6 +457,7 @@ This protocol is why the current core work can proceed in multiple tracks withou
 ## Further reading
 
 - [First 30 minutes](docs/00-START-HERE.md)
+- [Local user guide](docs/USER-GUIDE.md)
 - [Product overview](docs/PRODUCT-OVERVIEW.md)
 - [Current project status](docs/PROJECT-STATUS.md)
 - [Architecture](docs/ARCHITECTURE.md)
@@ -414,4 +473,4 @@ This protocol is why the current core work can proceed in multiple tracks withou
 - [AI agent rules](AGENTS.md)
 - [Portable project-context skill](.ai/skills/project-context/SKILL.md)
 
-The exact next task is P0.2 live-provider receipt acceptance when an authorized test account is available; until then, continue core hardening and local failure-state verification without adding UI claims.
+The exact next task after this documentation pause is P0.2 live-provider receipt acceptance when an authorized test account is available. Until the pause is explicitly lifted in `docs/HANDOFF.md`, only documentation/evidence corrections should be made; do not claim new feature completion.

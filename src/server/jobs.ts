@@ -9,7 +9,7 @@ export async function enqueueJob(db:PoolClient,workspace:string,input:{kind:stri
 }
 export async function recoverStaleJobs(db:PoolClient){return (await db.query(`UPDATE jobs SET state=CASE WHEN external_effect THEN 'unknown' WHEN attempts>=max_attempts THEN 'dead' ELSE 'retry' END,
  available_at=now()+make_interval(secs=>LEAST(300,power(2,attempts)::int)),lease_token=NULL,lease_until=NULL,error_code='LEASE_EXPIRED',updated_at=now()
- WHERE state='running' AND lease_until<=now() RETURNING id,state`)).rows;}
+ WHERE state='running' AND (lease_until IS NULL OR lease_until<=now()) RETURNING id,state`)).rows;}
 export async function claimJob(db:PoolClient,leaseSeconds=30,kinds?:string[]){
  if(!Number.isInteger(leaseSeconds)||leaseSeconds<1||leaseSeconds>300)throw new HttpError(400,'INVALID_LEASE');
  if(kinds!==undefined&&(!Array.isArray(kinds)||kinds.some(k=>typeof k!=='string'||! /^[a-z][a-z0-9._-]{0,79}$/.test(k))))throw new HttpError(400,'INVALID_JOB_KIND');
