@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gotek-backend
+  labels:
+    app: gotek-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gotek-backend
+  template:
+    metadata:
+      labels:
+        app: gotek-backend
+    spec:
+      containers:
+        - name: backend
+          image: gotek-chatbot-backend:latest
+          ports:
+            - containerPort: 4317
+          envFrom:
+            - configMapRef:
+                name: gotek-config
+            - secretRef:
+                name: gotek-secrets
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gotek-backend-svc
+spec:
+  selector:
+    app: gotek-backend
+  ports:
+    - port: 4317
+      targetPort: 4317

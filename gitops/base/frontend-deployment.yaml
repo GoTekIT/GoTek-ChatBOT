@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gotek-frontend
+  labels:
+    app: gotek-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gotek-frontend
+  template:
+    metadata:
+      labels:
+        app: gotek-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: gotek-chatbot-frontend:latest
+          ports:
+            - containerPort: 80
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gotek-frontend-svc
+spec:
+  selector:
+    app: gotek-frontend
+  ports:
+    - port: 80
+      targetPort: 80

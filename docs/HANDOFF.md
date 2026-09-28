@@ -2,9 +2,16 @@
 
 ## Current state
 
-Checkout `codex/chatbot-delivery` đang ở MVP core backend. Handoff checkpoint tài liệu + hardening đã được push sau commit nền `c6921b94a0f3eeb56e3fc555243d1fba3e2c90b2`; dùng `git log -1` để lấy commit hiện hành. Source có backend Express/PostgreSQL, React/Vite web, public widget SDK, migrations tới `056_model_grant_expiry.sql`, workers và test suites. Core slices có bằng chứng local; toàn sản phẩm vẫn **IN PROGRESS**.
+Dự án đã được refactor toàn diện sang kiến trúc Monorepo chuẩn mực theo format tham khảo của dự án `wdp` (Branch: `namnv`):
+- `backend/`: Dịch vụ API độc lập (Node.js/Express, TypeScript strict, Clean Architecture với layers `controllers/`, `services/`, `repositories/`, `dtos/`, `routes/`, `middlewares/`), quản lý migrations `backend/db/migrations/`, SDK widget `backend/public/sdk.js`, workers/scripts `backend/scripts/`, và unit/integration tests `backend/tests/`.
+- `frontend/`: Ứng dụng web React 19 + Vite độc lập (`frontend/src/` chia `features/`, `components/`, `hooks/`), proxy dev API sang backend port 4317, tests `frontend/tests/`.
+- Root Workspace Orchestration: `package.json` quản lý `dev`, `dev:backend`, `dev:frontend`, `build:all`, `test:all`, `install:all`, `prod:up`, `prod:down`. Kèm `docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.ci.yml`, `deploy_all.sh`, `infra/`, `gitops/`, `mobile/`, `.github/workflows/ci.yml`.
+Validation: `npm run build:all` PASS 100%, `npm run test:frontend` 5/5 PASS, Backend typecheck `tsc --noEmit` PASS 100%.
 
 ## Last thing being worked on
+
+Refactor toàn bộ cấu trúc dự án từ hybrid flat layout sang Monorepo đa tầng (Backend / Frontend / Infra / GitOps / Mobile / CI/CD) theo đúng mẫu chuẩn của dự án `wdp`.
+
 
 Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contract, expired-grant fence, audit export, restore integrity/quarantine, NULL-lease recovery và ba audit boundary song song (jobs, knowledge/widget, Platform Agent). Validation sau hợp nhất: `npm run build` PASS, `npm test` **175/175 PASS**, P0.1 focused acceptance 9/9 PASS và restore drill PASS trên 55 bảng; xem `docs/TESTING.md` và `delivery/evidence/`.
 

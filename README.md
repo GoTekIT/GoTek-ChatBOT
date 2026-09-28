@@ -39,10 +39,22 @@ Mở http://127.0.0.1:4317. `db:setup` yêu cầu cluster đã chạy; nó khôn
 
 ## Common commands
 
+Xem chi tiết hướng dẫn lập trình và cấu trúc dự án tại: **[Cẩm nang Cấu trúc Dự án & Hướng dẫn Code](docs/PROJECT-STRUCTURE.md)**.
+
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Express + Vite middleware local |
-| `npm run build` | TypeScript check + frontend build |
+| `npm run install:all` | Cài đặt dependencies cho root, backend và frontend |
+| `npm run dev` | Chạy đồng thời Backend (port 4317) và Frontend (port 3001) qua concurrently |
+| `npm run dev:backend` | Chạy riêng Backend API độc lập |
+| `npm run dev:frontend` | Chạy riêng Frontend Vite dev server (tự động proxy API) |
+| `npm run build:all` | Typecheck Backend + Build bundle Frontend |
+| `npm run test:all` | Chạy toàn bộ test suites của cả Backend và Frontend |
+| `npm run test:backend` | Chạy bộ kiểm thử Backend |
+| `npm run test:frontend` | Chạy bộ kiểm thử Frontend |
+| `npm run db:setup` | Áp dụng SQL migrations vào database local |
+| `npm run db:restore-drill` | Diễn tập khôi phục và kiểm chứng tính toàn vẹn 55 bảng |
+| `npm run prod:up` | Khởi động toàn bộ cụm sản xuất qua Docker Compose |
+| `npm run prod:down` | Dừng cụm Docker Compose |
 | `npx tsc --noEmit` | TypeScript check |
 | `npm test` | Node test runner, serial, có DB integration |
 | `npm run db:setup` | Apply SQL migrations |

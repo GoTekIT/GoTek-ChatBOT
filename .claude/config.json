@@ -1,0 +1,9 @@
+{
+  "project": "gotek-chatbot",
+  "language": "vi",
+  "architecture": "Clean Architecture / SOLID Monorepo",
+  "stack": {
+    "backend": "Node.js Express + TypeScript + PostgreSQL RLS",
+    "frontend": "React 19 + Vite + TypeScript"
+  }
+}

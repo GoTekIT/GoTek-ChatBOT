@@ -1,0 +1,58 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, master, namnv ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: gotek_migrator
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: gotek_chatbot
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Monorepo Dependencies
+        run: npm run install:all
+
+      - name: Backend Typecheck & Tests
+        run: |
+          npm run --prefix backend build
+          npm run --prefix backend test
+
+      - name: Frontend Typecheck & Build
+        run: |
+          npm run --prefix frontend build
+          npm run --prefix frontend test

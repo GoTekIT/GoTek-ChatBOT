@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gotek-prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-gotek_migrator}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gotek_secure_prod_password}
+      POSTGRES_DB: ${DB_NAME:-gotek_chatbot}
+    volumes:
+      - gotek_prod_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gotek_migrator}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    networks:
+      - gotek-prod-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: gotek-prod-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - gotek_prod_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - gotek-prod-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gotek-prod-backend
+    restart: unless-stopped
+    env_file:
+      - path: backend/.env
+        required: false
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 4317
+      HOST: 0.0.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - gotek-prod-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gotek-prod-frontend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-80}:80"
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - gotek-prod-network
+
+networks:
+  gotek-prod-network:
+    name: gotek_prod_network
+    driver: bridge
+
+volumes:
+  gotek_prod_pgdata:
+  gotek_prod_redis_data:

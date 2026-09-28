@@ -1,0 +1,5 @@
+CREATE TABLE support_grants(id uuid PRIMARY KEY,workspace_id uuid NOT NULL REFERENCES workspaces(id),subject_id uuid NOT NULL REFERENCES users(id),created_by uuid NOT NULL REFERENCES users(id),scope text NOT NULL CHECK(scope='operational_metadata'),reason text NOT NULL CHECK(length(reason) BETWEEN 5 AND 500),expires_at timestamptz NOT NULL,revoked_at timestamptz,created_at timestamptz NOT NULL DEFAULT now(),CHECK(expires_at>created_at));
+ALTER TABLE support_grants ENABLE ROW LEVEL SECURITY; ALTER TABLE support_grants FORCE ROW LEVEL SECURITY;
+CREATE POLICY support_tenant ON support_grants USING(workspace_id=nullif(current_setting('app.workspace_id',true),'')::uuid) WITH CHECK(workspace_id=nullif(current_setting('app.workspace_id',true),'')::uuid);
+CREATE POLICY support_subject_read ON support_grants FOR SELECT USING(current_setting('app.platform',true)='true' AND subject_id=nullif(current_setting('app.actor_id',true),'')::uuid);
+GRANT SELECT,INSERT,UPDATE ON support_grants TO gotek_app;

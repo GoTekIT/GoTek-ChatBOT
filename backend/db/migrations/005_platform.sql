@@ -1,0 +1,16 @@
+CREATE TABLE platform_admins(user_id uuid PRIMARY KEY REFERENCES users(id), active boolean NOT NULL DEFAULT true);
+GRANT SELECT ON platform_admins TO gotek_app;
+CREATE TABLE providers(id uuid PRIMARY KEY,name text NOT NULL UNIQUE,adapter text NOT NULL CHECK(adapter IN ('openai','anthropic','local')),secret_ref text NOT NULL CHECK(secret_ref ~ '^[A-Z][A-Z0-9_]{2,79}$'),enabled boolean NOT NULL DEFAULT false);
+CREATE TABLE models(id uuid PRIMARY KEY,provider_id uuid NOT NULL REFERENCES providers(id),name text NOT NULL,capabilities text[] NOT NULL CHECK(cardinality(capabilities)>0 AND capabilities <@ ARRAY['chat','embedding','vision']::text[]),enabled boolean NOT NULL DEFAULT true,UNIQUE(provider_id,name));
+CREATE TABLE model_grants(id uuid PRIMARY KEY,workspace_id uuid NOT NULL REFERENCES workspaces(id),model_id uuid NOT NULL REFERENCES models(id),capability text NOT NULL CHECK(capability IN ('chat','embedding','vision')),active boolean NOT NULL DEFAULT true,UNIQUE(workspace_id,model_id,capability));
+CREATE TABLE platform_audit(id uuid PRIMARY KEY,actor_id uuid NOT NULL REFERENCES users(id),action text NOT NULL,object_id uuid NOT NULL,reason text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+ALTER TABLE providers ENABLE ROW LEVEL SECURITY; ALTER TABLE providers FORCE ROW LEVEL SECURITY;
+ALTER TABLE models ENABLE ROW LEVEL SECURITY; ALTER TABLE models FORCE ROW LEVEL SECURITY;
+ALTER TABLE model_grants ENABLE ROW LEVEL SECURITY; ALTER TABLE model_grants FORCE ROW LEVEL SECURITY;
+ALTER TABLE platform_audit ENABLE ROW LEVEL SECURITY; ALTER TABLE platform_audit FORCE ROW LEVEL SECURITY;
+CREATE POLICY providers_platform ON providers USING(current_setting('app.platform',true)='true') WITH CHECK(current_setting('app.platform',true)='true');
+CREATE POLICY models_platform ON models USING(current_setting('app.platform',true)='true') WITH CHECK(current_setting('app.platform',true)='true');
+CREATE POLICY grants_platform ON model_grants USING(current_setting('app.platform',true)='true') WITH CHECK(current_setting('app.platform',true)='true');
+CREATE POLICY platform_audit_scope ON platform_audit USING(current_setting('app.platform',true)='true') WITH CHECK(current_setting('app.platform',true)='true');
+GRANT SELECT,INSERT,UPDATE ON providers,models,model_grants TO gotek_app;
+GRANT SELECT,INSERT ON platform_audit TO gotek_app;
