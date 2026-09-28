@@ -110,10 +110,28 @@ export function App() {
 
   if (path.startsWith('/app/auth/') || path === '/app/login' || (!me && !loading)) {
     return (
-      <>
-        <div className="local-label">Môi trường local/test</div>
+      <div style={{position: 'relative', width: '100%', height: '100vh', overflow: 'hidden'}}>
+        <div
+          className="local-label"
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 16,
+            zIndex: 50,
+            pointerEvents: 'none',
+            background: 'rgba(255, 255, 255, 0.7)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(226, 232, 240, 0.8)',
+            borderRadius: 9999,
+            padding: '4px 12px',
+            fontSize: 11,
+            color: '#64748b'
+          }}
+        >
+          Môi trường local/test
+        </div>
         <Auth key={path + location.search} path={path} onLogin={refresh} />
-      </>
+      </div>
     );
   }
 
