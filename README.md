@@ -55,6 +55,8 @@ Không có script lint. Xem [TESTING](docs/TESTING.md) trước khi chạy test.
 
 ## Documentation map
 
+- [Software Requirements Specification](docs/SRS.md)
+
 1. [Start here](docs/00-START-HERE.md)
 2. [User guide](docs/USER-GUIDE.md)
 3. [Project status](docs/PROJECT-STATUS.md)
@@ -474,3 +476,6 @@ This protocol is why the current core work can proceed in multiple tracks withou
 - [Portable project-context skill](.ai/skills/project-context/SKILL.md)
 
 The exact next task after this documentation pause is P0.2 live-provider receipt acceptance when an authorized test account is available. Until the pause is explicitly lifted in `docs/HANDOFF.md`, only documentation/evidence corrections should be made; do not claim new feature completion.
+
+
+

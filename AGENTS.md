@@ -39,3 +39,5 @@ Do not invent contracts or completion; do not discard unfinished source; do not 
 ## Shared protocol
 
 [Portable skill](.ai/skills/project-context/SKILL.md). Current handoff: [docs/HANDOFF.md](docs/HANDOFF.md).
+Detailed System & Component Design: [docs/SYSTEM-DESIGN-AND-STANDARDS.md](docs/SYSTEM-DESIGN-AND-STANDARDS.md).
+SOLID & Structure Rules: [.agents/rules/architecture_solid_and_structure_rules.md](.agents/rules/architecture_solid_and_structure_rules.md).
