@@ -58,11 +58,12 @@ Không có script lint. Xem [TESTING](docs/TESTING.md) trước khi chạy test.
 1. [Start here](docs/00-START-HERE.md)
 2. [User guide](docs/USER-GUIDE.md)
 3. [Environment and configuration](docs/ENVIRONMENT.md)
-4. [Project status](docs/PROJECT-STATUS.md)
-5. [Architecture](docs/ARCHITECTURE.md)
-6. [System flow](docs/SYSTEM-FLOW.md)
-7. [Development handoff](docs/HANDOFF.md)
-8. [AI agent instructions](AGENTS.md)
+4. [Environment and database Word handoff](docs/GoTek_Chatbot_Environment_Database_Handoff.docx)
+5. [Project status](docs/PROJECT-STATUS.md)
+6. [Architecture](docs/ARCHITECTURE.md)
+7. [System flow](docs/SYSTEM-FLOW.md)
+8. [Development handoff](docs/HANDOFF.md)
+9. [AI agent instructions](AGENTS.md)
 
 Nguồn yêu cầu: [handoff v2.0](delivery/GoTek_Chatbot_Skill_Dev_Kit/handoff/GoTek_ChatBOT_Ban_giao_Dev_Toan_bo.docx), [chỉ đạo](research/USER_DIRECTION.md), [ghi chép khảo sát HiChat](research/HICHAT_AI_SPEC.md), [checkpoint](delivery/CHECKPOINT.md). Tài liệu lịch sử/snapshot không thay thế trạng thái hiện hành và bằng chứng kiểm thử.
 
@@ -414,7 +415,7 @@ Workers are separate processes from the web server. `--all` and a specific works
 
 ### Environment inventory
 
-See [.env.example](.env.example). Important variables are `DATABASE_URL`, `APP_ORIGIN`, `COOKIE_SECURE`, `SERVE_BUILD`, `GOTEK_DEFAULT_AI_RESPONSE_QUOTA`, worker selectors, embedding selectors and token-metering rates. Provider rows hold the name of a server-side secret environment variable; actual key values never belong in this file or the database payload.
+See [.env.example](.env.example) and the detailed [Environment and database Word handoff](docs/GoTek_Chatbot_Environment_Database_Handoff.docx). Important variables are `DATABASE_URL`, `APP_ORIGIN`, `COOKIE_SECURE`, `SERVE_BUILD`, `GOTEK_DEFAULT_AI_RESPONSE_QUOTA`, worker selectors, embedding selectors and token-metering rates. Provider rows hold the name of a server-side secret environment variable; actual key values never belong in this file or the database payload.
 
 ## What is not implemented yet
 

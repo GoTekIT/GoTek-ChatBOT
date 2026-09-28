@@ -1,0 +1,38 @@
+GoTek Chatbot environment/database Word handoff evidence
+Date: 2026-09-28
+Branch: codex/chatbot-delivery
+Artifact: docs/GoTek_Chatbot_Environment_Database_Handoff.docx
+
+Scope
+- Created one Word handoff for a new developer covering .env location/loading, all environment variables observed in source, server-side provider secret_ref handling, AI/embedding/web workers, PostgreSQL roles and RLS boundaries, migrations, bootstrap, backup/restore drill, troubleshooting and open decisions.
+- Source feature implementation remained paused. No production deployment, customer message, service purchase or provider call was performed.
+
+Checkout evidence
+- Repository root .env: absent at audit time.
+- Tracked template: .env.example present.
+- Local runtime fallback: .local/runtime.json present and ignored.
+- No provider key, password, token or other secret was copied into the Word file or this evidence file.
+
+Verification
+- DOCX created with the bundled Python/docx runtime.
+- Render command: render_docx.py docs/GoTek_Chatbot_Environment_Database_Handoff.docx --output_dir <temporary-render-dir> --emit_pdf
+- Render result: PASS, 16 pages. Contact sheet and all rendered pages were visually inspected; checklist pagination was corrected before the final render.
+- Accessibility command: a11y_audit.py docs/GoTek_Chatbot_Environment_Database_Handoff.docx --out_json <temporary-report>
+- Accessibility result: PASS, high=0, medium=0, low=0.
+- Secret-pattern scan over extracted DOCX text: PASS for OpenAI-like keys, Google keys, AWS access keys, private-key blocks and GitHub tokens.
+
+Source references
+- .env.example
+- docs/ENVIRONMENT.md
+- docs/DEVELOPMENT.md
+- docs/DATABASE.md
+- docs/ARCHITECTURE.md
+- docs/PROJECT-STATUS.md
+- docs/HANDOFF.md
+- delivery/CHECKPOINT.md
+- src/server/db.ts, src/server/index.ts, src/server/app.ts
+- scripts/setup-db.ts, scripts/restore-drill.ts
+- db/migrations/*.sql
+
+Evidence boundary
+- Render/accessibility checks verify the handoff artifact, not live provider receipts, staging topology, production deployment, browser parity or full H01-H32/E01-E12 acceptance.

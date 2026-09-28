@@ -13,6 +13,7 @@ Repo đang **MVP In Progress** và hiện ở **documentation pause** sau parall
 - [ ] Đọc [README](../README.md), [PROJECT-STATUS](PROJECT-STATUS.md) và [HANDOFF](HANDOFF.md).
 - [ ] Đọc [USER-GUIDE](USER-GUIDE.md) để hiểu thao tác theo vai trò và các màn hình hiện có.
 - [ ] Đọc [ENVIRONMENT](ENVIRONMENT.md) trước khi tạo `.env`, cấp provider secret hoặc chạy worker.
+- [ ] Mở [Word handoff `.env` và PostgreSQL](GoTek_Chatbot_Environment_Database_Handoff.docx) để xem bảng biến, migration, role/RLS, backup/restore và checklist bàn giao.
 - [ ] Đọc [ARCHITECTURE](ARCHITECTURE.md), xác định tenant/permission boundary.
 - [ ] Cài Node/npm và PostgreSQL 16 theo [DEVELOPMENT](DEVELOPMENT.md).
 - [ ] Chạy `npm ci`; khởi động cluster local riêng cổng 55432.

@@ -12,6 +12,7 @@
 - Added parallel audit evidence for jobs (NULL lease), knowledge/widget boundaries (8/8) and Platform Agent (9/9); Platform Agent billing/quota ownership remains explicitly unresolved.
 - Expanded README with role-based usage, state transitions, next-step gates, reference images and corrected Mermaid syntax; added `docs/USER-GUIDE.md`.
 - Added `.env.example` local/test template and `docs/ENVIRONMENT.md` with variable inventory, provider `secret_ref` procedure, worker commands, troubleshooting and handoff security rules. Backend remains explicit-export; no dotenv loader was introduced.
+- Added `docs/GoTek_Chatbot_Environment_Database_Handoff.docx`, a 16-page environment/database runbook with rendered and accessibility verification; no real `.env` or secret is included.
 - Re-ran the full serial suite after these changes: **175/175 PASS**. The next feature slice is paused while this documentation checkpoint is reviewed.
 
 This snapshot is not a production release.

@@ -30,6 +30,7 @@ Bằng chứng regression mới nhất: fresh post-parallel-hardening run 175/17
 | Platform Agent actor/idempotency/recovery audit | `src/server/platform-agent.ts`, platform routes | DONE BUT NEEDS VERIFICATION | Focused 9/9; usage/quota ownership của platform turn còn UNKNOWN |
 | Expired session purge primitive | `src/server/session-maintenance.ts` | DONE | H23 checkpoint/tests; lịch chạy production chưa chốt |
 | Environment/configuration handoff | `.env.example`, `docs/ENVIRONMENT.md`, `docs/DEVELOPMENT.md` | DONE | Inventory đối chiếu source; không chứa secret; production/staging topology vẫn UNKNOWN |
+| Environment/database Word handoff | `docs/GoTek_Chatbot_Environment_Database_Handoff.docx` | DONE | 16-page rendered guide; accessibility audit high/medium/low = 0; no real `.env` or provider secret included |
 
 ## In Progress
 

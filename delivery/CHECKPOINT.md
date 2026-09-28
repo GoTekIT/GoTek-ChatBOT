@@ -582,3 +582,9 @@ Detailed current state and evidence are in `delivery/CHECKPOINT-LOCAL-BLOCKER.md
 - Added `docs/ENVIRONMENT.md` covering explicit export behavior (no dotenv loader), `DATABASE_URL`/runtime fallback, app and worker variables, provider `secret_ref`, adapter limits, worker commands, troubleshooting and staging unknowns.
 - Updated README, `docs/00-START-HERE.md`, `docs/DEVELOPMENT.md`, `AGENTS.md`, `docs/PROJECT-STATUS.md`, `docs/HANDOFF.md` and `CHANGELOG.md` to link the environment guide and preserve the documentation pause.
 - Evidence: `delivery/evidence/environment-handoff-2026-09-28.txt`. Template syntax, local links, ignore rules, secret-pattern scan and Mermaid block balance PASS. No source feature was implemented; an attempted build was stopped after the TypeScript process became idle without output, while the prior post-hardening build evidence remains valid.
+
+## 2026-09-28 — environment and database Word handoff
+- Added `docs/GoTek_Chatbot_Environment_Database_Handoff.docx`, a source-grounded 16-page handoff covering the real `.env` location/status, explicit export behavior, every current environment variable, provider `secret_ref`, AI/embedding/web worker commands, PostgreSQL roles/RLS, migration inventory, tenant invariants, backup/restore drill, troubleshooting and open decisions.
+- Checkout evidence recorded in the document: no real `.env` exists in the repository checkout; `.env.example` is tracked; `.local/runtime.json` is local/ignored. No secret, credential or provider key was added.
+- Verification: DOCX render PASS (16 pages; all pages visually inspected, including the corrected checklist pagination); accessibility audit PASS (`high=0`, `medium=0`, `low=0`); secret-pattern scan PASS. Evidence: `delivery/evidence/environment-database-docx-2026-09-28.txt`.
+- No source feature was implemented and the documentation pause remains active.
