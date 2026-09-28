@@ -585,6 +585,14 @@ Detailed current state and evidence are in `delivery/CHECKPOINT-LOCAL-BLOCKER.md
 
 ## 2026-09-28 — environment and database Word handoff
 - Added `docs/GoTek_Chatbot_Environment_Database_Handoff.docx`, a source-grounded 16-page handoff covering the real `.env` location/status, explicit export behavior, every current environment variable, provider `secret_ref`, AI/embedding/web worker commands, PostgreSQL roles/RLS, migration inventory, tenant invariants, backup/restore drill, troubleshooting and open decisions.
-- Checkout evidence recorded in the document: no real `.env` exists in the repository checkout; `.env.example` is tracked; `.local/runtime.json` is local/ignored. No secret, credential or provider key was added.
+- Checkout evidence recorded in the document: a private `.env` exists locally at the repository root, is ignored by Git and was generated from `.local/runtime.json`; `.env.example` is tracked and `.local/runtime.json` remains local/ignored. The database password is intentionally omitted from the Word file and evidence. No provider key was added.
 - Verification: DOCX render PASS (16 pages; all pages visually inspected, including the corrected checklist pagination); accessibility audit PASS (`high=0`, `medium=0`, `low=0`); secret-pattern scan PASS. Evidence: `delivery/evidence/environment-database-docx-2026-09-28.txt`.
 - No source feature was implemented and the documentation pause remains active.
+
+## 2026-09-28 — local .env provisioned on request
+- Created ignored `/Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/.env` with mode `0600` from `.local/runtime.json`.
+- `DATABASE_URL` targets the local/test database at `127.0.0.1:55432/gotek_chatbot` as `gotek_app`; the credential is not printed or committed.
+- `pg_isready` reported accepting connections. A redacted connection check confirmed database `gotek_chatbot`, role `gotek_app`, PostgreSQL 16.15, 57 applied migrations, 55 public tables and `gotek_app.rolbypassrls=false`.
+- Server smoke check with the exported `.env` returned `GET /api/health` HTTP 200 and `{"status":"ok","environment":"local-test","externalDelivery":false}`. No provider secret was exported and no external call was made.
+- A full serial `npm test` was not re-promoted by this check: the run was interrupted after early passes when a shared local fixture cleanup became slow. Historical post-hardening evidence `175/175` remains valid for its recorded run; this evidence does not claim a fresh full-suite pass.
+- Evidence: `delivery/evidence/local-env-provisioned-2026-09-28.txt`. No source feature was implemented.

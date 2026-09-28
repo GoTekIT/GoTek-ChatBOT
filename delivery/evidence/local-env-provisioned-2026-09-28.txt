@@ -1,0 +1,35 @@
+Local .env and database smoke evidence
+Date: 2026-09-28
+Branch: codex/chatbot-delivery
+Scope: local/test environment only; no source feature implementation
+
+Environment
+- Private file: repository root `.env`
+- Absolute path: /Users/ngxuanphu/Documents/ChatGPT/GoTek ChatBOT - CTO/.env
+- File mode: 0600
+- `.env` is ignored by `.gitignore`; `.local/runtime.json` is also ignored.
+- The file was generated from the existing local runtime configuration. Values are not reproduced here.
+- Key names were inspected without printing values. No provider secret was added or exported.
+
+Database verification
+- `pg_isready -h 127.0.0.1 -p 55432 -U gotek_app -d gotek_chatbot`: accepting connections.
+- Redacted `psql "$DATABASE_URL"` check: database `gotek_chatbot`, role `gotek_app`, PostgreSQL 16.15.
+- `schema_migrations`: 57 applied rows; source migration inventory: 57 SQL files.
+- Public tables: 55.
+- `gotek_app.rolbypassrls`: false. `gotek_migrator` is the bootstrap role and is not the app runtime role.
+- Password, full connection string and local data rows are intentionally omitted.
+
+Server smoke verification
+- Command: export `.env` variables, then `npm run dev`.
+- Server log: `GoTek local/test: http://127.0.0.1:4317`.
+- Request: `GET http://127.0.0.1:4317/api/health`.
+- Result: HTTP 200; `{"status":"ok","environment":"local-test","externalDelivery":false}`.
+- No provider call, external email, customer message, purchase or production deployment was performed.
+
+Additional local checks
+- `npm run build`: PASS (`tsc --noEmit` + Vite production bundle; Vite emitted only the existing >500 kB chunk warning).
+- `npx tsx --test tests/document-extract.test.ts tests/sdk-contract.test.ts`: PASS, 5/5.
+
+Test boundary
+- A fresh full `npm test` pass is not claimed by this evidence. The serial run passed its first suites but was interrupted after fixture cleanup on the accumulated local database became slow. Historical post-hardening evidence remains at `delivery/evidence/core-after-parallel-hardening-2026-09-27.txt` (175/175 for that recorded run).
+- This evidence does not close browser acceptance, live provider receipt, staging, production or full H01-H32/E01-E12 gates.

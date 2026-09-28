@@ -10,7 +10,7 @@ Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contrac
 
 ## Exact point where work stopped
 
-Đang ở **documentation pause** sau khi audit song song hoàn tất. README/user guide/flow, hướng dẫn `.env`/provider secret và Word handoff `.env`/PostgreSQL đã được làm rõ; chưa bắt đầu UI parity mới. Chưa có live provider/email receipt, staging deployment hay production release. `delivery/BACKLOG.csv` còn 107 Backlog/61 In progress/2 Implemented và cần đồng bộ sau acceptance.
+Đang ở **documentation pause** sau khi audit song song hoàn tất. README/user guide/flow, hướng dẫn `.env`/provider secret và Word handoff `.env`/PostgreSQL đã được làm rõ. Một `.env` local mode `0600` đã được tạo từ `.local/runtime.json`; file bị ignore và không được commit. PostgreSQL local đã được khởi động và xác minh qua `DATABASE_URL`: database `gotek_chatbot`, app role `gotek_app`, PostgreSQL 16.15, 57 migrations và 55 public tables; `gotek_app` không có `BYPASSRLS`. Server local cũng đã trả `GET /api/health` HTTP 200. Chưa bắt đầu UI parity mới. Chưa có live provider/email receipt, staging deployment hay production release. `delivery/BACKLOG.csv` còn 107 Backlog/61 In progress/2 Implemented và cần đồng bộ sau acceptance.
 
 ## Files currently involved
 
@@ -36,6 +36,7 @@ Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contrac
 - Platform Agent actor/session/idempotency/recovery có local evidence; billable token/quota ownership chưa chốt và chưa có usage ledger rows cho route này.
 - Retention/delete/tenant closure chưa có policy.
 - Signup browser error “Không thể kết nối” từ conversation chưa được tái hiện trong snapshot.
+- Full `npm test` chưa được gọi là pass trong lượt xác minh `.env` này: run serial bị dừng sau một số suite vì fixture cleanup trên database tích lũy chậm; xem evidence mới và không thay thế evidence regression 175/175 của ngày 2026-09-27.
 - Cặp file suffix ` 2` còn tồn tại, chưa được phép xóa.
 
 ## Immediate next steps

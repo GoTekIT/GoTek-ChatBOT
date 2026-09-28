@@ -36,3 +36,10 @@ Source references
 
 Evidence boundary
 - Render/accessibility checks verify the handoff artifact, not live provider receipts, staging topology, production deployment, browser parity or full H01-H32/E01-E12 acceptance.
+
+Post-artifact local verification update
+- A private root `.env` was provisioned after the initial artifact inventory and remains ignored with mode `0600`; no password or provider key was copied into the artifact.
+- The Word paragraph describing checkout evidence was updated to include the verified local database/health result.
+- Re-render: PASS, 16 pages at `/tmp/gotek-env-db-docx-render-20260928-v5`.
+- Re-audit: PASS, accessibility high=0, medium=0, low=0 at `/tmp/gotek-env-db-docx-a11y-20260928-v5.json`.
+- The current redacted database and `/api/health` evidence is recorded separately in `delivery/evidence/local-env-provisioned-2026-09-28.txt`.

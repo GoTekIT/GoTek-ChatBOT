@@ -17,6 +17,8 @@ Các command tồn tại/được đối chiếu trong package/source. Lint: NOT
 
 Fresh handoff validation (2026-09-27): `npm run build` PASS; sau NULL-lease recovery hardening, `npm test` PASS **175/175** (serial); P0.1 focused core acceptance PASS 9/9; fresh `npm run db:restore-drill` PASS trên 55 bảng. Parallel audits: jobs regression 1/1 plus existing recovery suites, knowledge/widget 8/8, Platform Agent 9/9. Logs mới: `delivery/evidence/build-after-parallel-hardening-2026-09-27.txt`, `delivery/evidence/core-after-parallel-hardening-2026-09-27.txt`, `delivery/evidence/restore-after-parallel-hardening-2026-09-27.txt`, `delivery/evidence/p0-jobs-recovery-2026-09-27.txt`, `delivery/evidence/p0-knowledge-widget-2026-09-27.txt`, `delivery/evidence/p0-platform-agent-2026-09-27.txt`. Logs lịch sử vẫn giữ trong `delivery/evidence/`; `npx tsc --noEmit` được chạy trong build/focused audits. Kết quả này không thay thế browser/live-provider acceptance. Documentation pause đang bật; xem README và HANDOFF trước khi mở code.
 
+Environment follow-up (2026-09-28): private root `.env` was exported for a local smoke check. PostgreSQL 16.15 accepted the connection as `gotek_app`; `schema_migrations=57`, public tables `55`, and the app role has `rolbypassrls=false`. `npm run dev` started on `127.0.0.1:4317`, and `GET /api/health` returned HTTP 200 with `environment=local-test` and `externalDelivery=false`. `npm run build` PASS; focused document extraction + SDK contract tests PASS 5/5. The full suite was not re-promoted in this follow-up because the serial run was interrupted after fixture cleanup on the accumulated local database became slow. Evidence: `delivery/evidence/local-env-provisioned-2026-09-28.txt`. This does not replace the recorded 175/175 regression or prove browser/live-provider acceptance.
+
 | Check | Current handoff result |
 |---|---|
 | Build | PASS (2026-09-27) |
@@ -30,6 +32,9 @@ Fresh handoff validation (2026-09-27): `npm run build` PASS; sau NULL-lease reco
 | Jobs NULL-lease recovery | PASS, 1/1 new regression (2026-09-27) |
 | Knowledge/widget boundary audit | PASS, 8/8 focused tests (2026-09-27) |
 | Platform Agent audit | PASS, 9/9 focused tests; billing/quota policy open (2026-09-27) |
+| Local `.env` + PostgreSQL smoke | PASS, connection/app role/RLS/migrations checked (2026-09-28) |
+| Local server health | PASS, HTTP 200 on `/api/health` (2026-09-28) |
+| Environment follow-up focused tests | PASS, document extraction + SDK contract 5/5 (2026-09-28) |
 
 ## Current verification matrix
 
