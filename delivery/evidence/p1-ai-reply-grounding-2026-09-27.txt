@@ -1,0 +1,108 @@
+GoTek Chatbot — P1 AI reply grounding/citation audit
+Date: 2026-09-27 (Asia/Ho_Chi_Minh)
+Branch: codex/chatbot-delivery
+Scope: src/server/ai-reply-worker.ts, src/server/worker.ts and focused AI/provider/retrieval tests
+Owner: ai_reply_grounding_audit
+Mode: local/test only; no live provider, external delivery or production action
+
+RESULT
+------
+Implemented runtime boundaries are verified locally for tenant/public source selection,
+model/grant expiry, ownership/version fencing, lease fencing, quota reservation and
+unknown outcomes. Citation/output verification is NOT complete: the worker passes
+structured retrieval context to the provider and stores provider text, but does not
+parse/validate provider citation markers or persist an answer-to-source citation row.
+This is a known acceptance gap (UNKNOWN / NEEDS VERIFICATION for live citation UX),
+not promoted to DONE.
+
+REQUIREMENT CROSS-CHECK
+-----------------------
+The handoff AI flow requires: resolve tenant/session, check quota/owner, retrieve only
+published sources for the correct audience, call the provider with policy, check
+source/citation and answer, recheck ownership, then save/send. It also requires each
+citation to carry source ID and version and says a stale AI result must not be sent.
+H08.04/H08.05 require granted capability, timeout/fallback/quota/kill switch and
+runtime policy/source checks. P1-QUOTA requires server-only reserve/settle,
+unknown quota hold, idempotent retry and no blind resend.
+
+CODE EVIDENCE
+-------------
+1. ai-reply-worker.ts prepare(): source message is constrained to the job workspace,
+   conversation, public visitor author and public visibility; reply_owner=AI_ACTIVE
+   and owner_version must match. Chat and embedding model grants are joined through
+   provider/model capability, enabled state and non-expired expires_at.
+2. buildWidgetAiContext() is PUBLIC-only, workspace-scoped and READY/published. It
+   returns bounded source content with citation.versionId; assertWidgetSourcesCurrent()
+   rechecks publication/audience/active state and holds row locks at commit.
+3. transactionalAiReplyHandler() rechecks job lease and conversation ownership before
+   provider call and immediately before commit. appendMessage() enforces AI_ACTIVE and
+   owner_version again. A takeover during provider I/O therefore rejects the output.
+4. ai_reply_dispatches claims the external attempt. An existing unknown claim returns
+   AI_DISPATCH_UNKNOWN and is not invoked again. Provider/commit failure settles quota
+   to unknown; no automatic resend is attempted.
+5. defaultWorkspaceProviderInvoke() resolves the model in a short scoped transaction,
+   rejects expired/revoked grants before transport, keeps provider secret server-side,
+   builds workspacePrompt() with bounded untrusted source delimiters, and calls the
+   injected/shared transport outside the DB transaction.
+6. workspacePrompt() instructs providers to cite [1], [2], to abstain when sources are
+   insufficient, and to treat question/history/source text as untrusted data. This is
+   a prompt policy, not an output verifier.
+7. commit() accepts output as any non-empty string and appends it directly as a public
+   AI message. It does not require a citation marker, verify marker indexes against
+   context, check that a cited quote occurs in the source, or persist active_citations.
+8. active_citations/active_citation_sources tables and service exist as an independent
+   E01/API slice, but ai-reply-worker.ts never calls recordCitation(). The stored AI
+   message has no answer/source relation. Therefore a provider can return "AI answer"
+   or a fabricated [99] marker and the worker will still persist it if other fences pass.
+
+FOCUSED VALIDATION
+------------------
+Command:
+  npm exec -- tsx --test --test-concurrency=1 \
+    tests/ai-reply-worker.test.ts \
+    tests/ai-context-metering.test.ts \
+    tests/ai-dispatch-fence.test.ts \
+    tests/ai-crash-recovery.test.ts \
+    tests/ai-grant-lock.test.ts \
+    tests/ai-embedding-fallback.test.ts \
+    tests/ai-semantic-provenance.test.ts \
+    tests/quota-pre-dispatch-matrix.test.ts \
+    tests/core-provider-handoff.test.ts \
+    tests/provider-grant-expiry.test.ts \
+    tests/workspace-prompt.test.ts \
+    tests/knowledge-retrieval.test.ts \
+    tests/provider-receipt-contract.test.ts
+Result: PASS — 23 tests, 23 passed, 0 failed, 0 skipped; duration 10.1 s.
+
+Command:
+  npx tsc --noEmit
+Result: PASS — exit code 0.
+
+Covered by the focused run:
+- grounded context and source-message boundaries;
+- PUBLIC/READY/active/tenant retrieval and source-revocation fence;
+- semantic model/dimension/integrity filtering and lexical fallback;
+- grant expiry/revocation before provider I/O;
+- quota no-reservation on missing model/knowledge and unknown hold after dispatch;
+- deterministic dispatch claim, no duplicate provider invocation and crash/restart behavior;
+- owner takeover and stale lease rejection before public append;
+- provider adapter text/usage/error redaction contract.
+
+NOT VERIFIED
+------------
+- Live provider receipt, exact upstream citation behavior or vendor grounding quality.
+- Citation marker parser/quote verifier and active_citations persistence from an AI reply.
+- Browser widget source display/open-source behavior.
+- Production RPO/RTO, staging, SMTP or external integrations.
+- HiChat private backend parity.
+
+DECISION / NEXT EXACT STEP
+--------------------------
+Do not mark H08/E01 or the full core AI flow Accepted from this audit. Before live or
+staging acceptance, define the answer citation contract (marker grammar, source/version
+mapping, quote/snippet policy and behavior for missing/invalid citations), then add a
+transactional worker integration that stores only validated public citations or routes
+invalid/uncited output to the existing human handoff/fallback. The implementation must
+preserve current ownership, dispatch, quota and unknown fences. No migration was added
+in this audit; active_citations schema/service remains an existing, separately tested
+slice.

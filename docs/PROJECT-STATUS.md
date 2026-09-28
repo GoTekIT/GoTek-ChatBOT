@@ -1,6 +1,6 @@
 # Current snapshot
 
-Ngày audit: 2026-09-27. Branch: `codex/chatbot-delivery`. Checkpoint tài liệu + hardening đã được push trên nền `c6921b94a0f3eeb56e3fc555243d1fba3e2c90b2`; dùng `git log -1` để lấy commit snapshot hiện hành. Trạng thái: **MVP — In Progress; documentation pause**.
+Ngày audit: 2026-09-28. Branch: `codex/chatbot-delivery`; dùng `git log -1` để lấy commit snapshot hiện hành. Trạng thái: **MVP — In Progress; documentation pause**.
 
 Source, migration và test là bằng chứng triển khai; `delivery/BACKLOG.csv` là phạm vi chi tiết; tài liệu này tổng hợp trạng thái. Không có bằng chứng hoàn tất toàn bộ backend hay HiChat parity. `delivery/CHECKPOINT.md` giữ lịch sử; entry mới hơn thay thế nhận định cũ khi có bằng chứng sửa lỗi.
 
@@ -29,6 +29,7 @@ Bằng chứng regression mới nhất: fresh post-parallel-hardening run 175/17
 | Knowledge/widget boundary audit | `src/server/knowledge-retrieval.ts`, `src/server/widget.ts` | DONE BUT NEEDS VERIFICATION | Focused boundary 8/8; không phát hiện leak cụ thể trong scope. Không chứng minh HiChat/private backend parity |
 | Platform Agent actor/idempotency/recovery audit | `src/server/platform-agent.ts`, platform routes | DONE BUT NEEDS VERIFICATION | Focused 9/9; usage/quota ownership của platform turn còn UNKNOWN |
 | Expired session purge primitive | `src/server/session-maintenance.ts` | DONE | H23 checkpoint/tests; lịch chạy production chưa chốt |
+| Environment/configuration handoff | `.env.example`, `docs/ENVIRONMENT.md`, `docs/DEVELOPMENT.md` | DONE | Inventory đối chiếu source; không chứa secret; production/staging topology vẫn UNKNOWN |
 
 ## In Progress
 

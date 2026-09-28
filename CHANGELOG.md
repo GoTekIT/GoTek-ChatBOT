@@ -11,6 +11,7 @@
 - Hardened stale-job recovery for `running` rows with a NULL lease and added a tenant-isolation regression.
 - Added parallel audit evidence for jobs (NULL lease), knowledge/widget boundaries (8/8) and Platform Agent (9/9); Platform Agent billing/quota ownership remains explicitly unresolved.
 - Expanded README with role-based usage, state transitions, next-step gates, reference images and corrected Mermaid syntax; added `docs/USER-GUIDE.md`.
+- Added `.env.example` local/test template and `docs/ENVIRONMENT.md` with variable inventory, provider `secret_ref` procedure, worker commands, troubleshooting and handoff security rules. Backend remains explicit-export; no dotenv loader was introduced.
 - Re-ran the full serial suite after these changes: **175/175 PASS**. The next feature slice is paused while this documentation checkpoint is reviewed.
 
 This snapshot is not a production release.

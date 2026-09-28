@@ -1,0 +1,47 @@
+GoTek Chatbot — environment and configuration handoff audit
+Date: 2026-09-28 (Asia/Ho_Chi_Minh)
+Branch: codex/chatbot-delivery
+Scope: .env.example, docs/ENVIRONMENT.md, docs/DEVELOPMENT.md and source environment references
+Mode: documentation only; no provider call, customer message, purchase or production action
+
+RESULT
+------
+The safe environment template and developer handoff guide are present. The guide
+matches the inspected references in src/server, scripts, package.json and .gitignore.
+It explicitly records that the backend does not load dotenv, that local DB fallback
+uses .local/runtime.json, that provider secrets resolve by providers.secret_ref and
+that NODE_ENV=production is intentionally rejected by current entrypoints.
+
+SOURCE REFERENCES CHECKED
+-------------------------
+- src/server/db.ts: DATABASE_URL or .local/runtime.json fallback.
+- src/server/index.ts: NODE_ENV guard, SERVE_BUILD and fixed local bind 127.0.0.1:4317.
+- src/server/app.ts: COOKIE_SECURE, APP_ORIGIN and signup default quota.
+- src/server/channels.ts: APP_ORIGIN for the widget installation snippet.
+- src/server/worker.ts, platform.ts and knowledge-embedding-worker.ts: dynamic
+  server-side lookup of process.env[provider.secret_ref].
+- scripts/ai-worker.ts, embed-knowledge.ts and web-refresh-worker.ts: UUID worker
+  selection, --all exclusivity and batch validation.
+- .gitignore: .env and .local/ are ignored; .env.example is the only env template.
+
+VALIDATION
+----------
+- bash -n .env.example: PASS
+- local Markdown links in changed docs: PASS (0 broken links)
+- environment template key inventory: PASS; no real provider variable values
+- secret-pattern scan over .env.example and docs/ENVIRONMENT.md: PASS (no match)
+- .env and .local/runtime.json ignore check: PASS
+- tracked documentation diff check: PASS
+- Mermaid block balance check for docs/ENVIRONMENT.md: PASS (1 block)
+- Existing source build evidence remains in delivery/evidence/build-after-parallel-hardening-2026-09-27.txt.
+  A new source build was not required for this documentation-only change; an attempted
+  npm run build was stopped after the TypeScript process became idle without output.
+
+OPEN / UNKNOWN
+--------------
+- dotenv package/loading is intentionally absent; future teams must preserve explicit
+  export behavior or add and document a loader as a separate decision.
+- staging secret manager, database migration path outside the local bootstrap cluster,
+  provider receipts, pricing and production topology remain UNKNOWN / NEEDS VERIFICATION.
+- claude_code currently maps to the Anthropic-compatible transport; CLI execution is
+  not evidenced by the repository.

@@ -35,7 +35,7 @@ npm run db:setup
 npm run dev
 ```
 
-Mở http://127.0.0.1:4317. `db:setup` yêu cầu cluster đã chạy; nó không tự cài/start PostgreSQL. `.env.example` chỉ là danh mục cấu hình: backend **không tự đọc `.env`**. Mặc định kết nối qua `.local/runtime.json` do setup tạo; các biến khác phải export trong shell.
+Mở http://127.0.0.1:4317. `db:setup` yêu cầu cluster đã chạy; nó không tự cài/start PostgreSQL. `.env.example` là template an toàn, còn backend **không tự đọc `.env`**; cách export biến, provider secret và worker profile nằm trong [ENVIRONMENT](docs/ENVIRONMENT.md). Mặc định kết nối qua `.local/runtime.json` do setup tạo.
 
 ## Common commands
 
@@ -57,11 +57,12 @@ Không có script lint. Xem [TESTING](docs/TESTING.md) trước khi chạy test.
 
 1. [Start here](docs/00-START-HERE.md)
 2. [User guide](docs/USER-GUIDE.md)
-3. [Project status](docs/PROJECT-STATUS.md)
-4. [Architecture](docs/ARCHITECTURE.md)
-5. [System flow](docs/SYSTEM-FLOW.md)
-6. [Development handoff](docs/HANDOFF.md)
-7. [AI agent instructions](AGENTS.md)
+3. [Environment and configuration](docs/ENVIRONMENT.md)
+4. [Project status](docs/PROJECT-STATUS.md)
+5. [Architecture](docs/ARCHITECTURE.md)
+6. [System flow](docs/SYSTEM-FLOW.md)
+7. [Development handoff](docs/HANDOFF.md)
+8. [AI agent instructions](AGENTS.md)
 
 Nguồn yêu cầu: [handoff v2.0](delivery/GoTek_Chatbot_Skill_Dev_Kit/handoff/GoTek_ChatBOT_Ban_giao_Dev_Toan_bo.docx), [chỉ đạo](research/USER_DIRECTION.md), [ghi chép khảo sát HiChat](research/HICHAT_AI_SPEC.md), [checkpoint](delivery/CHECKPOINT.md). Tài liệu lịch sử/snapshot không thay thế trạng thái hiện hành và bằng chứng kiểm thử.
 

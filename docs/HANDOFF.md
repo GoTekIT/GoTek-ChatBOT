@@ -10,7 +10,7 @@ Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contrac
 
 ## Exact point where work stopped
 
-Đang ở **documentation pause** sau khi audit song song hoàn tất. README/user guide/flow đang được làm rõ; chưa bắt đầu UI parity mới. Chưa có live provider/email receipt, staging deployment hay production release. `delivery/BACKLOG.csv` còn 107 Backlog/61 In progress/2 Implemented và cần đồng bộ sau acceptance.
+Đang ở **documentation pause** sau khi audit song song hoàn tất. README/user guide/flow và hướng dẫn `.env`/provider secret đã được làm rõ; chưa bắt đầu UI parity mới. Chưa có live provider/email receipt, staging deployment hay production release. `delivery/BACKLOG.csv` còn 107 Backlog/61 In progress/2 Implemented và cần đồng bộ sau acceptance.
 
 ## Files currently involved
 
@@ -19,6 +19,7 @@ Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contrac
 - Conversations/widget: `widget.ts`, `channels.ts`, `chat-store.ts`, `inbox.ts`, `public/sdk.js`.
 - Knowledge/web: `knowledge*.ts`, `web-*.ts`, `web-snapshot-generation.ts`.
 - AI/jobs: `provider-transport.ts`, `ai-reply-worker.ts`, `worker.ts`, `jobs.ts`, `quota.ts`, `usage-ledger.ts`.
+- Environment/handoff: `.env.example`, `docs/ENVIRONMENT.md`, `docs/DEVELOPMENT.md`, `AGENTS.md`.
 - Verification: `tests/*.test.ts`, `delivery/evidence/`, `delivery/CHECKPOINT.md`.
 
 ## What already works (evidence-limited)
@@ -38,7 +39,7 @@ Các slice H05/H06 và hardening H01/H02/H16/H23/H28/H32, provider error contrac
 
 ## Immediate next steps
 
-1. Đọc `README.md`, `docs/USER-GUIDE.md`, `AGENTS.md`, `docs/PROJECT-STATUS.md`, `docs/TESTING.md` và `delivery/CHECKPOINT.md`.
+1. Đọc `README.md`, `docs/USER-GUIDE.md`, `docs/ENVIRONMENT.md`, `AGENTS.md`, `docs/PROJECT-STATUS.md`, `docs/TESTING.md` và `delivery/CHECKPOINT.md`.
 2. Trong documentation pause, chỉ sửa tài liệu/evidence và kiểm tra link/diagram; không mở H/E feature mới.
 3. Khi owner mở lại development, chạy `npm run build`, `npm test` và, với PostgreSQL local, `npm run db:restore-drill` sau thay đổi code liên quan.
 4. P0.1 focused flow đã có evidence 9/9; tiếp tục bằng fresh fixture hai workspace khi thay đổi core và ghi evidence mới.

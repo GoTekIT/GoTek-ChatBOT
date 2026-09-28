@@ -25,23 +25,7 @@ Các command bootstrap trên được đối chiếu với PostgreSQL CLI và c�
 
 ## Environment variables
 
-Backend không có dotenv loader. `.env.example` là inventory, không phải file cấu hình tự nạp. Export biến cần dùng trước khi chạy. Nếu `DATABASE_URL` không được set, `src/server/db.ts` đọc `.local/runtime.json`. Không export `DATABASE_URL` rỗng thành một URL giả. Test có admin connections hardcode local nên thay DATABASE_URL không làm toàn suite trở thành portable.
-
-| Variable | Use/default |
-|---|---|
-| DATABASE_URL | Optional app DB override; otherwise runtime.json |
-| NODE_ENV | `production` bị từ chối ở entrypoints |
-| SERVE_BUILD | `true` phục vụ `dist` thay Vite middleware |
-| APP_ORIGIN | Origin validation/widget URL; mặc định http://127.0.0.1:4317 |
-| COOKIE_SECURE | `true` bật Secure cookie; local HTTP không dùng |
-| GOTEK_DEFAULT_AI_RESPONSE_QUOTA | Default 1000 |
-| GOTEK_WORKER_WORKSPACE | UUID workspace cho worker |
-| GOTEK_KNOWLEDGE_VERSION | UUID phiên bản cho embedding |
-| GOTEK_EMBEDDING_MODEL | UUID model registry |
-| GOTEK_EMBEDDING_BATCH_SIZE | Default 20, maximum 100 |
-| GOTEK_PROMPT_MICROS_PER_1K | Default 0; metering rate, không chứng minh pricing thật |
-| GOTEK_COMPLETION_MICROS_PER_1K | Default 0 |
-| provider secret_ref | Tên biến môi trường do registry quy định, không có tên API key cố định |
+Backend không có dotenv loader. `.env.example` là template an toàn, không phải file tự nạp. Quy trình copy/export, bảng biến, provider `secret_ref`, worker profiles và troubleshooting nằm trong [ENVIRONMENT](ENVIRONMENT.md). Nếu `DATABASE_URL` không có giá trị, `src/server/db.ts` đọc `.local/runtime.json`; test/DB setup vẫn có các ràng buộc local được mô tả trong tài liệu đó.
 
 ## Start / build / checks
 

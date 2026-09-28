@@ -14,6 +14,10 @@ TypeScript strict, Express, React/Vite, PostgreSQL via pg, SQL migrations, Argon
 
 `npm ci`; `npm run db:setup` (existing local PostgreSQL cluster required); `npm run dev`; `npm run build`; `npx tsc --noEmit`; `npm test`; `npm run db:restore-drill`. No lint script. Read DEVELOPMENT before setup: `.env` is not auto-loaded; runtime defaults to ignored `.local/runtime.json`. Tests use a dedicated DB and run serially.
 
+## Environment rules
+
+Read [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) before creating `.env`, starting a worker or testing a provider. `.env.example` contains placeholders only; export variables explicitly, keep `.env`/`.local` out of Git, and provide provider secrets through the exact server-side `providers.secret_ref` name. `NODE_ENV=production` is intentionally rejected by current entrypoints.
+
 ## Architecture / database / API / authentication rules
 
 - Derive tenant from authenticated membership or validated widget credential, never trust arbitrary client workspace ID.

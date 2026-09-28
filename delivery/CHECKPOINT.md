@@ -576,3 +576,9 @@ Detailed current state and evidence are in `delivery/CHECKPOINT-LOCAL-BLOCKER.md
 - Platform Agent audit: **9/9 PASS** for actor/session isolation, idempotency, lease recovery/unknown and redacted provider errors. Token/cost/quota ownership is explicitly **UNKNOWN / NEEDS VERIFICATION**; no migration was invented. Evidence `delivery/evidence/p0-platform-agent-2026-09-27.txt`.
 - Shared validation after the parallel changes: `npm run build` PASS and `npm test` **175/175 PASS**. Evidence `delivery/evidence/build-after-parallel-hardening-2026-09-27.txt` and `delivery/evidence/core-after-parallel-hardening-2026-09-27.txt`.
 - Current mode is **DOCUMENTATION PAUSED**: README Mermaid flow was corrected, `docs/USER-GUIDE.md` was added, and the next implementation slice must not start until the handoff/checkpoint explicitly reopens it. No provider key, customer message, purchase or production deployment was used.
+
+## 2026-09-28 — environment configuration handoff
+- Added a safe `.env.example` with local/test values and blank worker/provider placeholders. `.env` and `.local/runtime.json` remain ignored; no secret was added.
+- Added `docs/ENVIRONMENT.md` covering explicit export behavior (no dotenv loader), `DATABASE_URL`/runtime fallback, app and worker variables, provider `secret_ref`, adapter limits, worker commands, troubleshooting and staging unknowns.
+- Updated README, `docs/00-START-HERE.md`, `docs/DEVELOPMENT.md`, `AGENTS.md`, `docs/PROJECT-STATUS.md`, `docs/HANDOFF.md` and `CHANGELOG.md` to link the environment guide and preserve the documentation pause.
+- Evidence: `delivery/evidence/environment-handoff-2026-09-28.txt`. Template syntax, local links, ignore rules, secret-pattern scan and Mermaid block balance PASS. No source feature was implemented; an attempted build was stopped after the TypeScript process became idle without output, while the prior post-hardening build evidence remains valid.

@@ -12,6 +12,7 @@ Repo đang **MVP In Progress** và hiện ở **documentation pause** sau parall
 
 - [ ] Đọc [README](../README.md), [PROJECT-STATUS](PROJECT-STATUS.md) và [HANDOFF](HANDOFF.md).
 - [ ] Đọc [USER-GUIDE](USER-GUIDE.md) để hiểu thao tác theo vai trò và các màn hình hiện có.
+- [ ] Đọc [ENVIRONMENT](ENVIRONMENT.md) trước khi tạo `.env`, cấp provider secret hoặc chạy worker.
 - [ ] Đọc [ARCHITECTURE](ARCHITECTURE.md), xác định tenant/permission boundary.
 - [ ] Cài Node/npm và PostgreSQL 16 theo [DEVELOPMENT](DEVELOPMENT.md).
 - [ ] Chạy `npm ci`; khởi động cluster local riêng cổng 55432.
@@ -20,4 +21,4 @@ Repo đang **MVP In Progress** và hiện ở **documentation pause** sau parall
 - [ ] Chạy `npm test` và `npm run build`; không dùng DB có dữ liệu thật.
 - [ ] Đối chiếu task IN PROGRESS với file, test và bước tiếp theo trong HANDOFF.
 
-Không cần tài khoản provider để xem UI/auth local; gọi AI thật cần cấu hình registry, quyền model và secret trên server. Không có default production admin credential trong repo. Bắt đầu sửa từ task cụ thể ở HANDOFF, không xây lại kiến trúc từ bản đề xuất cũ.
+Không cần tài khoản provider để xem UI/auth local; gọi AI thật cần cấu hình registry, quyền model và secret trên server. Không có default production admin credential trong repo. Backend không tự load `.env`; team phải export profile theo [ENVIRONMENT](ENVIRONMENT.md). Bắt đầu sửa từ task cụ thể ở HANDOFF, không xây lại kiến trúc từ bản đề xuất cũ.
