@@ -52,9 +52,8 @@ export class AuthController {
     res.cookie('gotek_session', result.token, {...cookieOptions, maxAge: result.maxAge}).json(successResponse);
   }
 
-  static async getMe(req: Request, res: Response, db: any, identity: any): Promise<void> {
-    const result = await AuthService.getMe(db, identity.user_id, identity.workspace_id, identity.role);
-    res.json(result);
+  static async getMe(db: any, identity: any): Promise<any> {
+    return AuthService.getMe(db, identity.user_id, identity.workspace_id, identity.role);
   }
 
   static async logout(req: Request, res: Response): Promise<void> {

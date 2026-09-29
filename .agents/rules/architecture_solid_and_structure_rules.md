@@ -186,6 +186,29 @@ HTTP Request ──► [Routes] ──► [Middlewares: Auth, Security, RateLimi
    - Thành công: `{ "success": true, "data": <result> }`.
    - Thất bại: `{ "success": false, "error": { "code": "STRING_ERROR_CODE", "message": "...", "details": ... } }`.
 
+### 4.1. Quy chuẩn Nhóm Route (Group Routes Pattern)
+Mọi API trong backend BẮT BUỘC tuân thủ mô hình **Group Routes (Centralized Route Grouping)**:
+1. **Tập trung hóa Entrypoint (`routes/index.ts`)**:
+   - Toàn bộ các router domain (`auth.routes.ts`, `workspace.routes.ts`, `channel.routes.ts`, v.v.) phải được gom nhóm thông qua router gốc `apiRouter = Router()`.
+   - Tệp `app.ts` chỉ duy nhất một điểm mount: `app.use('/api', apiRouter)`. Tuyệt đối cấm mount rải rác từng domain router trong `app.ts`.
+2. **Nhóm theo tài nguyên nghiệp vụ (Prefix Resource Grouping)**:
+   - Mỗi file route quản lý nhóm tài nguyên độc lập:
+     + `/api/auth`: Đăng ký, đăng nhập, khôi phục mật khẩu, xác thực phiên.
+     + `/api/workspace`: Cấu hình workspace, chuyển đổi không gian làm việc.
+     + `/api/members`: Phân quyền, mời thành viên, quản lý nhân sự.
+     + `/api/channels`: Kênh chat, Widget SDK integration.
+     + `/api/inbox`: Hội thoại khách hàng, takeover, ghi chú nội bộ.
+     + `/api/knowledge`: Kho tri thức, trích xuất chunk, tài liệu RAG.
+     + `/api/web-sources`: Nguồn crawl web, snapshot lịch trình.
+     + `/api/rules`: Quy tắc xử lý AI và phân luồng nhân viên.
+     + `/api/contacts`: Quản lý danh bạ khách hàng.
+     + `/api/audit`: Nhật ký kiểm toán hoạt động.
+     + `/api/support`: Cấp quyền hỗ trợ viên tạm thời.
+     + `/api/platform`: Quản trị viên hệ thống (Superadmin).
+3. **Phân tách Middleware cấp Group**:
+   - Middleware bảo mật chung (`apiSecurityMiddleware`, `authRateLimit`) áp dụng cấp root group `/api`.
+   - Middleware xác thực nghiệp vụ (`authed`) áp dụng tại từng endpoint hoặc sub-group tương ứng.
+
 ---
 
 ## 5. QUY TẮC PHÁT TRIỂN GIAO DIỆN (FRONTEND SCREEN RULES)
@@ -205,6 +228,38 @@ HTTP Request ──► [Routes] ──► [Middlewares: Auth, Security, RateLimi
 5. **Xử lý Trạng thái & Trải nghiệm Người dùng:**
    - Xử lý đủ 4 trạng thái: `Idle` -> `Loading` (Skeleton/Spinner) -> `Success` (Data View) -> `Error` (Alert / Retry Button).
    - Bọc các thành phần bằng `ErrorBoundary`.
+
+### 5.1. QUY CHUẨN GROUP ROUTES CHO FRONTEND (FRONTEND ROUTE GROUPING)
+
+Toàn bộ URL của ứng dụng Web Client BẮT BUỘC tuân thủ phân nhóm Group Routes theo chuẩn kiến trúc:
+
+1. **Nhóm Xác thực (Auth Group Routes - `/app/auth/*`, `/app/login`)**:
+   - `/app/login`: Đăng nhập tài khoản doanh nghiệp.
+   - `/app/auth/signup`: Đăng ký tài khoản và doanh nghiệp mới.
+   - `/app/auth/reset`: Khôi phục mật khẩu qua token xác thực.
+   - `/app/auth/verify`: Xác thực kích hoạt địa chỉ email.
+   - `/app/invitation`: Nhận lời mời tham gia workspace từ thành viên khác.
+
+2. **Nhóm Không gian làm việc (Workspace Core App Group Routes - `/app/*`)**:
+   - `/app/inbox` (alias: `/dashboard`, `/inbox`): Hộp thư CSKH đa kênh, phân loại Mine/Unassigned/All, AI takeover & trả lời khách.
+   - `/app/knowledge`: Cơ sở tri thức, nạp tài liệu (PDF, DOCX, TXT), FAQ, web crawler, duyệt và publish.
+   - `/app/channels`: Kênh website, snippet script nhúng SDK, cấu hình widget.
+   - `/app/analytics` (alias: `/app/reports`, `/app/usage`): Báo cáo chỉ số hội thoại, CSAT, hạn mức quota và chi phí AI.
+   - `/app/widget`: Live preview kiểm thử tương tác Widget khách hàng.
+   - `/app/settings/*`: Quản lý thành viên, vai trò Admin/Agent, bảo mật và audit log.
+
+3. **Nhóm Quản trị Nền tảng (Platform Admin Group Routes - `/platform/*`)**:
+   - `/platform/registry`: Quản trị danh mục Provider / Model AI toàn sàn.
+   - `/platform/workspaces`: Quản lý danh sách và trạng thái workspace khách hàng SaaS.
+   - `/platform/grants`: Cấp quyền model & hạn mức quota theo gói.
+   - `/platform/audit`: Nhật ký kiểm toán vận hành toàn nền tảng.
+   - `/platform/agent`: Trợ lý AI vận hành nền tảng (Platform Operator AI).
+
+4. **Nguyên tắc Điều hướng và Đồng bộ Trạng thái (Navigation & State Sync Rules)**:
+   - Mọi thao tác chọn tab (Sidebar, TopNav, Command Palette) bắt buộc phải đồng bộ cập nhật URL qua `navigate('/app/...')`.
+   - Khi tải trang hoặc F5 trực tiếp bất kỳ URL nào, ứng dụng phải tự động parse path và kích hoạt đúng module tương ứng.
+   - Khi đăng nhập thành công, tự động chuyển hướng vào `/app/inbox` (hoặc pending invitation nếu có).
+   - Duy trì backward-compatibility cho các route alias cũ (`/dashboard`, `/settings/*`) để không bị lỗi 404 khi người dùng truy cập link cũ.
 
 ---
 

@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@types/multer": "^2.2.0",
+    "amqplib": "^2.2.0",
     "argon2": "^0.45.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
@@ -26,16 +27,17 @@
     "pdf-parse": "^2.4.5",
     "pg": "^8.23.0",
     "saxes": "^6.0.0",
+    "tsx": "^4.23.15",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/amqplib": "^0.10.8",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.2",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "supertest": "^7.3.0",
-    "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
 }

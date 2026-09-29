@@ -8,7 +8,7 @@ authRouter.post('/auth/signup', AuthController.signup);
 authRouter.post('/auth/login', AuthController.login);
 authRouter.get(
   '/me',
-  authed((db, identity, req) => AuthController.getMe(req, null as any, db, identity))
+  authed((db, identity) => AuthController.getMe(db, identity))
 );
 authRouter.post('/auth/logout', AuthController.logout);
 authRouter.post('/auth/request-reset', AuthController.requestReset);

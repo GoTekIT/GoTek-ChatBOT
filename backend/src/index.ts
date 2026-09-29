@@ -2,6 +2,7 @@ import express from 'express';
 import {resolve} from 'node:path';
 import {existsSync} from 'node:fs';
 import {createApp} from './app.js';
+import {getRabbitChannel} from './core/rabbitmq.js';
 
 const app = createApp();
 
@@ -23,4 +24,6 @@ if (process.env.SERVE_BUILD === 'true' && targetDist) {
 
 app.listen(port, host, () => {
   console.log(`GoTek Chatbot Backend running: http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`);
+  // Initialize message broker queues in background
+  void getRabbitChannel();
 });

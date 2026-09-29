@@ -1,6 +1,7 @@
 import {createRoot} from 'react-dom/client';
 import {App} from './App';
 import {ErrorBoundary} from './components/common/ErrorBoundary';
+import './styles/tailwind.css';
 import './styles/tokens.css';
 import './styles/style.css';
 

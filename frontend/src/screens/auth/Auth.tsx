@@ -130,7 +130,7 @@ export function Auth({path, onLogin}: AuthProps) {
         onLogin();
         const pending = sessionStorage.getItem('gotek.pending-invite');
         sessionStorage.removeItem('gotek.pending-invite');
-        navigate(pending && pending.startsWith('/app/invitation#') ? pending : '/settings/general');
+        navigate(pending && pending.startsWith('/app/invitation#') ? pending : '/app/inbox');
       }
     } catch (err) {
       setError(err as Error);
@@ -153,6 +153,10 @@ export function Auth({path, onLogin}: AuthProps) {
         <div className="auth-hero-grid" />
 
         <div className="auth-hero-content">
+          <div style={{display: 'inline-flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.95)', padding: '8px 18px', borderRadius: 14, marginBottom: 20, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)'}}>
+            <img src="/gotek-logo.png" alt="GoTek Logo" style={{height: 38, objectFit: 'contain'}} />
+          </div>
+
           <div className="auth-brand-badge">
             <Sparkles size={14} />
             <span>Thế Hệ Chatbot Doanh Nghiệp Mới</span>
@@ -200,7 +204,9 @@ export function Auth({path, onLogin}: AuthProps) {
           <div className="auth-interactive-chat">
             <div className="auth-chat-header">
               <div className="auth-chat-avatar-group">
-                <div className="auth-chat-avatar">GT</div>
+                <div className="auth-chat-avatar" style={{background: 'white', padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'}}>
+                  <img src="/gotek-logo.png" alt="GoTek" style={{width: '100%', height: '100%', objectFit: 'contain'}} />
+                </div>
                 <div>
                   <strong style={{fontSize: 12.5, color: '#f8fafc', display: 'block'}}>GoTek AI Assistant</strong>
                   <span style={{fontSize: 10.5, color: '#94a3b8'}}>Trợ lý ảo doanh nghiệp thông minh</span>

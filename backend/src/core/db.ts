@@ -3,7 +3,11 @@ import {readFileSync, existsSync} from 'node:fs';
 
 // Auto-load .env file if available (Node 20+)
 try {
-  process.loadEnvFile?.('.env');
+  if (existsSync('.env')) {
+    process.loadEnvFile?.('.env');
+  } else if (existsSync('../.env')) {
+    process.loadEnvFile?.('../.env');
+  }
 } catch {
   // Ignore if .env is missing or invalid
 }
@@ -13,8 +17,13 @@ function resolveDbConfig(): pg.PoolConfig {
     return {connectionString: process.env.DATABASE_URL};
   }
 
-  const runtimePath = '.local/runtime.json';
-  if (existsSync(runtimePath)) {
+  const runtimePath = existsSync('.local/runtime.json')
+    ? '.local/runtime.json'
+    : existsSync('../.local/runtime.json')
+      ? '../.local/runtime.json'
+      : null;
+
+  if (runtimePath) {
     try {
       return JSON.parse(readFileSync(runtimePath, 'utf8'));
     } catch (err) {
