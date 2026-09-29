@@ -12,6 +12,7 @@
     "test:frontend": "npm run --prefix frontend test",
     "test:all": "npm run test:backend && npm run test:frontend",
     "db:setup": "npm run --prefix backend db:setup",
+    "db:seed": "npm run --prefix backend db:seed",
     "db:restore-drill": "npm run --prefix backend db:restore-drill",
     "worker:ai": "npm run --prefix backend worker:ai",
     "worker:embedding": "npm run --prefix backend worker:embedding",

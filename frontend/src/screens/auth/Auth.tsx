@@ -68,6 +68,8 @@ export function Auth({path, onLogin}: AuthProps) {
   const [error, setError] = useState<Error | null>(null);
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [emailValue, setEmailValue] = useState('admin@gotek.vn');
+  const [passwordValue, setPasswordValue] = useState('Admin@12345678');
 
   // Interactive AI Demo State
   const [activePromptId, setActivePromptId] = useState<string>('sdk');
@@ -329,6 +331,48 @@ export function Auth({path, onLogin}: AuthProps) {
             </div>
           )}
 
+          {/* Quick Demo Fill Bar for Instant Access */}
+          {!signup && !reset && !verify && (
+            <div className="auth-quick-fill-section">
+              <span className="auth-quick-fill-label">⚡ Chọn nhanh tài khoản đăng nhập mẫu:</span>
+              <div className="auth-quick-fill-chips">
+                <button
+                  type="button"
+                  className={`auth-quick-chip ${emailValue === 'admin@gotek.vn' ? 'active' : ''}`}
+                  onClick={() => {
+                    setEmailValue('admin@gotek.vn');
+                    setPasswordValue('Admin@12345678');
+                  }}
+                  title="Toàn quyền Platform Admin & Workspace Owner"
+                >
+                  👑 Super Admin
+                </button>
+                <button
+                  type="button"
+                  className={`auth-quick-chip ${emailValue === 'alex.rivera@gotek.vn' ? 'active' : ''}`}
+                  onClick={() => {
+                    setEmailValue('alex.rivera@gotek.vn');
+                    setPasswordValue('Admin@12345678');
+                  }}
+                  title="Quản trị viên Workspace (Lead CSKH)"
+                >
+                  💼 Workspace Lead
+                </button>
+                <button
+                  type="button"
+                  className={`auth-quick-chip ${emailValue === 'nam.do@gotek.vn' ? 'active' : ''}`}
+                  onClick={() => {
+                    setEmailValue('nam.do@gotek.vn');
+                    setPasswordValue('Admin@12345678');
+                  }}
+                  title="Nhân viên CSKH trực tuyến"
+                >
+                  🎧 Support Agent
+                </button>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={submit}>
             <fieldset disabled={busy} style={{border: 0, padding: 0, margin: 0}}>
               {/* Sign Up Fields */}
@@ -385,6 +429,8 @@ export function Auth({path, onLogin}: AuthProps) {
                       placeholder="ban@doanhnghiep.com"
                       required
                       maxLength={254}
+                      value={!signup && !verify ? emailValue : undefined}
+                      onChange={e => setEmailValue(e.target.value)}
                     />
                     <div className="auth-input-icon">
                       <Mail size={18} />
@@ -451,6 +497,8 @@ export function Auth({path, onLogin}: AuthProps) {
                       required
                       minLength={signup || reset ? 12 : undefined}
                       maxLength={128}
+                      value={!signup ? passwordValue : undefined}
+                      onChange={e => setPasswordValue(e.target.value)}
                     />
                     <div className="auth-input-icon">
                       <Lock size={18} />
