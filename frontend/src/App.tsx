@@ -39,6 +39,13 @@ export function App() {
     }
   }, [me, path]);
 
+  // Auto-redirect /app/login alias to standard group route /app/auth/login
+  useEffect(() => {
+    if (path === '/app/login') {
+      navigate('/app/auth/login');
+    }
+  }, [path]);
+
   async function switchWorkspace(workspaceId: string) {
     try {
       await api('/workspace/switch', 'POST', {workspaceId});
@@ -54,7 +61,7 @@ export function App() {
     try {
       await api('/auth/logout', 'POST', {});
       setMe(null);
-      navigate('/app/login');
+      navigate('/app/auth/login');
     } catch (e) {
       setError(e as Error);
     }
@@ -74,13 +81,13 @@ export function App() {
         }}
         onLogin={() => {
           sessionStorage.setItem('gotek.pending-invite', location.pathname + location.hash);
-          navigate('/app/login');
+          navigate('/app/auth/login');
         }}
       />
     );
   }
 
-  // 3. Auth Group Routes (/app/auth/*, /app/login)
+  // 3. Auth Group Routes (/app/auth/*)
   if (path.startsWith('/app/auth/') || path === '/app/login' || (!me && !loading)) {
     return (
       <div style={{position: 'relative', width: '100%', height: '100vh', overflow: 'hidden'}}>
@@ -103,7 +110,7 @@ export function App() {
         >
           Môi trường local/test
         </div>
-        <Auth key={path + location.search} path={path} onLogin={refresh} />
+        <Auth path={path} onLogin={refresh} />
       </div>
     );
   }

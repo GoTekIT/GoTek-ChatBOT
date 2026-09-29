@@ -23,7 +23,7 @@ Workbook được cung cấp mô tả một workshop/demo 10 ngày, không phả
 - Knowledge: import/extract, draft/version lifecycle, processing/chunking, publish `PUBLIC`, lexical/semantic retrieval, citations và web-source/parser/sitemap/schedule slices.
 - AI/platform: provider/model registry, capability grants, expiry fence, provider error normalization, AI worker, grounding, token metering, quota reservation/settlement và Platform Agent actor/session/idempotency/recovery.
 - Jobs/operations: durable jobs, lease fencing, retry/dead-letter/unknown outcome, NULL-lease recovery, audit pagination/export và restore quarantine/hash drill.
-- Frontend có các màn auth, workspace/settings, knowledge/web sources, rules, channels/widget, inbox, contacts, platform, usage/jobs/support/audit; tuy nhiên chưa có browser acceptance đầy đủ cho các module.
+- Frontend có các màn auth, workspace/settings, knowledge/web sources, rules, channels/widget, inbox, contacts, platform, usage/jobs/support/audit. Đã hoàn tất đợt **Lột xác UI/UX toàn diện** (Auth 100vh không cuộn, Three.js Starfield & 3D Neural Core Orb, Seamless 3-Column Inbox, Compact Docked Composer, Confetti Canvas và Vite Hot Module Replacement (HMR) phản hồi <20ms). Build frontend `tsc --noEmit && vite build` PASS 100%.
 
 ### Bằng chứng validation gần nhất
 

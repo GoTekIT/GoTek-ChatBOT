@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark, .dark *));
+
 @layer base {
   :root {
     --font-headline: 'Plus Jakarta Sans', sans-serif;
