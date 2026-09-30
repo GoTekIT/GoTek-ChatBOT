@@ -45,16 +45,30 @@ export function Auth({path, onLogin}: AuthProps) {
   const [eyeOffset, setEyeOffset] = useState({x: 0, y: 0});
   const showcaseRef = useRef<HTMLDivElement>(null);
 
-  // Interactive Bot Poking & Emotion state (Bấm chọc ghẹo quay đi / ngã xỉu)
+  // Interactive Bot Poking & Emotion state (Bấm chọc ghẹo, thả tim, nạp pin, nhún nhảy)
   const [pokeCount, setPokeCount] = useState(0);
-  const [botState, setBotState] = useState<'idle' | 'poked' | 'turned' | 'fainted'>('idle');
+  const [botState, setBotState] = useState<
+    'idle' | 'poked' | 'turned' | 'fainted' | 'love' | 'charging' | 'dancing'
+  >('idle');
   const pokeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleBotClick = () => {
-    if (botState === 'fainted') return;
+  const triggerEmotion = (emotion: 'love' | 'charging' | 'dancing') => {
+    if (pokeTimeoutRef.current) clearTimeout(pokeTimeoutRef.current);
+    setBotState(emotion);
+    setPokeCount(0);
+    pokeTimeoutRef.current = setTimeout(() => {
+      setBotState('idle');
+    }, 2800);
+  };
 
-    if (pokeTimeoutRef.current) {
-      clearTimeout(pokeTimeoutRef.current);
+  const handleBotClick = () => {
+    if (pokeTimeoutRef.current) clearTimeout(pokeTimeoutRef.current);
+
+    // Nếu đang ngất xỉu mà anh yêu bấm vào -> Hồi sinh tỉnh dậy ngay lập tức!
+    if (botState === 'fainted') {
+      setBotState('idle');
+      setPokeCount(0);
+      return;
     }
 
     const nextCount = pokeCount + 1;
@@ -76,13 +90,13 @@ export function Auth({path, onLogin}: AuthProps) {
       pokeTimeoutRef.current = setTimeout(() => {
         setBotState('idle');
         setPokeCount(0);
-      }, 3600);
+      }, 4000);
     }
   };
 
   const getMascotSpeech = () => {
     if (botState === 'fainted') {
-      return 'Bị chọc quá nhiều... GoTek Bot đã ngất xỉu rồi x_x';
+      return 'Bị chọc quá nhiều... GoTek Bot đã ngất xỉu rồi x_x (Bấm vào người em để hồi sức nhé!)';
     }
     if (botState === 'turned') {
       return 'Huhu nhột quá, đừng chọc em nữa mà! Em quay lưng đi luôn đó! 🥺';
@@ -90,8 +104,17 @@ export function Auth({path, onLogin}: AuthProps) {
     if (botState === 'poked') {
       return 'Ái chao! Bạn vừa bấm vào tôi à? Nhột quá đi hihi! ⚡';
     }
+    if (botState === 'love') {
+      return 'Em nhận được trái tim của anh yêu rồi! Cảm ơn anh, yêu anh nhiều lắm! 🫶💖';
+    }
+    if (botState === 'charging') {
+      return 'Đã sạc đầy 100% năng lượng AI siêu cấp! Sẵn sàng bùng nổ cùng anh! 🔋⚡';
+    }
+    if (botState === 'dancing') {
+      return 'La la la~ Cùng quẩy một điệu nhạc cho ngày mới tràn đầy năng lượng nào! 🕺🎶';
+    }
     if (isBotHovered) {
-      return 'Bấm thử vào người em xem điều bất ngờ nhé! 😉';
+      return 'Bấm vào người em hoặc thử các nút cảm xúc bên dưới xem nè! 😉';
     }
     return isSignup
       ? 'Tạo tài khoản để mở khóa trợ lý AI thông minh ngay nhé! 🚀'
@@ -807,7 +830,19 @@ export function Auth({path, onLogin}: AuthProps) {
           {/* Ambient decorative tech concentric rings */}
           <div className="tech-rings-ambient" aria-hidden="true">
             <div className="tech-ring ring-outer" />
+            <div className="tech-ring ring-middle" />
             <div className="tech-ring ring-inner" />
+          </div>
+
+          {/* Micro Ambient Sparkles and Cyber Dots to enrich background */}
+          <div className="ambient-sparkles-field" aria-hidden="true">
+            <span className="sparkle-star s1">✦</span>
+            <span className="sparkle-star s2">✦</span>
+            <span className="sparkle-star s3">✦</span>
+            <span className="sparkle-star s4">✦</span>
+            <span className="sparkle-dot d1" />
+            <span className="sparkle-dot d2" />
+            <span className="sparkle-dot d3" />
           </div>
 
           {/* Floating Technology Feature Badges to make background rich & lively */}
@@ -823,6 +858,10 @@ export function Auth({path, onLogin}: AuthProps) {
             <ShieldCheck size={11} className="text-emerald-300" />
             <span>RLS Multi-Tenant</span>
           </div>
+          <div className="floating-badge-chip chip-bottom-right" aria-hidden="true">
+            <span className="chip-mini-icon">💬</span>
+            <span>10,000+ Hội thoại</span>
+          </div>
 
           {/* Subtle logo-inspired light orbs */}
           <div className="showcase-glow-light" />
@@ -837,7 +876,19 @@ export function Auth({path, onLogin}: AuthProps) {
               className={`mascot-speech-bubble ${botState === 'fainted' ? 'bubble-fainted' : ''}`}
             >
               <span className="speech-avatar">
-                {botState === 'fainted' ? '😵' : botState === 'turned' ? '🥺' : botState === 'poked' ? '⚡' : '✨'}
+                {botState === 'fainted'
+                  ? '😵'
+                  : botState === 'turned'
+                    ? '🥺'
+                    : botState === 'poked'
+                      ? '⚡'
+                      : botState === 'love'
+                        ? '💖'
+                        : botState === 'charging'
+                          ? '🔋'
+                          : botState === 'dancing'
+                            ? '🕺'
+                            : '✨'}
               </span>
               <p>{getMascotSpeech()}</p>
               <div className="speech-arrow" />
@@ -849,7 +900,7 @@ export function Auth({path, onLogin}: AuthProps) {
               onMouseEnter={() => setIsBotHovered(true)}
               onMouseLeave={() => setIsBotHovered(false)}
               onClick={handleBotClick}
-              title="Bấm vào để tương tác với bé bot nhé!"
+              title={botState === 'fainted' ? 'Bấm vào để hồi sinh bé bot!' : 'Bấm vào để tương tác với bé bot nhé!'}
             >
               {/* Antenna with pulsing star */}
               <div className="mascot-antenna">
@@ -860,7 +911,7 @@ export function Auth({path, onLogin}: AuthProps) {
               {/* Bot Head & Face */}
               <div className="mascot-head">
                 <div className="mascot-face-visor">
-                  {/* Digital Eyes with Eye Tracking & Expressions */}
+                  {/* Digital Eyes with Eye Tracking & Diverse Emotions */}
                   {botState === 'fainted' ? (
                     <div className="mascot-eyes-fainted">
                       <span className="eye-cross">✕</span>
@@ -870,6 +921,21 @@ export function Auth({path, onLogin}: AuthProps) {
                     <div className="mascot-eyes-turned">
                       <span className="eye-dint">&gt;</span>
                       <span className="eye-dint">&lt;</span>
+                    </div>
+                  ) : botState === 'love' ? (
+                    <div className="mascot-eyes-love">
+                      <span className="eye-heart">♥</span>
+                      <span className="eye-heart">♥</span>
+                    </div>
+                  ) : botState === 'charging' ? (
+                    <div className="mascot-eyes-charging">
+                      <span className="eye-bolt">⚡</span>
+                      <span className="eye-bolt">⚡</span>
+                    </div>
+                  ) : botState === 'dancing' ? (
+                    <div className="mascot-eyes-dancing">
+                      <span className="eye-arc">^</span>
+                      <span className="eye-arc">^</span>
                     </div>
                   ) : (
                     <div
@@ -911,6 +977,37 @@ export function Auth({path, onLogin}: AuthProps) {
               {/* Floating Shadow */}
               <div className="mascot-shadow" />
             </div>
+
+            {/* Mascot Interactive Action Bar: Expressive Quick Toggles */}
+            <div className="mascot-emotion-bar">
+              <button
+                type="button"
+                className={`emotion-btn ${botState === 'love' ? 'active' : ''}`}
+                onClick={() => triggerEmotion('love')}
+                title="Gửi tim yêu thương"
+              >
+                <span>💖</span>
+                <span className="emotion-btn-label">Thả tim</span>
+              </button>
+              <button
+                type="button"
+                className={`emotion-btn ${botState === 'charging' ? 'active' : ''}`}
+                onClick={() => triggerEmotion('charging')}
+                title="Sạc năng lượng 100%"
+              >
+                <span>⚡</span>
+                <span className="emotion-btn-label">Nạp pin</span>
+              </button>
+              <button
+                type="button"
+                className={`emotion-btn ${botState === 'dancing' ? 'active' : ''}`}
+                onClick={() => triggerEmotion('dancing')}
+                title="Bật nhạc quẩy"
+              >
+                <span>🎵</span>
+                <span className="emotion-btn-label">Nhún nhảy</span>
+              </button>
+            </div>
           </div>
 
           {/* Minimal, Punchy Information */}
@@ -934,6 +1031,20 @@ export function Auth({path, onLogin}: AuthProps) {
                 <ShieldCheck size={12} className="text-emerald-300" />
                 <span>Bảo mật RLS 100%</span>
               </span>
+            </div>
+
+            {/* Live Real-time AI Telemetry Bar */}
+            <div className="mascot-live-telemetry" aria-hidden="true">
+              <div className="telemetry-live-dot" />
+              <span className="telemetry-title">GoTek AI Engine Online</span>
+              <div className="telemetry-waveform">
+                <span className="telemetry-bar tb-1" />
+                <span className="telemetry-bar tb-2" />
+                <span className="telemetry-bar tb-3" />
+                <span className="telemetry-bar tb-4" />
+                <span className="telemetry-bar tb-5" />
+              </div>
+              <span className="telemetry-latency">Latency: 0.16s</span>
             </div>
           </div>
         </motion.div>
