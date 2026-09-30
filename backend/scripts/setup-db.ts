@@ -89,11 +89,10 @@ for (const name of readdirSync(migrationsDir).sort()) {
   }
 }
 
-// Grant public schema privileges to gotek_app
-await db.query('GRANT ALL ON SCHEMA public TO gotek_app');
-await db.query('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO gotek_app');
+// Grant public schema usage and sequence privileges to gotek_app
+// Note: Do NOT grant ALL on all tables, as migrations define granular table permissions (e.g., insert-only audit ledgers)
+await db.query('GRANT USAGE ON SCHEMA public TO gotek_app');
 await db.query('GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO gotek_app');
-await db.query('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO gotek_app');
 await db.query('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO gotek_app');
 
 await db.end();
