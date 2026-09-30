@@ -3,7 +3,27 @@ import {Router} from 'express';import {rateLimit,ipKeyGenerator} from 'express-r
 import {realtimeHub} from '../../modules/chat/realtime';
 const keySchema=z.string().regex(/^[A-Za-z0-9_-]{40,80}$/);
 const widgetRateLimit={windowMs:60000,limit:180,standardHeaders:'draft-7' as const,legacyHeaders:false,message:{error:'RATE_LIMITED'},keyGenerator:(req:any)=>`${ipKeyGenerator(req.ip||'unknown',64)}:${String(req.params.key||'')}`};
-async function channel(db:PoolClient,key:string,origin:string|undefined){keySchema.parse(key);if(!origin)throw new HttpError(403,'DOMAIN_DENIED');await db.query("SELECT set_config('app.public_key',$1,true)",[key]);const c=(await db.query('SELECT id,workspace_id,origin,name,greeting,color,enabled,business_hours,prechat,widget_title,widget_position,widget_mode,assignment_enabled,assignment_limit FROM channels WHERE public_key=$1',[key])).rows[0];if(!c||!c.enabled||c.origin!==origin)throw new HttpError(403,'DOMAIN_DENIED');await scope(db,c.workspace_id);if(!(await db.query("SELECT id FROM workspaces WHERE id=$1 AND status='active' FOR SHARE",[c.workspace_id])).rowCount)throw new HttpError(403,'DOMAIN_DENIED');if(!(await db.query('SELECT id FROM channels WHERE id=$1 AND enabled FOR SHARE',[c.id])).rowCount)throw new HttpError(403,'DOMAIN_DENIED');return c;}
+export function isOriginAllowed(configuredOrigin: string, requestOrigin: string | undefined): boolean {
+  if (!requestOrigin) return false;
+  if (configuredOrigin === requestOrigin) return true;
+  try {
+    const configured = new URL(configuredOrigin);
+    const requested = new URL(requestOrigin);
+    if (configured.protocol !== requested.protocol) return false;
+    if (configured.port !== requested.port) return false;
+    const confHost = configured.hostname.toLowerCase();
+    const reqHost = requested.hostname.toLowerCase();
+    if (reqHost === confHost) return true;
+    if (reqHost.endsWith('.' + confHost)) return true;
+    const loopbacks = ['localhost', '127.0.0.1', '::1'];
+    if (loopbacks.includes(confHost) && loopbacks.includes(reqHost)) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+async function channel(db:PoolClient,key:string,origin:string|undefined){keySchema.parse(key);if(!origin)throw new HttpError(403,'DOMAIN_DENIED');await db.query("SELECT set_config('app.public_key',$1,true)",[key]);const c=(await db.query('SELECT id,workspace_id,origin,name,greeting,color,enabled,business_hours,prechat,widget_title,widget_position,widget_mode,assignment_enabled,assignment_limit FROM channels WHERE public_key=$1',[key])).rows[0];if(!c||!c.enabled||!isOriginAllowed(c.origin,origin))throw new HttpError(403,'DOMAIN_DENIED');await scope(db,c.workspace_id);if(!(await db.query("SELECT id FROM workspaces WHERE id=$1 AND status='active' FOR SHARE",[c.workspace_id])).rowCount)throw new HttpError(403,'DOMAIN_DENIED');if(!(await db.query('SELECT id FROM channels WHERE id=$1 AND enabled FOR SHARE',[c.id])).rowCount)throw new HttpError(403,'DOMAIN_DENIED');return c;}
 
 async function visitor(db:PoolClient,c:any,authorization:string|undefined){const token=authorization?.startsWith('Bearer ')?authorization.slice(7):'';if(!token||token.length>100)throw new HttpError(401,'VISITOR_SESSION_EXPIRED');const v=(await db.query('SELECT v.id,v.profile,c.id conversation_id FROM visitors v JOIN conversations c ON c.visitor_id=v.id AND c.channel_id=v.channel_id AND c.workspace_id=v.workspace_id WHERE v.token_hash=$1 AND v.channel_id=$2 AND v.expires_at>now()',[digest(token),c.id])).rows[0];if(!v)throw new HttpError(401,'VISITOR_SESSION_EXPIRED');return v;}
 function profileFor(c:any,raw:unknown,requireRequired=true){const fields=Array.isArray(c.prechat?.fields)?c.prechat.fields:[];const input=z.record(z.string(),z.string().trim().max(500)).default({}).parse(raw);const allowed=new Set(fields.filter((f:any)=>f.enabled).map((f:any)=>f.key));for(const key of Object.keys(input))if(!allowed.has(key))throw new HttpError(400,'INVALID_PRECHAT_FIELD');if(requireRequired&&c.prechat?.enabled)for(const f of fields)if(f.enabled&&f.required&&!String(input[f.key]||'').trim())throw new HttpError(400,'PRECHAT_REQUIRED');if(input.emailAddress&&!z.string().email().safeParse(input.emailAddress).success)throw new HttpError(400,'INVALID_PRECHAT_EMAIL');return input;}

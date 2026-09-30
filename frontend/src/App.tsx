@@ -6,14 +6,12 @@ import {Auth} from './screens/auth/Auth';
 import {Invite} from './screens/auth/Invite';
 import {Platform} from './screens/platform/Platform';
 import {ConsoleWorkspace} from './screens/console/ConsoleWorkspace';
-import {CustomerChatPage} from './screens/customer-chat/CustomerChatPage';
 
 export function App() {
   const path = usePath();
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const isPublicChat = path.startsWith('/chat/');
 
   async function refresh() {
     try {
@@ -31,12 +29,8 @@ export function App() {
   }
 
   useEffect(() => {
-    if (isPublicChat) {
-      setLoading(false);
-      return;
-    }
     void refresh();
-  }, [isPublicChat]);
+  }, []);
 
   // Auto-redirect to /app/inbox when authenticated and entering root or alias paths
   useEffect(() => {
@@ -73,9 +67,6 @@ export function App() {
     }
   }
 
-  if (isPublicChat) {
-    return <CustomerChatPage publicKey={decodeURIComponent(path.slice('/chat/'.length))} />;
-  }
 
   // 1. Platform Admin Group Routes (/platform/*)
   if (path.startsWith('/platform')) return <Platform />;

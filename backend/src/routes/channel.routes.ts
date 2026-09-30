@@ -4,6 +4,7 @@ import {
   createChannel,
   listChannels,
   channelInstallation,
+  verifyChannelInstallation,
   channelSettings,
   updateChannelSettings,
   channelAgents,
@@ -21,6 +22,11 @@ channelRouter.get(
 channelRouter.get(
   '/channels/:id/installation',
   authed((db, i, req) => channelInstallation(db, i, String(req.params.id)))
+);
+
+channelRouter.get(
+  '/channels/:id/verify',
+  authed((db, i, req) => verifyChannelInstallation(db, i, String(req.params.id)))
 );
 
 channelRouter.get(

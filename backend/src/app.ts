@@ -31,6 +31,7 @@ export function createApp() {
 
   // Core security & parsing middlewares
   app.disable('x-powered-by');
+  app.set('trust proxy', 1);
   app.use(helmet({contentSecurityPolicy: false}));
   app.use(express.json({limit: '128kb'}));
   app.use(cookieParser());

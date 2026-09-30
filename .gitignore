@@ -21,3 +21,7 @@ research/handoff-v2-render/
 # Private credential material
 *.pem
 *.key
+
+# Local plan & scratch scripts
+plan_nguyen/
+check_db.js

@@ -233,14 +233,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {!isCollapsed && (
               <span className="font-medium text-xs flex-1 truncate text-left whitespace-nowrap">
-                Kênh & Widget SDK
+                Kênh kết nối & Tích hợp
               </span>
             )}
           </button>
 
           {isCollapsed && (
             <div className="absolute left-[68px] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#1f2329] dark:bg-slate-800 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 -translate-x-2 transition-all whitespace-nowrap z-50 border border-transparent dark:border-slate-700">
-              Kênh liên lạc & Widget SDK
+              Kênh kết nối & Tích hợp
               <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#1f2329] dark:bg-slate-800 rotate-45" />
             </div>
           )}

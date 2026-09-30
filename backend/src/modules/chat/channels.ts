@@ -15,21 +15,73 @@ export async function channelInstallation(db:PoolClient,actor:Actor,id:string){
  const base=(process.env.APP_ORIGIN||'http://127.0.0.1:4317').replace(/\/$/,'');
  const customerBase=(process.env.PUBLIC_APP_ORIGIN||process.env.FRONTEND_ORIGIN||'http://localhost:3001').replace(/\/$/,'');
  const esc=(v:string)=>JSON.stringify(v).replace(/</g,'\\u003c');
- return {id:row.id,name:row.name,origin:row.origin,enabled:row.enabled,publicKey:row.public_key,customerUrl:`${customerBase}/chat/${encodeURIComponent(row.public_key)}`,snippet:`<script src="${base}/sdk.js"></script>\n<script>window.gotekSDK.run({websiteToken:${esc(row.public_key)},baseUrl:${esc(base)}});</script>`};
+ const snippet = `<!-- GoTek Chatbot Widget (Async Loader - Khuyên dùng) -->\n<script>\n  (function(g,o,t,e,k){g.GoTekObject=t;g[t]=g[t]||function(){(g[t].q=g[t].q||[]).push(arguments)};var s=o.createElement('script');s.async=1;s.src=e;var f=o.getElementsByTagName('script')[0];f.parentNode.insertBefore(s,f);})(window,document,'gotekSDK',${esc(base+'/sdk.js')});\n  window.gotekSDK('run',{websiteToken:${esc(row.public_key)},baseUrl:${esc(base)}});\n</script>`;
+ const snippetStandard = `<!-- GoTek Chatbot Widget (Standard) -->\n<script src="${base}/sdk.js" async></script>\n<script>\n  window.addEventListener('DOMContentLoaded',function(){\n    if(window.gotekSDK)window.gotekSDK.run({websiteToken:${esc(row.public_key)},baseUrl:${esc(base)}});\n  });\n</script>`;
+ return {id:row.id,name:row.name,origin:row.origin,enabled:row.enabled,publicKey:row.public_key,snippet,snippetStandard};
+}
+export async function verifyChannelInstallation(db:PoolClient,actor:Actor,id:string){
+ requireRole(actor.role);
+ const row=(await db.query('SELECT id,name,origin,public_key,enabled FROM channels WHERE id=$1 AND workspace_id=$2',[id,actor.workspace_id])).rows[0];
+ if(!row) throw new HttpError(404,'CHANNEL_NOT_FOUND');
+ const visitorCount = Number((await db.query('SELECT count(*) as total FROM visitors WHERE channel_id=$1 AND workspace_id=$2',[id,actor.workspace_id])).rows[0]?.total || 0);
+ const lastActive = (await db.query('SELECT max(created_at) as last_seen FROM conversations WHERE channel_id=$1 AND workspace_id=$2',[id,actor.workspace_id])).rows[0]?.last_seen || null;
+ return {
+  channelId: row.id,
+  origin: row.origin,
+  enabled: row.enabled,
+  hasSessions: visitorCount > 0,
+  visitorCount,
+  lastActiveAt: lastActive,
+  status: !row.enabled ? 'disabled' : (visitorCount > 0 ? 'connected' : 'waiting')
+ };
 }
 export async function channelSettings(db:PoolClient,actor:Actor,id:string){
- requireRole(actor.role); const row=(await db.query('SELECT id,name,assignment_enabled,assignment_limit,business_hours,prechat,widget_title,widget_position,widget_mode FROM channels WHERE id=$1 AND workspace_id=$2',[id,actor.workspace_id])).rows[0];
+ requireRole(actor.role); const row=(await db.query(`SELECT c.id, c.name, c.origin, c.greeting, c.color, c.assignment_enabled, c.assignment_limit, c.business_hours, c.prechat, c.widget_title, c.widget_position, c.widget_mode, coalesce((SELECT json_agg(cm.user_id) FROM channel_members cm WHERE cm.channel_id=c.id AND cm.workspace_id=c.workspace_id), '[]'::json) AS agents FROM channels c WHERE c.id=$1 AND c.workspace_id=$2`,[id,actor.workspace_id])).rows[0];
  if(!row) throw new HttpError(404,'CHANNEL_NOT_FOUND'); return row;
 }
 export async function updateChannelSettings(db:PoolClient,actor:Actor,id:string,body:unknown){
  requireRole(actor.role); const fieldKey=z.string().regex(/^[a-z][a-zA-Z0-9_]{1,39}$/).refine((key)=>!['__proto__','constructor','prototype'].includes(key),'INVALID_PRECHAT_FIELD_KEY'); const field=z.object({key:fieldKey,enabled:z.boolean(),required:z.boolean(),label:z.string().trim().min(1).max(120),placeholder:z.string().max(160)}).strict();
- const input=z.object({assignmentEnabled:z.boolean(),assignmentLimit:z.number().int().min(1).max(10000).nullable(),businessHours:z.object({enabled:z.boolean(),timezone:z.string().min(1).max(80),days:z.array(z.object({day:z.number().int().min(0).max(6),enabled:z.boolean(),fullDay:z.boolean(),start:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),end:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)}).strict()).max(7)}).strict(),prechat:z.object({enabled:z.boolean(),message:z.string().max(500),fields:z.array(field).min(1).max(10)}).strict(),widgetTitle:z.string().trim().min(1).max(80).optional(),widgetPosition:z.enum(['left','right']).optional(),widgetMode:z.enum(['standard','expanded']).optional()}).strict().parse(body);
- try{new Intl.DateTimeFormat('en-US',{timeZone:input.businessHours.timezone}).format();}catch{throw new HttpError(400,'INVALID_TIMEZONE');}
- if(new Set(input.businessHours.days.map(d=>d.day)).size!==input.businessHours.days.length)throw new HttpError(400,'INVALID_BUSINESS_HOURS');
- const keys=input.prechat.fields.map(f=>f.key);if(new Set(keys).size!==keys.length)throw new HttpError(400,'DUPLICATE_PRECHAT_FIELD');
- if(input.prechat.fields.some(f=>!f.enabled&&f.required))throw new HttpError(400,'INVALID_PRECHAT_REQUIRED');
+ const input=z.object({
+   name:z.string().trim().min(2).max(100).optional(),
+   origin:z.string().max(500).optional(),
+   greeting:z.string().trim().min(1).max(500).optional(),
+   assignmentEnabled:z.boolean().optional(),
+   assignmentLimit:z.number().int().min(1).max(10000).nullable().optional(),
+   businessHours:z.object({enabled:z.boolean(),timezone:z.string().min(1).max(80),days:z.array(z.object({day:z.number().int().min(0).max(6),enabled:z.boolean(),fullDay:z.boolean(),start:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),end:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)}).strict()).max(7)}).strict().optional(),
+   prechat:z.object({enabled:z.boolean(),message:z.string().max(500),fields:z.array(field).min(1).max(10)}).strict().optional(),
+   widgetTitle:z.string().trim().min(1).max(80).optional(),
+   widgetPosition:z.enum(['left','right']).optional(),
+   widgetMode:z.enum(['standard','expanded']).optional(),
+   color:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+   widgetColor:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+   agents:z.array(databaseId).min(1).max(100).optional()
+ }).strict().parse(body);
+ if(input.businessHours){
+   try{new Intl.DateTimeFormat('en-US',{timeZone:input.businessHours.timezone}).format();}catch{throw new HttpError(400,'INVALID_TIMEZONE');}
+   if(new Set(input.businessHours.days.map(d=>d.day)).size!==input.businessHours.days.length)throw new HttpError(400,'INVALID_BUSINESS_HOURS');
+ }
+ if(input.prechat){
+   const keys=input.prechat.fields.map(f=>f.key);if(new Set(keys).size!==keys.length)throw new HttpError(400,'DUPLICATE_PRECHAT_FIELD');
+   if(input.prechat.fields.some(f=>!f.enabled&&f.required))throw new HttpError(400,'INVALID_PRECHAT_REQUIRED');
+ }
+ const cleanOrigin=input.origin ? websiteOrigin(input.origin) : undefined;
  await db.query('SELECT id FROM channels WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,actor.workspace_id]);
- const row=(await db.query('UPDATE channels SET assignment_enabled=$1,assignment_limit=$2,business_hours=$3,prechat=$4,widget_title=coalesce($5,widget_title),widget_position=coalesce($6,widget_position),widget_mode=coalesce($7,widget_mode) WHERE id=$8 AND workspace_id=$9 RETURNING id,assignment_enabled,assignment_limit,business_hours,prechat,widget_title,widget_position,widget_mode',[input.assignmentEnabled,input.assignmentLimit,input.businessHours,input.prechat,input.widgetTitle,input.widgetPosition,input.widgetMode,id,actor.workspace_id])).rows[0];
+ if(input.agents){
+   const agents=[...new Set(input.agents)];
+   const valid=(await db.query('SELECT user_id FROM memberships WHERE workspace_id=$1 AND active AND user_id=ANY($2::uuid[]) FOR SHARE',[actor.workspace_id,agents])).rows.map(r=>r.user_id);
+   if(valid.length!==agents.length)throw new HttpError(400,'INVALID_CHANNEL_MEMBER');
+   const previous=(await db.query('SELECT user_id FROM channel_members WHERE workspace_id=$1 AND channel_id=$2',[actor.workspace_id,id])).rows.map(r=>r.user_id);
+   const removed=previous.filter((user)=>!agents.includes(user));
+   await db.query('DELETE FROM channel_members WHERE workspace_id=$1 AND channel_id=$2',[actor.workspace_id,id]);
+   for(const user of agents)await db.query('INSERT INTO channel_members(workspace_id,channel_id,user_id) VALUES($1,$2,$3)',[actor.workspace_id,id,user]);
+   if(removed.length){
+     await db.query("UPDATE conversations SET assigned_to=NULL,reply_owner='HANDOFF_PENDING',owner_version=owner_version+1,updated_at=now() WHERE workspace_id=$1 AND channel_id=$2 AND status='open' AND assigned_to=ANY($3::uuid[])",[actor.workspace_id,id,removed]);
+     await audit(db,actor.workspace_id,actor.user_id,'channel.assignments.released',id);
+   }
+   await audit(db,actor.workspace_id,actor.user_id,'channel.members.updated',id);
+ }
+ const targetColor=input.color||input.widgetColor;
+ const row=(await db.query('UPDATE channels SET name=coalesce($1,name),origin=coalesce($2,origin),greeting=coalesce($3,greeting),color=coalesce($4,color),assignment_enabled=coalesce($5,assignment_enabled),assignment_limit=case when $6::boolean then $7 else assignment_limit end,business_hours=coalesce($8,business_hours),prechat=coalesce($9,prechat),widget_title=coalesce($10,widget_title),widget_position=coalesce($11,widget_position),widget_mode=coalesce($12,widget_mode) WHERE id=$13 AND workspace_id=$14 RETURNING id,name,origin,greeting,color,assignment_enabled,assignment_limit,business_hours,prechat,widget_title,widget_position,widget_mode',[input.name,cleanOrigin,input.greeting,targetColor,input.assignmentEnabled,input.assignmentLimit!==undefined,input.assignmentLimit,input.businessHours,input.prechat,input.widgetTitle,input.widgetPosition,input.widgetMode,id,actor.workspace_id])).rows[0];
  if(!row) throw new HttpError(404,'CHANNEL_NOT_FOUND'); await audit(db,actor.workspace_id,actor.user_id,'channel.assignment.updated',id); return row;
 }
 export async function channelAgents(db:PoolClient,actor:Actor,id:string){
