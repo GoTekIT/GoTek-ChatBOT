@@ -49,7 +49,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               readOnly
               onClick={openCommandPalette}
               placeholder="Tìm kiếm hội thoại, tài liệu (/)..."
-              className="w-full pl-9 pr-9 py-1.5 bg-slate-100/80 dark:bg-slate-900/90 hover:bg-slate-100 dark:hover:bg-slate-850 border border-transparent dark:border-slate-800 focus:border-[#1664ff] dark:focus:border-blue-500 rounded-lg text-[13px] text-[#1f2329] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 cursor-pointer transition-all focus:outline-none"
+              className="w-full pl-9 pr-9 py-1.5 bg-slate-100/80 dark:bg-slate-900/90 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent dark:border-slate-800 focus:border-[#1664ff] dark:focus:border-blue-500 rounded-lg text-[13px] text-[#1f2329] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 cursor-pointer transition-all focus:outline-none"
             />
             <kbd 
               onClick={openCommandPalette}

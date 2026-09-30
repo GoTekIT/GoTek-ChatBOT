@@ -393,7 +393,7 @@ export function ConsoleWorkspace({
             </div>
 
             {/* Current Organization Info */}
-            <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
+            <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
               <span className="text-slate-600 dark:text-slate-400 font-medium">
                 Tài khoản đăng nhập: <strong className="text-slate-900 dark:text-slate-200">{me?.user?.email || 'admin@gotek.vn'}</strong>
               </span>
@@ -441,7 +441,7 @@ export function ConsoleWorkspace({
                   showGlobalToast('Đã chuyển sang: Techcombank Corporate Banking Hub');
                   setWorkspaceModalOpen(false);
                 }}
-                className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-left flex items-center justify-between cursor-pointer transition-all group"
+                className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-left flex items-center justify-between cursor-pointer transition-all group"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
@@ -467,7 +467,7 @@ export function ConsoleWorkspace({
                   showGlobalToast('Đã chuyển sang: Vingroup Retail CSKH 24/7');
                   setWorkspaceModalOpen(false);
                 }}
-                className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-left flex items-center justify-between cursor-pointer transition-all group"
+                className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-left flex items-center justify-between cursor-pointer transition-all group"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
@@ -493,7 +493,7 @@ export function ConsoleWorkspace({
                   showGlobalToast('Chuyển sang môi trường thử nghiệm Sandbox');
                   setWorkspaceModalOpen(false);
                 }}
-                className="w-full p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-400 bg-white dark:bg-slate-850/60 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 text-left flex items-center justify-between cursor-pointer transition-all group"
+                className="w-full p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-400 bg-white dark:bg-slate-900/50 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 text-left flex items-center justify-between cursor-pointer transition-all group"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
