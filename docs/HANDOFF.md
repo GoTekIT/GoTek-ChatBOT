@@ -181,3 +181,9 @@ Fresh fetch: main still bd0f608; nguyen advanced to b27b540. Its unmerged work o
 Fresh build PASS (bundle index-D1olrJjG.js). Focused test run from root hit fixture path ENOENT for tests/fixtures/enterprise-faq.docx; rerun from backend cwd using exact same isolated DB. Log `.local/remediation-db/regression-selected-backend-cwd.log`. This is a runner cwd correction, not ignored test failure.
 
 Preparing draft PR only. Remaining gates: final browser Inbox send/reload/error/role, actual PDF/DOCX upload and public/internal lifecycle, full backend CI and review of concurrent nguyen changes. No production deploy or merge authorized by this checkpoint. Goal remains active.
+
+### CI and Inbox browser receipt — 2026-10-01
+
+PR #4 draft created from codex/chatbot-delivery at 1fb2a30. First CI run36753523210: 175/176 backend pass; sole failure inbox-resume-ai fake DB called service without transaction, rejected by new afterCommit contract. Test now mocks pool connection and exercises transaction wrapper, preserving ownership/version assertions. Focused test and backend typecheck PASS; CI rerun required after push.
+
+Inbox browser verified on isolated preview: real visitor message loaded; takeover switched to human; staff reply sent through composer; reload preserved reply in main transcript. Visitor API readback confirms exactly one `Staff browser reply persisted`. Screenshot outside repo `/Users/ngxuanphu/Downloads/Gotek_AI_chatbot/inbox-browser-persist-20261001.png`. This is real local receipt/persistence, not customer delivery or production proof. Next browser checks: note privacy, upload/publish, negative role and error handling; CI must finish green before readiness.
