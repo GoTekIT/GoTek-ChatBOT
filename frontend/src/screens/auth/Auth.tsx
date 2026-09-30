@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {api, ApiError} from '@/api/api';
 import {navigate} from '../../hooks/usePath';
 import {Link} from '../../components/common/Link';
-import {ThreeAuthBackground} from '../../components/common/ThreeAuthBackground';
 import {
   Mail,
   Lock,
@@ -19,7 +18,10 @@ import {
   Users,
   ArrowRight,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Star,
+  Check,
+  KeyRound
 } from 'lucide-react';
 import './auth.css';
 
@@ -38,28 +40,11 @@ export function Auth({path, onLogin}: AuthProps) {
   const [emailValue, setEmailValue] = useState('admin@gotek.vn');
   const [passwordValue, setPasswordValue] = useState('Admin@12345678');
 
-  // Mouse Parallax Coordinates for 3D/2D Floating badges
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-
   // Route state
   const isSignup = path === '/app/auth/signup';
   const isReset = path === '/app/auth/reset';
   const isVerify = path === '/app/auth/verify';
   const token = new URLSearchParams(location.search).get('token');
-
-  // Handle Mouse movement for 3D parallax tilt & spotlight
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const { clientX, clientY } = e;
-    const x = (clientX / window.innerWidth - 0.5) * 2;
-    const y = (clientY / window.innerHeight - 0.5) * 2;
-    setMousePos({ x, y });
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const px = ((e.clientX - rect.left) / rect.width) * 100;
-    const py = ((e.clientY - rect.top) / rect.height) * 100;
-    e.currentTarget.style.setProperty('--mouse-x', `${px}%`);
-    e.currentTarget.style.setProperty('--mouse-y', `${py}%`);
-  };
 
   const handleTabSwitch = (target: 'login' | 'signup') => {
     setError(null);
@@ -145,559 +130,526 @@ export function Auth({path, onLogin}: AuthProps) {
   const fields = error instanceof ApiError ? (error.fields as Record<string, string[]>) : {};
 
   return (
-    <div className="auth-centered-page" onMouseMove={handleMouseMove}>
-      {/* 3D WebGL Neural Starfield Background */}
-      <ThreeAuthBackground />
-
-      {/* Dynamic Cursor Ambient Spotlight */}
-      <div className="auth-spotlight-layer" />
-
-      {/* Subtle Matrix Grid */}
-      <div className="auth-ambient-grid" />
-
+    <div className="auth-page-container">
       {/* ====================================================================
-          2D/3D INTERACTIVE SURROUNDING FLOATING BADGES (Parallax Physics)
+          LEFT COLUMN: FORM PANEL (Clean, Modern SaaS Form)
           ==================================================================== */}
-      <div className="auth-surroundings-container pointer-events-none">
-        {/* Badge 1: Top-Left (Security & Isolation) */}
-        <motion.div
-          animate={{
-            x: mousePos.x * -18,
-            y: mousePos.y * -14 + Math.sin(Date.now() / 1000) * 4,
-          }}
-          transition={{ type: 'spring', damping: 20, stiffness: 60 }}
-          className="auth-floating-badge badge-top-left pointer-events-auto"
-        >
-          <div className="badge-icon-box bg-blue-500/15 text-blue-400">
-            <ShieldCheck size={20} />
-          </div>
-          <div className="badge-text">
-            <strong>PostgreSQL RLS</strong>
-            <span>Cô lập dữ liệu Multi-tenant 100%</span>
-          </div>
-        </motion.div>
-
-        {/* Badge 2: Top-Right (Speed & pgvector) */}
-        <motion.div
-          animate={{
-            x: mousePos.x * 22,
-            y: mousePos.y * -18 + Math.cos(Date.now() / 1000) * 4,
-          }}
-          transition={{ type: 'spring', damping: 20, stiffness: 60 }}
-          className="auth-floating-badge badge-top-right pointer-events-auto"
-        >
-          <div className="badge-icon-box bg-emerald-500/15 text-emerald-400">
-            <Zap size={20} />
-          </div>
-          <div className="badge-text">
-            <strong>Realtime pgvector</strong>
-            <span>Truy xuất tri thức ngữ nghĩa 38ms</span>
-          </div>
-        </motion.div>
-
-        {/* Badge 3: Bottom-Left (AI RAG Grounding) */}
-        <motion.div
-          animate={{
-            x: mousePos.x * -20,
-            y: mousePos.y * 16 + Math.cos(Date.now() / 1100) * 4,
-          }}
-          transition={{ type: 'spring', damping: 20, stiffness: 60 }}
-          className="auth-floating-badge badge-bottom-left pointer-events-auto"
-        >
-          <div className="badge-icon-box bg-purple-500/15 text-purple-400">
-            <Bot size={20} />
-          </div>
-          <div className="badge-text">
-            <strong>Kiểm chứng RAG 100%</strong>
-            <span>Trợ lý AI minh bạch, dẫn nguồn chuẩn xác</span>
-          </div>
-        </motion.div>
-
-        {/* Badge 4: Bottom-Right (Staff Handoff) */}
-        <motion.div
-          animate={{
-            x: mousePos.x * 18,
-            y: mousePos.y * 20 + Math.sin(Date.now() / 1200) * 4,
-          }}
-          transition={{ type: 'spring', damping: 20, stiffness: 60 }}
-          className="auth-floating-badge badge-bottom-right pointer-events-auto"
-        >
-          <div className="badge-icon-box bg-amber-500/15 text-amber-400">
-            <Users size={20} />
-          </div>
-          <div className="badge-text">
-            <strong>Staff Handoff 1-Click</strong>
-            <span>Chuyển giao nhân viên tức thì, êm ái</span>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* ====================================================================
-          CENTERED BENTO GLASS CARD (Continuous Horizontal Slide Carousel)
-          ==================================================================== */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 15 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="auth-center-bento-card"
-      >
-        {/* Glow ambient ring behind the box */}
-        <div className="auth-card-ambient-glow" />
-
-        {/* Card Header: Brand Logo & Title */}
-        <div className="auth-card-header">
-          <Link to="/app/auth/login" className="inline-block group">
-            <img
-              src="/gotek-logo.png"
-              alt="GoTek Logo"
-              className="auth-logo-img group-hover:scale-105 transition-transform"
-            />
+      <div className="auth-form-column">
+        {/* Brand Header */}
+        <div className="auth-form-header">
+          <Link to="/app/auth/login" className="auth-brand-link">
+            <img src="/gotek-logo.png" alt="GoTek" className="auth-brand-logo" />
+            <span className="auth-brand-name">GoTek Solutions</span>
           </Link>
+          <span className="auth-badge-pill">
+            <ShieldCheck size={13} />
+            Enterprise Tier
+          </span>
+        </div>
 
-          <h1 className="auth-title">
+        {/* Central Form Container */}
+        <div className="auth-form-body">
+          <h1 className="auth-heading-title">
             {isReset
               ? 'Khôi phục mật khẩu'
               : isVerify
-                ? 'Xác thực email'
+                ? 'Xác thực tài khoản'
                 : isSignup
-                  ? 'Đăng ký doanh nghiệp'
-                  : 'Đăng nhập hệ thống'}
+                  ? 'Bắt đầu với GoTek'
+                  : 'Chào mừng trở lại'}
           </h1>
-          <p className="auth-subtitle">
+          <p className="auth-heading-desc">
             {isReset
-              ? 'Nhập email để nhận liên kết đặt lại mật khẩu'
+              ? 'Nhập địa chỉ email để nhận liên kết thiết lập lại mật khẩu'
               : isVerify
-                ? 'Hoàn tất bước xác minh tài khoản'
+                ? 'Xác minh quyền sở hữu hộp thư để truy cập hệ thống'
                 : isSignup
-                  ? 'Bắt đầu sử dụng CSKH AI thông minh chỉ trong vài phút'
-                  : 'Nền tảng CSKH Đa Kênh & Trợ Lý AI Doanh Nghiệp'}
+                  ? 'Đăng ký không gian làm việc đa kênh với trợ lý AI và đội ngũ CSKH'
+                  : 'Đăng nhập vào workspace để quản lý hội thoại, tri thức và nhân sự.'}
           </p>
-        </div>
 
-        {/* Mode Switcher Tabs with Sliding Pill */}
-        {!isReset && !isVerify && (
-          <div className="auth-tabs-wrapper">
-            <motion.div
-              layout
-              transition={{ type: 'spring', damping: 28, stiffness: 340 }}
-              className={`auth-tab-slider ${isSignup ? 'signup' : ''}`}
-            />
-            <button
-              type="button"
-              className={`auth-tab-btn ${!isSignup ? 'active' : ''}`}
-              onClick={() => handleTabSwitch('login')}
-            >
-              Đăng nhập
-            </button>
-            <button
-              type="button"
-              className={`auth-tab-btn ${isSignup ? 'active' : ''}`}
-              onClick={() => handleTabSwitch('signup')}
-            >
-              Đăng ký mới
-            </button>
-          </div>
-        )}
-
-        {/* Feedback Notices */}
-        {error && (
-          <div className="auth-notice-box error" role="alert">
-            <AlertCircle size={16} className="shrink-0 mt-0.5" />
-            <div>{error.message}</div>
-          </div>
-        )}
-
-        {message && (
-          <div className="auth-notice-box success" role="status">
-            <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
-            <div>{message}</div>
-          </div>
-        )}
-
-        {/* ==================================================================
-            CONTINUOUS 2-PANE HORIZONTAL SLIDER (100% Smooth, Zero Jump)
-            ================================================================== */}
-        {isReset || isVerify ? (
-          /* Reset / Verify Mode */
-          <form onSubmit={handleResetOrVerifySubmit} className="pt-1">
-            <fieldset disabled={busy} style={{border: 0, padding: 0, margin: 0}}>
-              {isReset && !token && (
-                <div className="auth-input-group">
-                  <label htmlFor="email">Email tài khoản</label>
-                  <div className="auth-input-wrapper">
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      className="auth-input-field"
-                      placeholder="ban@doanhnghiep.com"
-                      required
-                    />
-                    <div className="auth-input-icon">
-                      <Mail size={17} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {isReset && token && (
-                <div className="auth-input-group">
-                  <label htmlFor="password">Mật khẩu mới (tối thiểu 12 ký tự)</label>
-                  <div className="auth-input-wrapper">
-                    <input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      className="auth-input-field"
-                      placeholder="••••••••••••"
-                      required
-                      minLength={12}
-                    />
-                    <div className="auth-input-icon">
-                      <Lock size={17} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <button type="submit" className="auth-submit-btn mt-3" disabled={busy}>
-                {busy ? <span className="auth-spinner" /> : 'Xác nhận khôi phục'}
+          {/* Mode Switcher Tabs */}
+          {!isReset && !isVerify && (
+            <div className="auth-segmented-switch">
+              <div className={`auth-segmented-pill ${isSignup ? 'signup' : ''}`} />
+              <button
+                type="button"
+                className={`auth-segmented-btn ${!isSignup ? 'active' : ''}`}
+                onClick={() => handleTabSwitch('login')}
+              >
+                Đăng nhập
               </button>
-            </fieldset>
-          </form>
-        ) : (
-          /* Normal Slide Track: Pane 1 (Login) & Pane 2 (Signup) */
-          <div className="auth-carousel-viewport">
-            <motion.div
-              className="auth-carousel-track"
-              animate={{ x: isSignup ? '-50%' : '0%' }}
-              transition={{
-                type: 'spring',
-                stiffness: 300,
-                damping: 32,
-                mass: 0.8,
-              }}
-            >
-              {/* ============================================================
-                  SLIDE PANE 1: FORM ĐĂNG NHẬP
-                  ============================================================ */}
-              <div className="auth-carousel-pane">
-                {/* Quick Account Chips */}
-                <div className="auth-quick-fill-section">
-                  <span className="auth-quick-fill-label">⚡ Tài khoản mẫu trải nghiệm nhanh:</span>
-                  <div className="auth-quick-fill-chips">
-                    <button
-                      type="button"
-                      className={`auth-quick-chip ${emailValue === 'admin@gotek.vn' ? 'active' : ''}`}
-                      onClick={() => {
-                        setEmailValue('admin@gotek.vn');
-                        setPasswordValue('Admin@12345678');
-                      }}
-                      title="Toàn quyền Super Admin"
-                    >
-                      👑 Super Admin
-                    </button>
-                    <button
-                      type="button"
-                      className={`auth-quick-chip ${emailValue === 'alex.rivera@gotek.vn' ? 'active' : ''}`}
-                      onClick={() => {
-                        setEmailValue('alex.rivera@gotek.vn');
-                        setPasswordValue('Admin@12345678');
-                      }}
-                      title="Quản trị Lead"
-                    >
-                      💼 Lead
-                    </button>
-                    <button
-                      type="button"
-                      className={`auth-quick-chip ${emailValue === 'nam.do@gotek.vn' ? 'active' : ''}`}
-                      onClick={() => {
-                        setEmailValue('nam.do@gotek.vn');
-                        setPasswordValue('Admin@12345678');
-                      }}
-                      title="Nhân viên CSKH"
-                    >
-                      🎧 Agent
-                    </button>
+              <button
+                type="button"
+                className={`auth-segmented-btn ${isSignup ? 'active' : ''}`}
+                onClick={() => handleTabSwitch('signup')}
+              >
+                Tạo tài khoản mới
+              </button>
+            </div>
+          )}
+
+          {/* Feedback Notices */}
+          {error && (
+            <div className="auth-alert-box error" role="alert">
+              <AlertCircle size={17} className="shrink-0 mt-0.5" />
+              <div>{error.message}</div>
+            </div>
+          )}
+
+          {message && (
+            <div className="auth-alert-box success" role="status">
+              <CheckCircle2 size={17} className="shrink-0 mt-0.5" />
+              <div>{message}</div>
+            </div>
+          )}
+
+          {/* Reset / Verify Mode */}
+          {isReset || isVerify ? (
+            <form onSubmit={handleResetOrVerifySubmit}>
+              <fieldset disabled={busy} style={{border: 0, padding: 0, margin: 0}}>
+                {isReset && !token && (
+                  <div className="auth-input-group">
+                    <label className="auth-label">Email tài khoản</label>
+                    <div className="auth-input-container">
+                      <div className="auth-input-icon">
+                        <Mail size={16} />
+                      </div>
+                      <input
+                        name="email"
+                        type="email"
+                        className="auth-input"
+                        placeholder="ban@doanhnghiep.com"
+                        required
+                      />
+                    </div>
                   </div>
+                )}
+
+                {isReset && token && (
+                  <div className="auth-input-group">
+                    <label className="auth-label">Mật khẩu mới (tối thiểu 12 ký tự)</label>
+                    <div className="auth-input-container">
+                      <div className="auth-input-icon">
+                        <Lock size={16} />
+                      </div>
+                      <input
+                        name="password"
+                        type={showPassword ? 'text' : 'password'}
+                        className="auth-input"
+                        placeholder="••••••••••••"
+                        required
+                        minLength={12}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <button type="submit" className="auth-primary-btn mt-4" disabled={busy}>
+                  {busy ? 'Đang gửi yêu cầu...' : 'Xác nhận khôi phục'}
+                </button>
+              </fieldset>
+            </form>
+          ) : !isSignup ? (
+            /* ==================== LOGIN FORM ==================== */
+            <div>
+              {/* Quick SSO Buttons */}
+              <div className="auth-social-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmailValue('admin@gotek.vn');
+                    setPasswordValue('Admin@12345678');
+                  }}
+                  className="auth-social-btn"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.15z"/>
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.33 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.99 0 12s.45 3.85 1.24 5.42l4.04-3.15z"/>
+                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                  </svg>
+                  <span>Tiếp tục với Google Workspace</span>
+                </button>
+              </div>
+
+              <div className="auth-divider-line">
+                <span>hoặc đăng nhập bằng tài khoản</span>
+              </div>
+
+              {/* Quick Fill Demo Chips */}
+              <div className="auth-quick-fill-box">
+                <div className="auth-quick-fill-header">
+                  <Sparkles size={13} className="text-amber-500" />
+                  <span>Tài khoản mẫu trải nghiệm nhanh</span>
                 </div>
+                <div className="auth-quick-fill-tags">
+                  <button
+                    type="button"
+                    className={`auth-quick-tag ${emailValue === 'admin@gotek.vn' ? 'active' : ''}`}
+                    onClick={() => {
+                      setEmailValue('admin@gotek.vn');
+                      setPasswordValue('Admin@12345678');
+                    }}
+                  >
+                    👑 Super Admin
+                  </button>
+                  <button
+                    type="button"
+                    className={`auth-quick-tag ${emailValue === 'alex.rivera@gotek.vn' ? 'active' : ''}`}
+                    onClick={() => {
+                      setEmailValue('alex.rivera@gotek.vn');
+                      setPasswordValue('Admin@12345678');
+                    }}
+                  >
+                    💼 Quản trị Lead
+                  </button>
+                  <button
+                    type="button"
+                    className={`auth-quick-tag ${emailValue === 'nam.do@gotek.vn' ? 'active' : ''}`}
+                    onClick={() => {
+                      setEmailValue('nam.do@gotek.vn');
+                      setPasswordValue('Admin@12345678');
+                    }}
+                  >
+                    🎧 Nhân viên CSKH
+                  </button>
+                </div>
+              </div>
 
-                <form onSubmit={handleLoginSubmit}>
-                  <fieldset disabled={busy} style={{border: 0, padding: 0, margin: 0}}>
-                    {/* Email */}
-                    <div className="auth-input-group">
-                      <label htmlFor="login-email">Địa chỉ Email công việc</label>
-                      <div className="auth-input-wrapper">
-                        <input
-                          id="login-email"
-                          name="email"
-                          type="email"
-                          className="auth-input-field"
-                          placeholder="ban@doanhnghiep.com"
-                          required
-                          value={emailValue}
-                          onChange={(e) => setEmailValue(e.target.value)}
-                        />
-                        <div className="auth-input-icon">
-                          <Mail size={17} />
-                        </div>
+              <form onSubmit={handleLoginSubmit}>
+                <fieldset disabled={busy} style={{border: 0, padding: 0, margin: 0}}>
+                  {/* Email */}
+                  <div className="auth-input-group">
+                    <label className="auth-label">Email công việc</label>
+                    <div className="auth-input-container">
+                      <div className="auth-input-icon">
+                        <Mail size={16} />
                       </div>
-                      {fields.email && <span className="auth-field-error">{fields.email.join(' ')}</span>}
+                      <input
+                        id="login-email"
+                        name="email"
+                        type="email"
+                        className="auth-input"
+                        placeholder="ban@doanhnghiep.com"
+                        required
+                        value={emailValue}
+                        onChange={(e) => setEmailValue(e.target.value)}
+                      />
                     </div>
+                    {fields.email && <span className="auth-field-error">{fields.email.join(' ')}</span>}
+                  </div>
 
-                    {/* Password */}
-                    <div className="auth-input-group">
-                      <label htmlFor="login-password">Mật khẩu</label>
-                      <div className="auth-input-wrapper">
-                        <input
-                          id="login-password"
-                          name="password"
-                          type={showPassword ? 'text' : 'password'}
-                          className="auth-input-field"
-                          placeholder="••••••••••••"
-                          required
-                          value={passwordValue}
-                          onChange={(e) => setPasswordValue(e.target.value)}
-                        />
-                        <div className="auth-input-icon">
-                          <Lock size={17} />
-                        </div>
-                        <button
-                          type="button"
-                          className="auth-password-toggle"
-                          onClick={() => setShowPassword(!showPassword)}
-                          aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                        >
-                          {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                        </button>
-                      </div>
-                      {fields.password && <span className="auth-field-error">{fields.password.join(' ')}</span>}
-                    </div>
-
-                    {/* Remember & Forgot Password */}
-                    <div className="auth-form-extras">
-                      <label className="auth-remember-label">
-                        <input name="remember" type="checkbox" defaultChecked />
-                        <span>Ghi nhớ đăng nhập</span>
-                      </label>
-                      <Link to="/app/auth/reset" className="auth-forgot-link">
+                  {/* Password */}
+                  <div className="auth-input-group">
+                    <div className="auth-label-row">
+                      <label className="auth-label">Mật khẩu</label>
+                      <Link to="/app/auth/reset" className="auth-forgot-btn">
                         Quên mật khẩu?
                       </Link>
                     </div>
-
-                    {/* Submit Button */}
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      type="submit"
-                      className="auth-submit-btn"
-                      disabled={busy}
-                    >
-                      {busy ? (
-                        <>
-                          <span className="auth-spinner" />
-                          <span>Đang xử lý...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Đăng nhập vào không gian làm việc</span>
-                          <ArrowRight size={17} className="auth-btn-arrow" />
-                        </>
-                      )}
-                    </motion.button>
-                  </fieldset>
-                </form>
-              </div>
-
-              {/* ============================================================
-                  SLIDE PANE 2: FORM ĐĂNG KÝ (COMPACT 2-COLUMN GRID)
-                  ============================================================ */}
-              <div className="auth-carousel-pane">
-                <form onSubmit={handleSignupSubmit}>
-                  <fieldset disabled={busy} style={{border: 0, padding: 0, margin: 0}}>
-                    {/* Row 1: Full Name & Business Name (2-Col Grid) */}
-                    <div className="auth-grid-2col">
-                      <div className="auth-input-group">
-                        <label htmlFor="signup-name">Họ và tên</label>
-                        <div className="auth-input-wrapper">
-                          <input
-                            id="signup-name"
-                            name="fullName"
-                            className="auth-input-field"
-                            placeholder="Nguyễn Văn A"
-                            required
-                            maxLength={120}
-                          />
-                          <div className="auth-input-icon">
-                            <User size={17} />
-                          </div>
-                        </div>
-                        {fields.fullName && <span className="auth-field-error">{fields.fullName.join(' ')}</span>}
+                    <div className="auth-input-container">
+                      <div className="auth-input-icon">
+                        <Lock size={16} />
                       </div>
-
-                      <div className="auth-input-group">
-                        <label htmlFor="signup-biz">Doanh nghiệp</label>
-                        <div className="auth-input-wrapper">
-                          <input
-                            id="signup-biz"
-                            name="business"
-                            className="auth-input-field"
-                            placeholder="Tên công ty..."
-                            required
-                            maxLength={160}
-                          />
-                          <div className="auth-input-icon">
-                            <Building2 size={17} />
-                          </div>
-                        </div>
-                        {fields.business && <span className="auth-field-error">{fields.business.join(' ')}</span>}
-                      </div>
+                      <input
+                        id="login-password"
+                        name="password"
+                        type={showPassword ? 'text' : 'password'}
+                        className="auth-input"
+                        placeholder="••••••••••••"
+                        required
+                        value={passwordValue}
+                        onChange={(e) => setPasswordValue(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="auth-password-toggle-btn"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
                     </div>
+                    {fields.password && <span className="auth-field-error">{fields.password.join(' ')}</span>}
+                  </div>
 
-                    {/* Row 2: Email & Phone (2-Col Grid) */}
-                    <div className="auth-grid-2col">
-                      <div className="auth-input-group">
-                        <label htmlFor="signup-email">Email công việc</label>
-                        <div className="auth-input-wrapper">
-                          <input
-                            id="signup-email"
-                            name="email"
-                            type="email"
-                            className="auth-input-field"
-                            placeholder="ban@congty.com"
-                            required
-                            maxLength={254}
-                          />
-                          <div className="auth-input-icon">
-                            <Mail size={17} />
-                          </div>
-                        </div>
-                        {fields.email && <span className="auth-field-error">{fields.email.join(' ')}</span>}
-                      </div>
+                  {/* Remember Me */}
+                  <div className="auth-checkbox-row">
+                    <input id="remember" name="remember" type="checkbox" defaultChecked />
+                    <label htmlFor="remember" className="auth-checkbox-label">
+                      Ghi nhớ phiên đăng nhập trên thiết bị này
+                    </label>
+                  </div>
 
-                      <div className="auth-input-group">
-                        <label htmlFor="signup-phone">Số điện thoại</label>
-                        <div className="auth-input-wrapper">
-                          <input
-                            id="signup-phone"
-                            name="phone"
-                            type="tel"
-                            className="auth-input-field"
-                            placeholder="0912 345 678"
-                            required
-                            maxLength={25}
-                          />
-                          <div className="auth-input-icon">
-                            <Phone size={17} />
-                          </div>
-                        </div>
-                        {fields.phone && <span className="auth-field-error">{fields.phone.join(' ')}</span>}
-                      </div>
-                    </div>
-
-                    {/* Row 3: Referral & Password (2-Col Grid) */}
-                    <div className="auth-grid-2col">
-                      <div className="auth-input-group">
-                        <label htmlFor="signup-referral">Mã ưu đãi (nếu có)</label>
-                        <div className="auth-input-wrapper">
-                          <input
-                            id="signup-referral"
-                            name="referral"
-                            className="auth-input-field"
-                            placeholder="Mã giới thiệu..."
-                            maxLength={80}
-                          />
-                          <div className="auth-input-icon">
-                            <Sparkles size={17} />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="auth-input-group">
-                        <label htmlFor="signup-password">
-                          Mật khẩu <span style={{fontSize: 10, color: '#64748b'}}>(12+ ký tự)</span>
-                        </label>
-                        <div className="auth-input-wrapper">
-                          <input
-                            id="signup-password"
-                            name="password"
-                            type={showPassword ? 'text' : 'password'}
-                            className="auth-input-field"
-                            placeholder="••••••••••••"
-                            required
-                            minLength={12}
-                            maxLength={128}
-                          />
-                          <div className="auth-input-icon">
-                            <Lock size={17} />
-                          </div>
-                          <button
-                            type="button"
-                            className="auth-password-toggle"
-                            onClick={() => setShowPassword(!showPassword)}
-                            aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                          >
-                            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                          </button>
-                        </div>
-                        {fields.password && <span className="auth-field-error">{fields.password.join(' ')}</span>}
-                      </div>
-                    </div>
-
-                    {/* Submit Signup Button */}
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      type="submit"
-                      className="auth-submit-btn mt-2"
-                      disabled={busy}
-                    >
-                      {busy ? (
-                        <>
-                          <span className="auth-spinner" />
-                          <span>Đang đăng ký...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Tạo tài khoản doanh nghiệp ngay</span>
-                          <ArrowRight size={17} className="auth-btn-arrow" />
-                        </>
-                      )}
-                    </motion.button>
-                  </fieldset>
-                </form>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {/* Footer Link Switcher */}
-        <div className="auth-footer">
-          {isSignup || isReset || isVerify ? (
-            <p>
-              Đã có tài khoản?{' '}
-              <button
-                type="button"
-                onClick={() => handleTabSwitch('login')}
-                className="auth-footer-link"
-              >
-                Đăng nhập ngay
-              </button>
-            </p>
+                  {/* Submit CTA */}
+                  <button type="submit" className="auth-primary-btn" disabled={busy}>
+                    {busy ? (
+                      <span>Đang đăng nhập...</span>
+                    ) : (
+                      <>
+                        <span>Đăng nhập vào Workspace</span>
+                        <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
+                </fieldset>
+              </form>
+            </div>
           ) : (
-            <p>
-              Chưa có tài khoản?{' '}
-              <button
-                type="button"
-                onClick={() => handleTabSwitch('signup')}
-                className="auth-footer-link"
-              >
-                Đăng ký doanh nghiệp mới
-              </button>
-            </p>
+            /* ==================== SIGNUP FORM ==================== */
+            <form onSubmit={handleSignupSubmit}>
+              <fieldset disabled={busy} style={{border: 0, padding: 0, margin: 0}}>
+                {/* Full name & Company */}
+                <div className="auth-grid-row">
+                  <div className="auth-input-group">
+                    <label className="auth-label">Họ và tên</label>
+                    <div className="auth-input-container">
+                      <div className="auth-input-icon">
+                        <User size={16} />
+                      </div>
+                      <input
+                        name="fullName"
+                        className="auth-input"
+                        placeholder="Nguyễn Văn A"
+                        required
+                        maxLength={120}
+                      />
+                    </div>
+                    {fields.fullName && <span className="auth-field-error">{fields.fullName.join(' ')}</span>}
+                  </div>
+
+                  <div className="auth-input-group">
+                    <label className="auth-label">Tên doanh nghiệp</label>
+                    <div className="auth-input-container">
+                      <div className="auth-input-icon">
+                        <Building2 size={16} />
+                      </div>
+                      <input
+                        name="business"
+                        className="auth-input"
+                        placeholder="Công ty Cổ phần..."
+                        required
+                        maxLength={160}
+                      />
+                    </div>
+                    {fields.business && <span className="auth-field-error">{fields.business.join(' ')}</span>}
+                  </div>
+                </div>
+
+                {/* Email & Phone */}
+                <div className="auth-grid-row">
+                  <div className="auth-input-group">
+                    <label className="auth-label">Email công việc</label>
+                    <div className="auth-input-container">
+                      <div className="auth-input-icon">
+                        <Mail size={16} />
+                      </div>
+                      <input
+                        name="email"
+                        type="email"
+                        className="auth-input"
+                        placeholder="ban@congty.com"
+                        required
+                        maxLength={254}
+                      />
+                    </div>
+                    {fields.email && <span className="auth-field-error">{fields.email.join(' ')}</span>}
+                  </div>
+
+                  <div className="auth-input-group">
+                    <label className="auth-label">Số điện thoại</label>
+                    <div className="auth-input-container">
+                      <div className="auth-input-icon">
+                        <Phone size={16} />
+                      </div>
+                      <input
+                        name="phone"
+                        type="tel"
+                        className="auth-input"
+                        placeholder="0912 345 678"
+                        required
+                        maxLength={25}
+                      />
+                    </div>
+                    {fields.phone && <span className="auth-field-error">{fields.phone.join(' ')}</span>}
+                  </div>
+                </div>
+
+                {/* Referral & Password */}
+                <div className="auth-grid-row">
+                  <div className="auth-input-group">
+                    <label className="auth-label">Mã giới thiệu (tùy chọn)</label>
+                    <div className="auth-input-container">
+                      <div className="auth-input-icon">
+                        <Sparkles size={16} />
+                      </div>
+                      <input
+                        name="referral"
+                        className="auth-input"
+                        placeholder="Mã đối tác..."
+                        maxLength={80}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="auth-input-group">
+                    <label className="auth-label">Mật khẩu (12+ ký tự)</label>
+                    <div className="auth-input-container">
+                      <div className="auth-input-icon">
+                        <Lock size={16} />
+                      </div>
+                      <input
+                        name="password"
+                        type={showPassword ? 'text' : 'password'}
+                        className="auth-input"
+                        placeholder="••••••••••••"
+                        required
+                        minLength={12}
+                        maxLength={128}
+                      />
+                      <button
+                        type="button"
+                        className="auth-password-toggle-btn"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                    {fields.password && <span className="auth-field-error">{fields.password.join(' ')}</span>}
+                  </div>
+                </div>
+
+                {/* Submit Signup */}
+                <button type="submit" className="auth-primary-btn mt-2" disabled={busy}>
+                  {busy ? (
+                    <span>Đang tạo tài khoản...</span>
+                  ) : (
+                    <>
+                      <span>Khởi tạo tài khoản doanh nghiệp</span>
+                      <ArrowRight size={16} />
+                    </>
+                  )}
+                </button>
+              </fieldset>
+            </form>
           )}
         </div>
-      </motion.div>
+
+        {/* Footer Terms */}
+        <div className="auth-form-footer">
+          Bằng việc đăng nhập, bạn đồng ý với{' '}
+          <a href="#" onClick={(e) => e.preventDefault()}>Điều khoản dịch vụ</a> và{' '}
+          <a href="#" onClick={(e) => e.preventDefault()}>Chính sách quyền riêng tư</a> của GoTek.
+        </div>
+      </div>
+
+      {/* ====================================================================
+          RIGHT COLUMN: ENTERPRISE SHOWCASE PANEL (Dribbble/Pinterest Gold Standard)
+          ==================================================================== */}
+      <div className="auth-showcase-column">
+        {/* Soft atmospheric gradient glows (No particles/No 3D) */}
+        <div className="auth-showcase-glow-1" />
+        <div className="auth-showcase-glow-2" />
+
+        {/* Top Header Tag & Headline */}
+        <div className="auth-showcase-top">
+          <div className="auth-showcase-pill">
+            <Sparkles size={14} className="text-blue-400" />
+            <span>Nền tảng CSKH Tự Động & Handoff Nhân Sự</span>
+          </div>
+          <h2 className="auth-showcase-title">
+            Phản hồi chuẩn xác từng chi tiết, đồng hành mượt mà cùng đội ngũ chuyên viên.
+          </h2>
+        </div>
+
+        {/* Central Realistic Live Chat Mockup Card */}
+        <div className="auth-preview-card">
+          <div className="auth-preview-header">
+            <div className="auth-preview-client">
+              <img
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                alt="Client"
+                className="auth-preview-avatar"
+              />
+              <div>
+                <p className="auth-preview-name">Techcombank Corporate Banking</p>
+                <p className="auth-preview-meta">Kênh: Web Widget · Khách hàng VIP</p>
+              </div>
+            </div>
+            <span className="auth-preview-status">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Đang hoạt động
+            </span>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="auth-chat-stream">
+            <div className="auth-chat-msg customer">
+              Xin chào GoTek, bên mình muốn phương án tích hợp gói vay doanh nghiệp và chính sách bảo lãnh vào Core Banking trước Quý 4.
+            </div>
+
+            <div className="auth-chat-msg ai">
+              Dạ chào anh/chị, GoTek đã liên kết dữ liệu quy trình thẩm định tín dụng và biểu phí mới nhất của Techcombank, sẵn sàng tích hợp an toàn qua pgvector.
+              <div>
+                <span className="auth-chat-citation">
+                  📄 Quy_trinh_tin_dung_2026.pdf (Mục 4.2)
+                </span>
+              </div>
+            </div>
+
+            <div className="auth-handoff-banner">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-400" />
+                <span>Chuyên viên Nguyễn Minh Tuấn đã tiếp nhận hội thoại</span>
+              </div>
+              <span className="font-mono text-[11px] text-blue-300">1.2s SLA</span>
+            </div>
+          </div>
+
+          {/* Metrics Bento Row */}
+          <div className="auth-metrics-row">
+            <div className="auth-metric-item">
+              <div className="auth-metric-value">99.8%</div>
+              <div className="auth-metric-label">CSAT Hài lòng</div>
+            </div>
+            <div className="auth-metric-item">
+              <div className="auth-metric-value">&lt; 35s</div>
+              <div className="auth-metric-label">Tốc độ giải quyết</div>
+            </div>
+            <div className="auth-metric-item">
+              <div className="auth-metric-value">Zero-Leak</div>
+              <div className="auth-metric-label">Bảo mật Tenant RLS</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Customer Testimonial Quote */}
+        <div className="auth-testimonial-box">
+          <p className="auth-testimonial-quote">
+            “GoTek Chatbot giúp đội ngũ chúng tôi giải phóng hơn 70% thời gian xử lý thủ công, đồng thời nâng tỷ lệ phản hồi tức thì lên 99.8% mà vẫn giữ được sự ấm áp, chu đáo.”
+          </p>
+          <div className="auth-testimonial-author">
+            <div className="auth-author-info">
+              <img
+                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80"
+                alt="Đỗ Hoàng Nam"
+                className="auth-author-avatar"
+              />
+              <div>
+                <p className="auth-author-name">Đỗ Hoàng Nam</p>
+                <p className="auth-author-role">Giám đốc Vận hành CSKH, FPT Software</p>
+              </div>
+            </div>
+            <div className="auth-stars">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} size={14} fill="#fbbf24" strokeWidth={0} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

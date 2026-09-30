@@ -438,8 +438,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     onClick={() => setSelectedConvId(conv.id)}
                     className={`group p-3 rounded-xl cursor-pointer transition-all duration-200 relative border ${
                       isSelected
-                        ? 'bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-white dark:from-blue-950/70 dark:via-[#0f172a] dark:to-[#0f172a] border-blue-400/80 dark:border-blue-500/80 shadow-sm dark:shadow-[0_0_18px_rgba(22,100,255,0.18)] ring-1 ring-blue-400/30 dark:ring-blue-500/30'
-                        : 'bg-white/80 dark:bg-[#0e1626]/75 hover:bg-white dark:hover:bg-[#142036] border-slate-200/70 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700/90 hover:shadow-xs'
+                        ? 'bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-white dark:from-blue-950/70 dark:via-slate-900 dark:to-slate-900 border-blue-400/80 dark:border-blue-500/80 shadow-sm dark:shadow-[0_0_18px_rgba(22,100,255,0.18)] ring-1 ring-blue-400/30 dark:ring-blue-500/30'
+                        : 'bg-white dark:bg-slate-900/90 hover:bg-slate-50 dark:hover:bg-slate-800/80 border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xs'
                     }`}
                   >
                     {/* Active Left Indicator Bar with Neon Glow */}
