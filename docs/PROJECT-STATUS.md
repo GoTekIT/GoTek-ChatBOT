@@ -1,5 +1,10 @@
 # Current snapshot
 
+## Git collaboration gate — 2026-09-30
+
+Trên nhánh `codex/collaboration-safety-20260930`, root lockfile được đồng bộ với monorepo và `install:all` dùng cài đặt sạch `npm ci` ở root/backend/frontend. Có hướng dẫn cộng tác trong `CONTRIBUTING.md` và mẫu PR trong `.github/`. PR #3 đã PASS CI `test-and-build` (gồm backend DB tests) và đang chờ reviewer khác. GitHub ruleset `main` (ID 24158816) yêu cầu PR, review và CI cập nhật; ruleset nhánh làm việc (ID 24238565) chặn xóa/force push. Đây là cải thiện quy trình; **không thay đổi trạng thái nghiệm thu H01–H32/E01–E12**. Kiểm tra local: `npm run install:all` PASS, `npm run build:all` PASS, frontend tests 7/7 PASS. Không dùng DB chung của contributor để chạy backend suite local.
+
+
 **2026-09-30 correction — H01/H22 Google login:** confirmed the active frontend
 container served a stale bundle that logged into sample admin Alex Rivera directly.
 Local backend/frontend containers were rebuilt with the mock path removed and
