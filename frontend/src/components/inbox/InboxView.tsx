@@ -8,9 +8,12 @@ interface InboxViewProps {
   conversations: Conversation[];
   selectedConvId: string;
   setSelectedConvId: (id: string) => void;
-  onSendMessage: (convId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
-  onTakeover: (convId: string) => void;
-  onResolve: (convId: string) => void;
+  onSendMessage: (convId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>) => Promise<void>;
+  onTakeover: (convId: string) => Promise<void>;
+  onResolve: (convId: string) => Promise<void>;
+  onRefresh: () => Promise<void>;
+  error?: string;
+  loading?: boolean;
 }
 
 export const InboxView: React.FC<InboxViewProps> = ({
@@ -19,7 +22,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   setSelectedConvId,
   onSendMessage,
   onTakeover,
-  onResolve,
+  onResolve, onRefresh, error, loading,
 }) => {
   // Filter tabs: all, queue (cần handoff), bot (AI đang phục vụ), mine (đã gán)
   const [filterTab, setFilterTab] = useState<'all' | 'queue' | 'bot' | 'mine'>('all');
@@ -58,29 +61,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
   // =========================================================================
   const { isConnected, typingState, sendTypingStatus } = useRealtimeChat({
     conversationId: activeConv?.id,
-    onNewMessage: (newMsg) => {
-      if (activeConv) {
-        // Prevent duplicate appending
-        const exists = activeConv.messages.some((m) => m.id === newMsg.id);
-        if (!exists) {
-          activeConv.messages.push(newMsg);
-          showToast(`Tin nhắn mới từ ${newMsg.senderName}`);
-        }
-      }
-    },
-    onTakeover: (data) => {
-      showToast('Đã ghi nhận tiếp quản ca thời gian thực');
-      if (activeConv) {
-        activeConv.status = 'in_review';
-        activeConv.assignedTo = data.assignedTo;
-      }
-    },
-    onStatusChange: (data) => {
-      showToast(`Hội thoại đã chuyển trạng thái: ${data.status}`);
-      if (activeConv) {
-        activeConv.status = data.status as any;
-      }
-    },
+    onNewMessage: () => {void onRefresh();},
+    onTakeover: () => {void onRefresh();},
+    onStatusChange: () => {void onRefresh();},
   });
 
   // Auto-scroll to latest message when conversation or messages change
@@ -177,41 +160,22 @@ export const InboxView: React.FC<InboxViewProps> = ({
     }
   };
 
-  // Celebration Fireworks on Resolve
-  const handleResolveWithConfetti = () => {
+  const [sending, setSending] = useState(false);
+  const handleResolveWithConfetti = async () => {
     if (!activeConv) return;
-    confetti({
-      particleCount: 80,
-      spread: 60,
-      origin: { y: 0.5 },
-      colors: ['#1664ff', '#722ed1', '#00f2fe', '#00b42a', '#ffb800'],
-    });
-    onResolve(activeConv.id);
-    showToast('Đã giải quyết phiên hỗ trợ thành công! 🎉');
+    try { await onResolve(activeConv.id); showToast('Đã giải quyết hội thoại.'); }
+    catch (e) { showToast(e instanceof Error ? e.message : 'Không thể cập nhật.'); }
   };
-
-  const handleSend = () => {
-    if (!messageText.trim() || !activeConv) return;
-
-    if (composerMode === 'internal') {
-      onSendMessage(activeConv.id, {
-        senderType: 'internal_note',
-        senderName: 'Alex Rivera (Staff Lead)',
-        content: messageText,
-      });
-      showToast('Đã lưu ghi chú nội bộ');
-    } else {
-      onSendMessage(activeConv.id, {
-        senderType: 'agent',
-        senderName: 'Alex Rivera (Staff Lead)',
-        senderAvatar:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
-        content: messageText,
-      });
-    }
-
-    setMessageText('');
-    textareaRef.current?.focus();
+  const handleSend = async () => {
+    if (sending || !messageText.trim() || !activeConv) return;
+    setSending(true);
+    const text = messageText;
+    try {
+      await onSendMessage(activeConv.id, {senderType: composerMode === 'internal' ? 'internal_note' : 'agent', senderName: 'Nhân viên', content: text});
+      setMessageText(current => current === text ? '' : current);
+      showToast('Đã lưu tin nhắn.');
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Không thể gửi. Hãy thử lại.'); }
+    finally {setSending(false);}
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -276,6 +240,11 @@ export const InboxView: React.FC<InboxViewProps> = ({
   };
 
   const currentTags = activeTags[activeConv?.id] || activeConv?.crmTags || [];
+
+  if (!activeConv) return <main className="flex-1 p-6" aria-live="polite">
+    {error ? <p role="alert">{error}</p> : <p>{loading ? 'Đang tải hội thoại…' : 'Chưa có hội thoại trong phạm vi được giao.'}</p>}
+    <button onClick={() => {void onRefresh();}}>Tải lại</button>
+  </main>;
 
   return (
     <div ref={containerRef} className="flex-1 flex overflow-hidden relative h-full bg-[#f8f9fb] dark:bg-[#080c14] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(22,100,255,0.05),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(22,100,255,0.1),rgba(0,0,0,0))] text-[#1f2329] dark:text-slate-100 select-text transition-colors duration-300">
@@ -620,7 +589,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => onTakeover(activeConv.id)}
+                onClick={() => {void onTakeover(activeConv.id).catch(e => showToast(e.message));}}
                 className="px-3 py-1.5 bg-[#1664ff] hover:bg-[#3370ff] text-white rounded-lg text-[12.5px] font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
                 type="button"
               >

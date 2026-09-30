@@ -1,3 +1,18 @@
+## Active remediation checkpoint — 2026-09-30
+
+User authorized fixes following the real WBS reconciliation. Branch `codex/chatbot-delivery`; origin/main `bd0f608` merged without dropping contributor changes (merge `15c7a19`). No push/PR yet. Scope remains SSE authorization/revocation, reset/logout, active Inbox/Knowledge API integration, Google verification and progress evidence.
+
+Implemented locally, not accepted:
+- SSE subscriptions require an authorization callback. Each event re-reads identity and checks conversation/channel scope under transaction locks. Workspace events without conversation scope are dropped; conversation subscriptions do not receive unrelated workspace events. Authorization failure closes the stream; heartbeat also rechecks identity. Per-client authorization queues are bounded.
+- Reset response no longer exposes token in development; OTP no longer exposes devOtp and uses crypto.randomInt. Frontend debug OTP display removed.
+- Logout preserves local identity and surfaces failure when server request fails; clears local session only after successful response.
+
+Evidence so far: `npm run build:all` PASS; frontend tests 8/8 PASS, including offline logout; focused `backend/tests/realtime-authorization.test.ts` 1/1 PASS with injected authorization (not DB proof). Reset integration test now asserts no token/OTP in response but has NOT been run yet. No full backend DB suite or browser acceptance yet.
+
+Next steps (required): validate actual DB-backed SSE policy with Agent channel negatives, membership/session expiry/revoke and workspace switch; inspect event transaction/commit ordering and worker processes. Provision a dedicated isolated test DB before backend tests (tests still hardcode port 55432 in places; do not use contributor DB). Integrate existing ConsoleWorkspace Inbox/Knowledge handlers with actual API, preserve UI and role gates; verify persistence and failure states in browser. Inspect Google audience configuration/test correct endpoint; do not claim live OAuth without receipt. Update environment docs carried by delivery branch: they contain pre-monorepo paths and stale claim of no env loader (current db.ts auto-loads env). Reconcile status notes, build/test, fetch remote again, commit and push only this branch then open/attach a new PR. Never force-push or merge main automatically.
+
+Source files: backend realtime hub, inbox routes, realtime-authorization service, auth controller/service, auth-reset/realtime tests; frontend auth service/Auth screen/logout test. Original workbook unchanged. Full objective IN PROGRESS.
+
 # Development handoff
 
 ## Collaboration safety checkpoint — 2026-09-30
@@ -124,3 +139,45 @@ Provider accounts nào được dùng cho staging? Email delivery nào? H32 rete
 ## Recommended next task
 
 Sau khi documentation pause được gỡ bằng một checkpoint mới: hoàn thiện P0.1 full acceptance matrix beyond the focused 9/9 local slice, rồi chạy P0.2 live provider receipt nếu owner cung cấp credential test. Không làm thêm UI cho tới khi core path và failure states được nghiệm thu.
+
+### Remediation follow-up — isolated DB verified
+
+Created dedicated PostgreSQL cluster at ignored `.local/remediation-db/data`, socket `.local/remediation-db/socket`, port 55439. Setup completed 58 migration files (including the existing duplicate 048 prefixes); private runtime `.local/remediation-db/runtime/runtime.json`. Do not print credentials or use default/shared DB.
+
+Executed successfully (3/3 test cases, serial):
+```
+PGHOST="$PWD/.local/remediation-db/socket" PGPORT=55439 DB_RUNTIME_FILE="$PWD/.local/remediation-db/runtime/runtime.json" backend/node_modules/.bin/tsx --test --test-concurrency=1 backend/tests/realtime-policy-db.test.ts backend/tests/auth-reset.test.ts backend/tests/authorization.test.ts
+```
+DB policy test proves Agent allowed/denied channels, Admin→Agent live role change, channel unassignment, workspace switch, expired session, disabled membership and deleted session with no unauthorized delivery. Existing RBAC suite covers platform/tenant separation and last Owner. Reset HTTP integration confirms no token/devOtp in response, single-use/expiry and old-session revocation. This is policy+HTTP proof, not live SSE/browser acceptance.
+
+Added typed frontend InboxService API adapter, message pagination/mapping. Not yet connected to ConsoleWorkspace. Fixed useRealtimeChat URL to actual `/api/conversations/:id/stream` and removed simulated connected state for invalid demo IDs. Next: wire container state and async callbacks (retain text/idempotency ID on failures), avoid mutating conversation props inside SSE callbacks, then knowledge import/publish APIs. Review pre-commit realtime broadcasts before accepting rollback behavior. Google configuration still pending. No push yet.
+
+Inbox integration advance: ConsoleWorkspace now calls useInboxData/InboxService for list/history, send, takeover (owner version) and resolve. Pending send IDs survive retry within mounted workspace; failed sends keep composer text; success follows API response. Workspace/permission transitions clear data; polling and SSE refresh server state. InboxView empty/error states prevent rendering undefined conversations. SSE callbacks no longer mutate props; callback refs prevent reconnect loops; typing uses the authenticated API wrapper. Build passed before the latest empty/error and callback-ref edits; rerun build/tests and browser acceptance next. Knowledge remains mock and must be completed; no acceptance claim.
+
+### Knowledge and transaction follow-up — 2026-09-30
+
+Implemented KnowledgeService/useKnowledgeData: load actual tenant items with cursor pagination; multipart PDF/DOCX import with stable request ID; process draft; publish public/internal; archive. Import remains DRAFT until explicit lifecycle actions. ConsoleWorkspace no longer imports mock documents. Removed fake import timer, vector reindex timer and fabricated counters/pagination/embedding receipt text. Added version-fenced, idempotent archive endpoint with role/tenant checks, audit and history retention (active=false).
+
+New tests: knowledge-archive HTTP/DB 1/1 PASS (foreign 404, Agent 403, revision409, request replay, history preserved). Google configuration test 1/1 PASS: missing client ID fails closed before network; wrong audience/profile subject rejected. Live Google login still not verified. Build all PASS after current changes.
+
+Added afterCommit transaction callbacks; inbox/widget broadcasts now enqueue until database commit, discarded on rollback. Dedicated commit/rollback regression plus policy and archive tests run serially with same isolated DB configuration above; see ignored `.local/remediation-db/focused-latest.log` for actual results.
+
+Remaining required before PR: browser persistence/error/role acceptance; API tests for full Knowledge import→process→publish→archive flow; remove/implement residual fake Knowledge Review/Revise/Re-crawl controls and Inbox AI/tag/reaction claims (do not silently call them real); ensure real-file formats and UI labels agree (currently PDF/DOCX ≤2MB). Review frontend async stale-response races and retry IDs across reload; full backend regression requires isolating hardcoded test admin connections, never shared DB. Update pre-monorepo ENVIRONMENT guidance. Re-fetch remote, inspect overlaps, commit only clone changes and open new PR from codex/chatbot-delivery. No push yet; scope not complete.
+
+### Browser knowledge persistence — 2026-10-01
+
+Added KnowledgeEditor detail/edit using existing revision-fenced draft API. Review/Revise now open actual server content; new draft mapping no longer treats an older public version as the current draft. Frontend tests 9/9 PASS including published-old/draft-new mapping. Build all PASS before final mapping adjustment; rerun final build before commit. Re-crawl control explicitly disabled pending proper web-source screen integration, no fake success.
+
+Isolated preview running via exec session 59395 at http://127.0.0.1:4329, ignored `.local/remediation-preview.ts` serves createApp + built SPA without notification worker. DB same isolated port55439, restarted only after pg_ctl reported stopped. Browser tab1 (iab) is marked handoff. Disposable fixture email remediation-browser-20261001@example.test; credentials only in test setup, no real user credentials used.
+
+Browser verified: manual login, Knowledge loads server fixture, Retry processes DRAFT→READY, Review opens persisted content, edit title/body and save creates draft, reload shows `Knowledge saved through browser` and updated bytes. Evidence screenshot outside repo: `/Users/ngxuanphu/Downloads/Gotek_AI_chatbot/knowledge-browser-persist-20261001.png`. Mouse click tool appeared ineffective on this IAB session; keyboard Enter triggered forms/buttons correctly. Do not conclude mouse UX accepted; recheck independently. Browser source bundle index-DkEeYABf.js predates the final mapping fix, so complete fresh build/reload is required before acceptance.
+
+Next: finish active Inbox browser success/error/reload; PDF/DOCX real upload and publish audience browser; negative role refresh; full isolated regression; environment doc corrections; safe remote sync and new PR. Goal remains IN PROGRESS, no push yet.
+
+### Review checkpoint — 2026-10-01
+
+Fresh fetch: main still bd0f608; nguyen advanced to b27b540. Its unmerged work overlaps core/db.ts, widget.ts, auth-reset tests and ConsoleWorkspace.tsx among other files. Preserve both branches and review those overlaps during eventual merge; no source from old Documents checkout included. Added per-request sequence guards to prevent stale concurrent refresh responses replacing newer Inbox/Knowledge state. ENVIRONMENT now has authoritative monorepo correction above historical content.
+
+Fresh build PASS (bundle index-D1olrJjG.js). Focused test run from root hit fixture path ENOENT for tests/fixtures/enterprise-faq.docx; rerun from backend cwd using exact same isolated DB. Log `.local/remediation-db/regression-selected-backend-cwd.log`. This is a runner cwd correction, not ignored test failure.
+
+Preparing draft PR only. Remaining gates: final browser Inbox send/reload/error/role, actual PDF/DOCX upload and public/internal lifecycle, full backend CI and review of concurrent nguyen changes. No production deploy or merge authorized by this checkpoint. Goal remains active.

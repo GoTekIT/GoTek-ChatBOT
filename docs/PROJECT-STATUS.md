@@ -2,7 +2,7 @@
 
 ## Remediation resumed — 2026-09-30
 
-User authorized implementation after WBS reconciliation: SSE channel/session authorization, reset credential exposure, logout failure handling, and active Inbox/Knowledge API integration. Working branch: `codex/chatbot-delivery`. Implementation and verification IN PROGRESS; no acceptance claim. Main contributor changes are retained by merging origin/main. Historical snapshots below retain their original evidence limits.
+User authorized implementation after WBS reconciliation: SSE channel/session authorization, reset credential exposure, logout failure handling, and active Inbox/Knowledge API integration. Working branch: `codex/chatbot-delivery`. Implementation and verification IN PROGRESS; no acceptance claim. First local patch adds per-delivery SSE authorization, removes reset/OTP credential responses and preserves logout failure state. Focused SSE test 1/1 and frontend tests 8/8 pass; DB-backed SSE/reset/RBAC and archive checks now pass. Active Inbox and Knowledge handlers are connected to APIs; browser persistence/error/role acceptance and remaining placeholder controls are still open. Google configuration now fails closed; live Google remains unverified. See HANDOFF active remediation checkpoint. Main contributor changes are retained by merging origin/main. Historical snapshots below retain their original evidence limits.
 
 ## Git collaboration gate — 2026-09-30
 

@@ -1,3 +1,4 @@
+import {randomInt} from 'node:crypto';
 import type {PoolClient} from 'pg';
 import {scope} from '../core/db';
 import {
@@ -250,7 +251,7 @@ export class AuthService {
     db: PoolClient,
     email: string,
     purpose: 'reset' | 'login' | 'verify' = 'reset'
-  ): Promise<{ok: boolean; devOtp?: string; message: string}> {
+  ): Promise<{ok: boolean; message: string}> {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await UserRepository.findByEmailForUpdate(db, normalizedEmail);
 
@@ -266,7 +267,7 @@ export class AuthService {
     }
 
     // Sinh mã OTP 6 chữ số
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = randomInt(100000, 1000000).toString();
     const tokenHash = digest(normalizedEmail + ':' + otp);
 
     // Vô hiệu hóa OTP cũ
@@ -296,8 +297,7 @@ export class AuthService {
 
     return {
       ok: true,
-      message: 'Mã OTP đã được gửi đến email của bạn.',
-      devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
+      message: 'Mã OTP đã được gửi đến email của bạn.'
     };
   }
 

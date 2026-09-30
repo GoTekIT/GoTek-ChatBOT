@@ -68,7 +68,7 @@ export interface Conversation {
   customerPhone: string;
   customerLocation: string;
   customerAvatar: string;
-  clientTier: 'Enterprise Prospect' | 'Enterprise Client' | 'Growth Plan';
+  clientTier: 'Enterprise Prospect' | 'Enterprise Client' | 'Growth Plan' | '';
   websiteUrl: string;
   lastMessageSnippet: string;
   lastMessageTime: string;

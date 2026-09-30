@@ -1,3 +1,4 @@
+import {realtimeAuthorization} from '../services/realtime-authorization.service';
 import {Router} from 'express';
 import {authed, identity, Identity} from '../middlewares/auth.middleware';
 import {transaction} from '../core/db';
@@ -62,7 +63,7 @@ inboxRouter.get('/conversations/:id/stream', async (req, res, next) => {
       actor = await identity(db, req);
       await access(db, actor, String(req.params.id));
     });
-    realtimeHub.register(uuid(), actor!.workspace_id, res, req, String(req.params.id));
+    realtimeHub.register(uuid(), actor!.workspace_id, res, req, realtimeAuthorization(req, actor!.workspace_id), String(req.params.id));
   } catch (e) {
     next(e);
   }
@@ -78,7 +79,7 @@ inboxRouter.get('/stream', async (req, res, next) => {
     await transaction(async db => {
       actor = await identity(db, req);
     });
-    realtimeHub.register(uuid(), actor!.workspace_id, res, req);
+    realtimeHub.register(uuid(), actor!.workspace_id, res, req, realtimeAuthorization(req, actor!.workspace_id));
   } catch (e) {
     next(e);
   }

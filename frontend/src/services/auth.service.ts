@@ -97,13 +97,8 @@ export class AuthService {
    * Đăng xuất phiên làm việc hiện tại
    */
   static async logout(): Promise<void> {
-    try {
-      await api('/auth/logout', 'POST', {});
-    } catch {
-      // Ignore network errors on logout
-    } finally {
-      this.clearSession();
-    }
+    await api('/auth/logout', 'POST', {});
+    this.clearSession();
   }
 
   /**
@@ -137,7 +132,7 @@ export class AuthService {
   static async sendOtp(
     email: string,
     purpose: 'reset' | 'login' | 'verify' = 'reset'
-  ): Promise<{ok: boolean; message: string; devOtp?: string}> {
+  ): Promise<{ok: boolean; message: string}> {
     return api('/auth/send-otp', 'POST', {
       email: email.trim(),
       purpose

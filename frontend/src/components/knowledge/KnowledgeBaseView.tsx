@@ -1,20 +1,23 @@
+import {KnowledgeEditor} from '../../screens/console/KnowledgeEditor';
 import React, { useState } from 'react';
 import { KnowledgeDocument, PublicationStatus, SourceType } from '../../types';
 import { ImportDocModal } from '../modals/ImportDocModal';
 
 interface KnowledgeBaseViewProps {
   documents: KnowledgeDocument[];
-  onAddDocument: (doc: KnowledgeDocument) => void;
-  onUpdateDocument: (id: string, updates: Partial<KnowledgeDocument>) => void;
-  onDeleteDocument: (id: string) => void;
+  onImportFile: (file: File, requestId: string) => Promise<void>;
+  error?: string; loading?: boolean; onRefresh: () => Promise<void>;
+  onUpdateDocument: (id: string, updates: Partial<KnowledgeDocument>) => Promise<void>;
+  onDeleteDocument: (id: string) => Promise<void>;
 }
 
 export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
   documents,
-  onAddDocument,
-  onUpdateDocument,
-  onDeleteDocument,
+  onImportFile, error, loading, onRefresh,
+  onUpdateDocument: updateDocument,
+  onDeleteDocument: deleteDocument,
 }) => {
+  const [editingId,setEditingId] = useState<string|null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -31,21 +34,21 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
     setTimeout(() => setActionNotice(null), 3500);
   };
 
-  // Re-index all vectors simulation
-  const handleReindexAll = () => {
-    setIsReindexing(true);
-    setReindexProgress(15);
-    const interval = setInterval(() => {
-      setReindexProgress((p) => {
-        if (p >= 100) {
-          clearInterval(interval);
-          setIsReindexing(false);
-          showNotification('Re-indexed 142 documents across text-embedding-3-large 1536-dim vector store!');
-          return 100;
-        }
-        return p + 25;
-      });
-    }, 350);
+  const onUpdateDocument = async (id: string, updates: Partial<KnowledgeDocument>) => {
+    try {await updateDocument(id, updates); showNotification('Đã lưu thay đổi trên máy chủ.');}
+    catch(e) {showNotification(e instanceof Error ? e.message : 'Không thể cập nhật.');}
+  };
+  const onDeleteDocument = async (id: string) => {
+    try {await deleteDocument(id); showNotification('Đã lưu trữ tài liệu.');}
+    catch(e) {showNotification(e instanceof Error ? e.message : 'Không thể lưu trữ.');}
+  };
+  const handleReindexAll = async () => {
+    setIsReindexing(true);setReindexProgress(0);
+    const pending=documents.filter(d=>d.publicationStatus==='draft');
+    try {for(let i=0;i<pending.length;i++) {await updateDocument(pending[i].id,{publicationStatus:'ready'});setReindexProgress(Math.round((i+1)/pending.length*100));}
+      showNotification(pending.length ? 'Đã xử lý các bản nháp. Chưa tự động xuất bản.' : 'Không có bản nháp cần xử lý.');
+    } catch(e){showNotification(e instanceof Error ? e.message : 'Xử lý chưa hoàn tất.');}
+    finally{setIsReindexing(false);}
   };
 
   // Export CSV
@@ -114,17 +117,16 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
     setSelectedIds(next);
   };
 
-  const handleBulkDelete = () => {
-    if (selectedIds.size === 0) return;
-    if (confirm(`Are you sure you want to remove ${selectedIds.size} documents from the vector store?`)) {
-      selectedIds.forEach((id) => onDeleteDocument(id));
-      setSelectedIds(new Set());
-      showNotification(`Deleted ${selectedIds.size} document(s) from Knowledge Base.`);
-    }
+  const handleBulkDelete = async () => {
+    if(!selectedIds.size || !confirm(`Lưu trữ ${selectedIds.size} tài liệu?`))return;
+    try {for(const id of selectedIds)await deleteDocument(id);setSelectedIds(new Set());showNotification('Đã lưu trữ các tài liệu.');}
+    catch(e){showNotification(e instanceof Error ? e.message : 'Một số tài liệu chưa được lưu trữ.');}
   };
 
   return (
     <main className="flex-1 overflow-y-auto px-6 py-5 space-y-5 bg-[#faf8ff] custom-scrollbar">
+      {loading && <p role="status">Đang tải tri thức…</p>}
+      {error && <p role="alert">{error} <button onClick={()=>{void onRefresh();}}>Thử lại</button></p>}
       {/* Action Notification Toast */}
       {actionNotice && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[#131b2e] text-white text-xs px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
@@ -188,49 +190,49 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-[#131b2e]">
-              142 <span className="text-xs font-normal text-[#464555]">docs</span>
+              {documents.length} <span className="text-xs font-normal text-[#464555]">docs</span>
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
               <span className="material-symbols-outlined text-[15px]">trending_up</span>
-              <span>+12 added this week</span>
+              <span>Dữ liệu đã tải từ máy chủ</span>
             </div>
           </div>
         </div>
 
-        {/* Card 2: Active in Vector Index */}
+        {/* Card 2: Đã xuất bản công khai */}
         <div className="bg-white border border-[#c7c4d8]/70 rounded-xl p-4 flex flex-col justify-between shadow-xs hover:border-[#777587] transition-colors">
           <div className="flex items-center justify-between text-[#464555]">
-            <span className="text-xs font-semibold">Active in Vector Index</span>
+            <span className="text-xs font-semibold">Đã xuất bản công khai</span>
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
               <span className="material-symbols-outlined text-[18px]">check_circle</span>
             </div>
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-[#131b2e]">
-              118 <span className="text-xs font-normal text-emerald-700 font-medium">Ready / Public</span>
+              {documents.filter(d=>d.publicationStatus==='published').length} <span className="text-xs font-normal text-emerald-700 font-medium">Public</span>
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-xs text-[#464555]">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>83.1% query retrieval eligibility</span>
+              <span>Phụ thuộc trạng thái nguồn và quyền truy xuất</span>
             </div>
           </div>
         </div>
 
-        {/* Card 3: Processing / Chunking */}
+        {/* Card 3: Bản nháp */}
         <div className="bg-white border border-[#c7c4d8]/70 rounded-xl p-4 flex flex-col justify-between shadow-xs hover:border-[#777587] transition-colors">
           <div className="flex items-center justify-between text-[#464555]">
-            <span className="text-xs font-semibold">Processing / Chunking</span>
+            <span className="text-xs font-semibold">Bản nháp</span>
             <div className="w-8 h-8 rounded-lg bg-purple-50 text-[#6b38d4] flex items-center justify-center">
               <span className="material-symbols-outlined text-[18px]">autorenew</span>
             </div>
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-[#131b2e]">
-              3 <span className="text-xs font-normal text-[#464555]">pipelines</span>
+              {documents.filter(d=>d.publicationStatus==='draft').length} <span className="text-xs font-normal text-[#464555]">docs</span>
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-xs text-[#6b38d4] font-medium">
               <span className="w-2 h-2 rounded-full bg-[#6b38d4] animate-pulse"></span>
-              <span>1 OCR extraction, 2 tokenizers</span>
+              <span>Chưa xuất bản</span>
             </div>
           </div>
         </div>
@@ -245,10 +247,10 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-[#131b2e]">
-              28.4 <span className="text-xs font-normal text-[#464555]">MB</span>
+              — <span className="text-xs font-normal text-[#464555]">MB</span>
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-xs font-mono text-[#464555]">
-              <span>4,218,940 embedded tokens</span>
+              <span>Chưa có số liệu token</span>
             </div>
           </div>
         </div>
@@ -427,7 +429,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                         </div>
                         <div>
                           <div
-                            onClick={() => showNotification(`Viewing metadata: ${doc.title}`)}
+                            onClick={() => setEditingId(doc.id)}
                             className="font-semibold text-[#131b2e] hover:text-[#3525cd] cursor-pointer flex items-center gap-1.5"
                           >
                             <span className={doc.sourceType === 'web' ? 'font-mono text-[11px]' : ''}>
@@ -445,7 +447,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                           <div className="text-[11px] text-[#464555] flex items-center gap-2 mt-0.5 font-mono">
                             <span>{doc.size}</span>
                             <span>•</span>
-                            <span>{doc.tag || `MD5: ${doc.hash.slice(0, 8)}`}</span>
+                            <span>{doc.tag || 'Phiên bản quản lý trên máy chủ'}</span>
                             {doc.cosineSim && (
                               <>
                                 <span>•</span>
@@ -537,7 +539,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                     {/* Chunks & Vectors */}
                     <td className="py-3.5 px-4 font-mono text-xs">
                       <div className="font-semibold text-[#131b2e]">
-                        {doc.chunksCount} Chunks
+                        Số chunk chưa tải
                       </div>
                       <div
                         className={`text-[11px] ${
@@ -570,7 +572,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                                   audience: 'Published Public',
                                   audienceDesc: 'Audience: Visitor & Agent',
                                 });
-                                showNotification(`Published ${doc.title} to Public RAG Index`);
+
                               }}
                               className="px-2 py-1 text-xs font-semibold text-white bg-[#3525cd] hover:bg-[#281bb5] rounded transition-colors shadow-xs"
                               type="button"
@@ -578,7 +580,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                               Publish Public
                             </button>
                             <button
-                              onClick={() => showNotification(`Previewing extracted chunks for ${doc.title}`)}
+                              onClick={() => setEditingId(doc.id)}
                               className="px-2 py-1 text-xs font-medium text-[#131b2e] hover:bg-[#eaedff] rounded transition-colors"
                               type="button"
                             >
@@ -598,11 +600,11 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                               onClick={() => {
                                 onUpdateDocument(doc.id, {
                                   publicationStatus: 'ready',
-                                  chunksCount: 18,
-                                  matchScore: 'Embeddings Ready',
+
+
                                   audience: 'Ready',
                                 });
-                                showNotification(`Pipeline recovered for ${doc.title}`);
+
                               }}
                               className="px-2 py-1 text-xs font-medium text-[#777587] hover:text-[#131b2e] hover:bg-[#eaedff] rounded transition-colors"
                               type="button"
@@ -613,7 +615,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                         ) : doc.sourceType === 'web' ? (
                           <>
                             <button
-                              onClick={() => showNotification(`Re-crawling URL: ${doc.title}...`)}
+                              disabled title="Quản lý lịch thu thập trong Nguồn web; chưa tích hợp tại màn này"
                               className="px-2 py-1 text-xs font-semibold text-[#3525cd] hover:bg-[#eaedff] rounded transition-colors flex items-center gap-1"
                               type="button"
                             >
@@ -621,7 +623,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                               <span>Re-crawl</span>
                             </button>
                             <button
-                              onClick={() => showNotification(`Viewing 64 parsed chunks for ${doc.title}`)}
+                              onClick={() => setEditingId(doc.id)}
                               className="px-2 py-1 text-xs font-medium text-[#464555] hover:text-[#131b2e] hover:bg-[#eaedff] rounded transition-colors"
                               type="button"
                             >
@@ -631,7 +633,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                         ) : (
                           <>
                             <button
-                              onClick={() => showNotification(`Vector revision initiated for ${doc.title}`)}
+                              onClick={() => setEditingId(doc.id)}
                               className="px-2 py-1 text-xs font-semibold text-[#3525cd] hover:bg-[#eaedff] rounded transition-colors"
                               type="button"
                             >
@@ -649,7 +651,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                                       ? 'Audience: Visitor & Agent'
                                       : 'Agent Staff Only • Forbidden from visitor widget RLS',
                                 });
-                                showNotification(`Switched audience to: ${nextStatus}`);
+
                               }}
                               className="px-2 py-1 text-xs font-medium text-[#464555] hover:text-[#131b2e] hover:bg-[#eaedff] rounded transition-colors"
                               type="button"
@@ -660,7 +662,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                               onClick={() => {
                                 if (confirm(`Delete ${doc.title}?`)) {
                                   onDeleteDocument(doc.id);
-                                  showNotification(`Deleted ${doc.title}`);
+
                                 }
                               }}
                               aria-label="Delete document"
@@ -680,114 +682,17 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
           </table>
         </div>
 
-        {/* ================= PAGINATION & SRS COMPLIANCE FOOTER ================= */}
-        <div className="p-3.5 bg-[#f2f3ff] border-t border-[#c7c4d8]/70 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3">
-            <span className="text-[#464555] font-medium">
-              Showing 1-{sortedDocs.length} of 142 documents
-            </span>
-            <div className="h-4 w-px bg-[#c7c4d8]"></div>
-            <div className="flex items-center gap-1.5 text-xs text-[#3525cd] font-semibold bg-[#eaedff] px-2 py-0.5 rounded border border-[#c7c4d8]/70">
-              <span className="material-symbols-outlined text-[15px]">verified_user</span>
-              <span>Enforcing FR-KNOW-05: Only READY & PUBLIC items are retrieved for visitor chat widget</span>
-            </div>
-          </div>
-
-          {/* Keyset Pagination Controls */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-2.5 py-1 text-xs font-medium text-[#777587] border border-[#c7c4d8] rounded bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f2f3ff]"
-              type="button"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setCurrentPage(1)}
-              className={`px-2.5 py-1 text-xs font-semibold rounded border ${
-                currentPage === 1
-                  ? 'bg-[#3525cd] text-white border-[#3525cd]'
-                  : 'bg-white text-[#131b2e] border-[#c7c4d8]'
-              }`}
-              type="button"
-            >
-              1
-            </button>
-            <button
-              onClick={() => setCurrentPage(2)}
-              className={`px-2.5 py-1 text-xs font-semibold rounded border ${
-                currentPage === 2
-                  ? 'bg-[#3525cd] text-white border-[#3525cd]'
-                  : 'bg-white text-[#131b2e] border-[#c7c4d8]'
-              }`}
-              type="button"
-            >
-              2
-            </button>
-            <button
-              onClick={() => setCurrentPage(3)}
-              className={`px-2.5 py-1 text-xs font-semibold rounded border ${
-                currentPage === 3
-                  ? 'bg-[#3525cd] text-white border-[#3525cd]'
-                  : 'bg-white text-[#131b2e] border-[#c7c4d8]'
-              }`}
-              type="button"
-            >
-              3
-            </button>
-            <span className="px-1 text-[#777587]">...</span>
-            <button
-              onClick={() => setCurrentPage(24)}
-              className="px-2.5 py-1 text-xs font-medium text-[#131b2e] hover:bg-[#eaedff] border border-[#c7c4d8] rounded bg-white"
-              type="button"
-            >
-              24
-            </button>
-            <button
-              onClick={() => setCurrentPage((p) => p + 1)}
-              className="px-2.5 py-1 text-xs font-medium text-[#131b2e] hover:bg-[#eaedff] border border-[#c7c4d8] rounded bg-white"
-              type="button"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <div className="p-4 text-sm">Hiển thị {sortedDocs.length} / {documents.length} tài liệu đã tải.</div>
       </div>
 
-      {/* Quick Tips & Vector Health Diagnostic Banner */}
-      <div className="border border-[#c7c4d8]/70 rounded-xl p-4 bg-white flex items-start gap-4">
-        <div className="w-10 h-10 rounded-lg bg-[#eaedff] text-[#3525cd] flex items-center justify-center shrink-0">
-          <span className="material-symbols-outlined">auto_awesome</span>
-        </div>
-        <div className="flex-1">
-          <h2 className="text-sm font-bold text-[#131b2e]">
-            RAG Pipeline Auto-Healer & Chunk Overlap
-          </h2>
-          <p className="text-xs text-[#464555] mt-0.5">
-            Documents uploaded are automatically split using recursive character chunking (Chunk size: 512
-            tokens, 64 token overlap) using the{' '}
-            <span className="font-mono font-semibold text-[#3525cd]">text-embedding-3-large</span>{' '}
-            1536-dimensional matrix. Re-index cycles check hash sums every midnight UTC.
-          </p>
-        </div>
-        <button
-          onClick={() => showNotification('Chunking profile: 512 tokens with 64 overlap configured')}
-          className="px-3 py-1.5 text-xs font-semibold text-[#464555] hover:text-[#131b2e] border border-[#c7c4d8] hover:bg-[#f2f3ff] rounded-lg shrink-0"
-          type="button"
-        >
-          Configure Chunking
-        </button>
-      </div>
+      <p className="text-sm">Xử lý bản nháp không tự xuất bản. Chỉ tài liệu công khai hợp lệ mới được dùng cho khách.</p>
 
+      {editingId && <KnowledgeEditor key={editingId} id={editingId} onClose={()=>setEditingId(null)} onSaved={onRefresh}/> }
       {/* Import Modal */}
       <ImportDocModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        onImport={(doc) => {
-          onAddDocument(doc);
-          showNotification(`Successfully indexed & embedded "${doc.title}"!`);
-        }}
+        onImport={async (file,requestId) => {await onImportFile(file,requestId);showNotification('Đã nhập bản nháp. Chưa xuất bản.');}}
       />
     </main>
   );

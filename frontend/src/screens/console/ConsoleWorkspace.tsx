@@ -1,6 +1,7 @@
+import {useKnowledgeData} from './useKnowledgeData';
+import {useInboxData} from './useInboxData';
 import React, { useState, useEffect } from 'react';
 import { ConsoleModule, SettingsSubTab, KnowledgeDocument, StaffMember, Conversation, ChatMessage } from '../../types';
-import { INITIAL_DOCUMENTS, INITIAL_CONVERSATIONS } from '../../data/mockData';
 import { TopNav } from '../../components/TopNav';
 import { Sidebar } from '../../components/Sidebar';
 import { InboxView } from '../../components/inbox/InboxView';
@@ -47,12 +48,13 @@ export function ConsoleWorkspace({
     setActiveModule(resolveInitialModule(currentPath));
   }, [currentPath]);
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('staff');
-  const [documents, setDocuments] = useState<KnowledgeDocument[]>(INITIAL_DOCUMENTS);
+  const knowledge = useKnowledgeData(me?.workspaceId || '', can(me, 'knowledge.manage'));
+  const {documents} = knowledge;
   // Members are loaded from the tenant-scoped API by MembersSettings.
   const staffList: StaffMember[] = [];
 
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
+  const inbox = useInboxData(me?.workspaceId || '', can(me, 'inbox.use'));
+  const {conversations, selectedConvId, setSelectedConvId} = inbox;
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
@@ -123,82 +125,6 @@ export function ConsoleWorkspace({
     setTimeout(() => setToastMessage(null), 3200);
   };
 
-  // Document actions
-  const handleAddDocument = (newDoc: KnowledgeDocument) => {
-    setDocuments((prev) => [newDoc, ...prev]);
-    showGlobalToast(`Đã thêm tài liệu tri thức: "${newDoc.title}"`);
-  };
-
-  const handleUpdateDocument = (id: string, updates: Partial<KnowledgeDocument>) => {
-    setDocuments((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
-    );
-    showGlobalToast('Đã cập nhật trạng thái tài liệu');
-  };
-
-  const handleDeleteDocument = (id: string) => {
-    setDocuments((prev) => prev.filter((d) => d.id !== id));
-    showGlobalToast('Đã gỡ tài liệu khỏi kho tri thức');
-  };
-
-  // Chat actions
-  const handleSendMessage = (
-    convId: string,
-    message: Omit<ChatMessage, 'id' | 'timestamp'>
-  ) => {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const fullMsg: ChatMessage = {
-      ...message,
-      id: `msg-${Date.now()}`,
-      timestamp: timeStr,
-    };
-
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id === convId) {
-          return {
-            ...c,
-            lastMessageSnippet: message.content.slice(0, 80),
-            lastMessageTime: 'Vừa xong',
-            messages: [...c.messages, fullMsg],
-          };
-        }
-        return c;
-      })
-    );
-  };
-
-  const handleTakeover = (convId: string) => {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const takeoverNotice: ChatMessage = {
-      id: `sys-${Date.now()}`,
-      senderType: 'system_event',
-      senderName: 'Hệ thống',
-      timestamp: timeStr,
-      content: 'Nhân viên hỗ trợ đã tiếp quản hội thoại này từ AI Copilot.',
-    };
-
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === convId
-          ? {
-              ...c,
-              status: 'in_review',
-              slaUrgent: false,
-              messages: [...c.messages, takeoverNotice],
-            }
-          : c
-      )
-    );
-    showGlobalToast('Bạn đã tiếp quản thành công hội thoại với khách hàng');
-  };
-
-  const handleResolve = (convId: string) => {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === convId ? { ...c, status: 'resolved' } : c))
-    );
-    showGlobalToast('Hội thoại đã được đánh dấu giải quyết và lưu trữ');
-  };
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#f8f9fb] dark:bg-[#080c14] text-[#1f2329] dark:text-slate-100 antialiased transition-colors duration-300">
@@ -254,21 +180,27 @@ export function ConsoleWorkspace({
             {!canOpenModule(me, activeModule) && <main className="p-6" role="alert">Bạn không có quyền truy cập chức năng này. <button onClick={() => handleSelectModule('inbox')}>Về hộp thư</button></main>}
             {activeModule === 'inbox' && canOpenModule(me, 'inbox') && (
               <InboxView
+                onRefresh={inbox.refresh}
+                error={inbox.error}
+                loading={inbox.loading}
                 conversations={conversations}
                 selectedConvId={selectedConvId}
                 setSelectedConvId={setSelectedConvId}
-                onSendMessage={handleSendMessage}
-                onTakeover={handleTakeover}
-                onResolve={handleResolve}
+                onSendMessage={inbox.send}
+                onTakeover={inbox.takeover}
+                onResolve={inbox.resolve}
               />
             )}
 
             {activeModule === 'knowledge' && canOpenModule(me, 'knowledge') && (
               <KnowledgeBaseView
                 documents={documents}
-                onAddDocument={handleAddDocument}
-                onUpdateDocument={handleUpdateDocument}
-                onDeleteDocument={handleDeleteDocument}
+                onImportFile={knowledge.importFile}
+                error={knowledge.error}
+                loading={knowledge.loading}
+                onRefresh={knowledge.refresh}
+                onUpdateDocument={knowledge.update}
+                onDeleteDocument={knowledge.archive}
               />
             )}
 

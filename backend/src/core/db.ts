@@ -52,17 +52,30 @@ pool.on('error', err => {
   console.error('[db] Unexpected error on idle PostgreSQL client:', err);
 });
 
+const commitCallbacks = new WeakMap<PoolClient, Array<() => void>>();
+/** Side effects are emitted only after the owning transaction commits. */
+export function afterCommit(db: PoolClient, callback: () => void): void {
+  const callbacks = commitCallbacks.get(db);
+  if (!callbacks) throw new Error('TRANSACTION_REQUIRED');
+  callbacks.push(callback);
+}
+
 export async function transaction<T>(fn: (db: PoolClient) => Promise<T>): Promise<T> {
   const db = await pool.connect();
   try {
     await db.query('BEGIN');
+    commitCallbacks.set(db, []);
     const result = await fn(db);
     await db.query('COMMIT');
+    for (const callback of commitCallbacks.get(db) || []) {
+      try { callback(); } catch { /* REST state remains authoritative; clients can reload. */ }
+    }
     return result;
   } catch (error) {
     await db.query('ROLLBACK');
     throw error;
   } finally {
+    commitCallbacks.delete(db);
     db.release();
   }
 }

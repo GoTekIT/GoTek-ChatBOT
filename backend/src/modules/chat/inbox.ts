@@ -1,3 +1,4 @@
+import {afterCommit} from '../../core/db';
 import type {PoolClient} from 'pg';
 import {z} from 'zod';
 import {HttpError,audit} from '../../core/security';
@@ -25,16 +26,16 @@ export async function inboxTakeover(db:PoolClient,a:Actor,id:string,body:unknown
  await audit(db,a.workspace_id,a.user_id,'conversation.takeover',id);
 
  // Broadcast realtime takeover event
- realtimeHub.broadcastToConversation(id, 'conversation:takeover', {
+ afterCommit(db, () => realtimeHub.broadcastToConversation(id, 'conversation:takeover', {
    conversationId: id,
    assignedTo: a.user_id,
    replyOwner: result.reply_owner,
    ownerVersion: result.owner_version,
- });
- realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:takeover', {
+ }));
+ afterCommit(db, () => realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:takeover', {
    conversationId: id,
    assignedTo: a.user_id,
- });
+ }));
 
  return result;
 }
@@ -45,14 +46,14 @@ export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown){
  const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id});
 
  // Broadcast realtime new message event
- realtimeHub.broadcastToConversation(id, 'message:new', message);
- realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:message_sent', {
+ afterCommit(db, () => realtimeHub.broadcastToConversation(id, 'message:new', message));
+ afterCommit(db, () => realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:message_sent', {
    conversationId: id,
    messageSnippet: message.body.slice(0, 100),
    author: message.author_type,
    visibility: message.visibility,
    createdAt: message.created_at,
- });
+ }));
 
  return message;
 }
@@ -67,11 +68,11 @@ export async function inboxSetStatus(db:PoolClient,a:Actor,id:string,body:unknow
  await audit(db,a.workspace_id,a.user_id,`conversation.${data.status}`,id);
 
  // Broadcast realtime status change event
- realtimeHub.broadcastToConversation(id, 'conversation:status', row);
- realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:status_changed', {
+ afterCommit(db, () => realtimeHub.broadcastToConversation(id, 'conversation:status', row));
+ afterCommit(db, () => realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:status_changed', {
    conversationId: id,
    status: row.status,
- });
+ }));
 
  return {...row,previousStatus:current.status};
 }
@@ -89,11 +90,11 @@ export async function inboxResumeAi(db:PoolClient,a:Actor,id:string,body:unknown
  await audit(db,a.workspace_id,a.user_id,'conversation.ai_resumed',id);
 
  // Broadcast realtime AI resume event
- realtimeHub.broadcastToConversation(id, 'conversation:ai_resumed', row);
- realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:ai_resumed', {
+ afterCommit(db, () => realtimeHub.broadcastToConversation(id, 'conversation:ai_resumed', row));
+ afterCommit(db, () => realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:ai_resumed', {
    conversationId: id,
    replyOwner: row.reply_owner,
- });
+ }));
 
  return row;
 }
@@ -102,12 +103,12 @@ export async function inboxResumeAi(db:PoolClient,a:Actor,id:string,body:unknown
 export async function inboxTyping(db:PoolClient,a:Actor,id:string,body:unknown){
  await access(db,a,id);
  const data=z.object({isTyping:z.boolean()}).parse(body);
- realtimeHub.broadcastToConversation(id, 'typing', {
+ afterCommit(db, () => realtimeHub.broadcastToConversation(id, 'typing', {
    conversationId: id,
    actorId: a.user_id,
    actorType: 'agent',
    isTyping: data.isTyping,
    timestamp: new Date().toISOString(),
- });
+ }));
  return {success:true};
 }

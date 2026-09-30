@@ -7,7 +7,7 @@ import {createApp} from '../src/app';
 import {pool} from '../src/core/db';
 import {digest} from '../src/core/security';
 
-const admin = new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin = new pg.Pool({host:process.env.PGHOST || '/tmp',port:Number(process.env.PGPORT) || 55432,user:process.env.PGUSER || 'gotek_migrator',password:process.env.PGPASSWORD || 'gotek_dev_password',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 
 test('H01 reset challenge is single-use, expires, and revokes existing sessions', async()=>{
@@ -18,7 +18,10 @@ test('H01 reset challenge is single-use, expires, and revokes existing sessions'
     assert.equal((await agent.post('/api/auth/signup').set('X-Gotek-Request','1').send({email,password:oldPassword,fullName:'Reset Test',business:'Reset Workspace',phone:'0900000000'})).status,202);
     uid=(await admin.query('SELECT id FROM users WHERE email=$1',[email])).rows[0].id;
     assert.equal((await agent.post('/api/auth/login').set('X-Gotek-Request','1').send({email,password:oldPassword})).status,200);
-    assert.equal((await agent.post('/api/auth/request-reset').set('X-Gotek-Request','1').send({email})).status,202);
+    const requested = await agent.post('/api/auth/request-reset').set('X-Gotek-Request','1').send({email});
+    assert.equal(requested.status,202);
+    assert.equal('token' in requested.body, false);
+    assert.equal('devOtp' in requested.body, false);
     const first=(await admin.query("SELECT payload FROM local_delivery WHERE user_id=$1 AND kind='reset' ORDER BY created_at DESC LIMIT 1",[uid])).rows[0];
     const token=(typeof first.payload==='string'?JSON.parse(first.payload):first.payload).token;
     assert.equal((await agent.post('/api/auth/reset').set('X-Gotek-Request','1').send({token,password:newPassword})).status,200);

@@ -8,7 +8,12 @@ export interface RealtimeEvent<T = unknown> {
   timestamp: string;
 }
 
+export type AuthorizeDelivery = (deliver: () => void, conversationId?: string) => Promise<void>;
+
 interface SseClient {
+  authorize: AuthorizeDelivery;
+  pending: Promise<void>;
+  queued: number;
   id: string;
   workspaceId: string;
   conversationId?: string;
@@ -16,7 +21,7 @@ interface SseClient {
   req: Request;
 }
 
-class RealtimeHub extends EventEmitter {
+export class RealtimeHub extends EventEmitter {
   private clients: Map<string, SseClient> = new Map();
   private heartbeatInterval: NodeJS.Timeout | null = null;
 
@@ -36,7 +41,7 @@ class RealtimeHub extends EventEmitter {
       const pingComment = `: ping - ${new Date().toISOString()}\n\n`;
       for (const client of this.clients.values()) {
         try {
-          client.res.write(pingComment);
+          this.deliverAuthorized(client, () => { client.res.write(pingComment); }, client.conversationId);
         } catch {
           this.removeClient(client.id);
         }
@@ -56,6 +61,7 @@ class RealtimeHub extends EventEmitter {
     workspaceId: string,
     res: Response,
     req: Request,
+    authorize: AuthorizeDelivery,
     conversationId?: string
   ): void {
     // Send SSE response headers
@@ -64,12 +70,14 @@ class RealtimeHub extends EventEmitter {
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no', // Critical for Nginx reverse proxy streaming
-      'Access-Control-Allow-Origin': req.get('origin') || '*',
     });
 
     res.flushHeaders?.();
 
     const client: SseClient = {
+      authorize,
+      pending: Promise.resolve(),
+      queued: 0,
       id: clientId,
       workspaceId,
       conversationId,
@@ -107,6 +115,7 @@ class RealtimeHub extends EventEmitter {
   public removeClient(clientId: string): void {
     const client = this.clients.get(clientId);
     if (client) {
+      this.clients.delete(clientId);
       try {
         client.res.end();
       } catch {
@@ -114,6 +123,17 @@ class RealtimeHub extends EventEmitter {
       }
       this.clients.delete(clientId);
     }
+  }
+
+  private deliverAuthorized(client: SseClient, deliver: () => void, conversationId?: string): void {
+    // Bound queued authorization queries for slow consumers; reconnect reloads REST state.
+    if (++client.queued > 100) { this.removeClient(client.id); return; }
+    client.pending = client.pending.then(async () => {
+      if (this.clients.get(client.id) !== client) return;
+      await client.authorize(() => {
+        if (this.clients.get(client.id) === client) deliver();
+      }, conversationId);
+    }).catch(() => this.removeClient(client.id)).finally(() => { client.queued--; });
   }
 
   /**
@@ -144,7 +164,7 @@ class RealtimeHub extends EventEmitter {
 
     for (const client of this.clients.values()) {
       if (client.conversationId === conversationId) {
-        this.sendToClient(client, event);
+        this.deliverAuthorized(client, () => this.sendToClient(client, event), conversationId);
       }
     }
   }
@@ -164,8 +184,12 @@ class RealtimeHub extends EventEmitter {
     };
 
     for (const client of this.clients.values()) {
-      if (client.workspaceId === workspaceId) {
-        this.sendToClient(client, event);
+      const conversationId = data && typeof data === 'object' && 'conversationId' in data
+        && typeof data.conversationId === 'string' ? data.conversationId : undefined;
+      // Workspace inbox events must identify the conversation whose scope is checked.
+      if (client.workspaceId === workspaceId && conversationId &&
+          (!client.conversationId || client.conversationId === conversationId)) {
+        this.deliverAuthorized(client, () => this.sendToClient(client, event), conversationId);
       }
     }
   }

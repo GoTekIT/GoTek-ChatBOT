@@ -1,3 +1,4 @@
+import {archiveKnowledge} from '../services/knowledge-archive.service';
 import express, {Router} from 'express';
 import {createHash} from 'node:crypto';
 import {z} from 'zod';
@@ -230,3 +231,5 @@ knowledgeRouter.get(
     return retrieveKnowledge(db, i.workspace_id, req.query);
   })
 );
+
+knowledgeRouter.post('/knowledge/items/:id/archive', authed((db,i,req) => archiveKnowledge(db,i,String(req.params.id),req.body), 'knowledge.manage'));

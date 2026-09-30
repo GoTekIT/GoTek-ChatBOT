@@ -1,3 +1,19 @@
+# Current monorepo environment correction — 2026-10-01
+
+This section supersedes the historical guide below where they conflict. Read current source before starting a server/worker.
+
+- Backend code is under `backend/src`, migrations under `backend/db/migrations`; frontend under `frontend/src`.
+- `backend/src/core/db.ts` auto-loads `.env` or `../.env` with `process.loadEnvFile` when supported. Never print or commit those files.
+- Explicit `DB_RUNTIME_FILE` takes precedence, then `DATABASE_URL`, then `.local/runtime.json` (root/backend relative), then `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` defaults. Prefer a dedicated runtime file for tests; never let test processes silently use a shared database.
+- `backend/src/index.ts` reads PORT/HOST (defaults 4317/127.0.0.1); SERVE_BUILD serves the built frontend. It also starts a notification worker. Do not run provider/email workers without reviewing environment and recipients.
+- `npm run build:all`, `npm run test:frontend`, `npm run test:backend` are root commands. Backend tests include legacy hardcoded admin port55432; setting PGPORT alone does not isolate every test. The focused remediation tests honor PGHOST/PGPORT; full suite requires a verified isolated environment.
+- Reset/OTP responses never include reset credentials, including development. Local delivery spool is test infrastructure, not email receipt. GOOGLE_CLIENT_ID is required for Google login; missing configuration fails closed.
+- This change does not approve production, provider usage or customer messaging. Runtime feature readiness is separate from deployment approval.
+
+---
+
+## Historical pre-monorepo guide (paths and loader claims below are superseded)
+
 # Environment and configuration
 
 Tài liệu này là hướng dẫn cấu hình cho developer tiếp nhận GoTek Chatbot. Nó mô tả cách source hiện tại đọc biến môi trường, cách chạy local/test và cách cấp secret cho provider AI. Đây là cấu hình đã kiểm tra từ `src/server`, `scripts` và `package.json`, không phải cấu hình production đã được phê duyệt.

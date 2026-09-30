@@ -1,3 +1,4 @@
+import {afterCommit} from '../../core/db';
 import {isWithinBusinessHours} from '../../modules/chat/business-hours';
 import {Router} from 'express';import {rateLimit,ipKeyGenerator} from 'express-rate-limit';import {z} from 'zod';import type {PoolClient} from 'pg';import {transaction,scope} from '../../core/db';import {uuid,opaque,digest,HttpError} from '../../core/security';import {appendMessage} from '../../modules/chat/chat-store';import {enqueueJob} from '../../modules/jobs/jobs';
 import {realtimeHub} from '../../modules/chat/realtime';
@@ -29,8 +30,8 @@ router.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
  }await db.query('SELECT id FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[v.conversation_id,c.workspace_id]);
  const replay=!!(await db.query('SELECT id FROM messages WHERE conversation_id=$1 AND workspace_id=$2 AND client_id=$3',[v.conversation_id,c.workspace_id,data.clientId])).rowCount;
  const m=await appendMessage(db,{workspace:c.workspace_id,conversation:v.conversation_id,clientId:data.clientId,body:data.body,author:'visitor',visibility:'public'});const state=(await db.query('SELECT reply_owner,owner_version,assigned_to FROM conversations WHERE id=$1',[v.conversation_id])).rows[0];if(!replay&&state.reply_owner==='AI_ACTIVE'){await enqueueJob(db,c.workspace_id,{kind:'ai.reply',key:`conversation:${v.conversation_id}:message:${m.id}`,payload:{conversationId:v.conversation_id,messageId:m.id,ownerVersion:state.owner_version,requireGrounded:true},external:false});}
- realtimeHub.broadcastToConversation(v.conversation_id, 'message:new', m);
- realtimeHub.broadcastToWorkspace(c.workspace_id, 'inbox:visitor_message', { conversationId: v.conversation_id, messageSnippet: m.body.slice(0, 100), author: 'visitor', createdAt: m.created_at });
+ afterCommit(db, () => realtimeHub.broadcastToConversation(v.conversation_id, 'message:new', m));
+ afterCommit(db, () => realtimeHub.broadcastToWorkspace(c.workspace_id, 'inbox:visitor_message', { conversationId: v.conversation_id, messageSnippet: m.body.slice(0, 100), author: 'visitor', createdAt: m.created_at }));
  return {id:m.id,client_id:m.client_id,sequence:m.sequence,body:m.body,author_type:m.author_type,created_at:m.created_at,replyOwner:state.reply_owner,ownerVersion:state.owner_version,assignedTo:state.assigned_to};}));});
  // A visitor may request a human, but may never choose an agent or resume AI.
  router.post('/:key/handoff',async(req,res)=>{

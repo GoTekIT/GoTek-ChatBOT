@@ -88,13 +88,9 @@ export class AuthController {
 
   static async requestReset(req: Request, res: Response): Promise<void> {
     const data = z.object({email: emailSchema}).strict().parse(req.body);
-    const token = await transaction(async db => {
-      return AuthService.requestReset(db, data.email);
+    await transaction(async db => {
+      await AuthService.requestReset(db, data.email);
     });
-    if (process.env.NODE_ENV !== 'production' && token) {
-      res.status(202).json({ok: true, token});
-      return;
-    }
     res.status(202).json(genericResponse);
   }
 
@@ -178,17 +174,21 @@ export class AuthController {
       .parse(req.body);
 
     if (!data.credential) throw new HttpError(401, 'GOOGLE_CREDENTIAL_REQUIRED');
-    const tokenInfo = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(data.credential)}`);
+    const expectedClientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (!expectedClientId) throw new HttpError(503, 'GOOGLE_LOGIN_NOT_CONFIGURED');
+    const tokenInfo = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(data.credential)}`, {signal: AbortSignal.timeout(10000)});
     if (!tokenInfo.ok) throw new HttpError(401, 'INVALID_GOOGLE_CREDENTIAL');
     const claims = await tokenInfo.json() as {aud?: string; sub?: string; email?: string; email_verified?: string};
-    const expectedClientId = process.env.GOOGLE_CLIENT_ID;
-    if (!claims.sub || !claims.email || claims.email_verified !== 'true' || (expectedClientId && claims.aud !== expectedClientId)) {
+    if (!claims.sub || !claims.email || claims.email_verified !== 'true' || claims.aud !== expectedClientId) {
       throw new HttpError(401, 'INVALID_GOOGLE_CREDENTIAL');
     }
     const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {headers: {Authorization: `Bearer ${data.credential}`}});
     if (!profileResponse.ok) throw new HttpError(401, 'INVALID_GOOGLE_CREDENTIAL');
     const profile = await profileResponse.json() as {email?: string; name?: string; sub?: string; picture?: string};
-    const googleEmail = profile.email ?? claims.email;
+    if (profile.sub !== claims.sub || (profile.email && profile.email !== claims.email)) {
+      throw new HttpError(401, 'INVALID_GOOGLE_CREDENTIAL');
+    }
+    const googleEmail = claims.email;
     const googleName = profile.name ?? data.name ?? 'Google User';
     const googleSub = profile.sub ?? claims.sub;
     const googlePic = profile.picture ?? data.picture;

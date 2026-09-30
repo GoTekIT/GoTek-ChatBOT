@@ -42,7 +42,6 @@ export function Auth({path, onLogin}: AuthProps) {
   const [otpCode, setOtpCode] = useState('');
   const [newPassValue, setNewPassValue] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
 
   // Client-side validation state
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -357,13 +356,9 @@ export function Auth({path, onLogin}: AuthProps) {
 
     setBusy(true);
     try {
-      const res = await AuthService.sendOtp(resetEmail, 'reset');
+      await AuthService.sendOtp(resetEmail, 'reset');
       setOtpSent(true);
-      setMessage('Mã OTP 6 số đã được gửi qua hàng đợi RabbitMQ! Vui lòng kiểm tra email.');
-      if (res.devOtp) {
-        setDevOtpHint(res.devOtp);
-        setOtpCode(res.devOtp);
-      }
+      setMessage('Yêu cầu gửi mã đã được tiếp nhận. Vui lòng kiểm tra email.');
     } catch (err: any) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
@@ -617,21 +612,17 @@ export function Auth({path, onLogin}: AuthProps) {
                           </div>
 
                           <button type="submit" className="auth-action-btn" disabled={busy}>
-                            {busy ? 'Đang gửi mã qua RabbitMQ...' : 'Gửi mã OTP qua RabbitMQ'}
+                            {busy ? 'Đang yêu cầu mã...' : 'Gửi mã OTP'}
                           </button>
                         </>
                       )}
 
                       {isReset && !token && otpSent && (
                         <>
-                          {devOtpHint && (
-                            <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-300 text-xs flex items-center justify-between">
-                              <span>🐰 <strong>RabbitMQ OTP:</strong> Mã của bạn là <code className="font-mono font-bold text-sm bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded">{devOtpHint}</code></span>
-                            </div>
-                          )}
+
 
                           <div className="auth-field-group">
-                            <label className="auth-field-label">Mã OTP 6 số (RabbitMQ Queue)</label>
+                            <label className="auth-field-label">Mã OTP 6 số</label>
                             <div className="auth-input-shell">
                               <KeyRound size={16} className="auth-input-prefix" />
                               <input
