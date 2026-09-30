@@ -264,6 +264,9 @@ export class AuthService {
     try {
       localStorage.removeItem(USER_KEY);
       sessionStorage.removeItem('gotek_session_token');
+      for (const key of Object.keys(sessionStorage)) {
+        if (key.startsWith('gotek.inbox.retry.v1.') || key.startsWith('gotek.inbox.composer.v1.')) sessionStorage.removeItem(key);
+      }
     } catch {
       // Ignore
     }

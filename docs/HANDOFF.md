@@ -211,3 +211,19 @@ Found composer shared one draft between conversations and public/internal modes.
 ### Multi-conversation and rejected-send acceptance — 2026-10-01
 
 Created second disposable visitor conversation. Added keyboard semantics to conversation rows (Enter/Space, accessible name and selected state). Browser confirmed internal draft from first conversation is empty in second conversation and restored on return. Attempted public send before takeover: backend TAKEOVER_REQUIRED shown, draft preserved, no success state. Screenshot outside Git: /Users/ngxuanphu/Downloads/Gotek_AI_chatbot/inbox-send-rejected-20261001.png. Added Vietnamese messages for TAKEOVER_REQUIRED and STALE_REPLY_OWNER. Build all passed before those message-only edits; frontend tests rerun below. Latest CI run36755264862 verified still executing Backend Typecheck & Tests; never restarted. Next: negative-role UI, network failure/reload pending-send identity, residual misleading controls and final scope audit.
+
+### Role denial and actual network recovery — 2026-10-01
+
+Disposable browser fixture membership temporarily changed Owner→Agent in isolated port55439 DB. Direct /app/knowledge navigation showed permission-denied alert, no knowledge table, management navigation removed. Restored fixture Owner afterward (one row). Screenshot /Users/ngxuanphu/Downloads/Gotek_AI_chatbot/agent-knowledge-denied-20261001.png.
+
+CDP offline emulation did NOT block localhost; its test message actually persisted. Do not count that attempt as offline proof. Cleared emulation. Instead stopped only our preview process using its live exec handle; main displayed real connection error. Restarted exact isolated preview, filled RECOVERABLE_UNSENT_DRAFT, stopped preview again, observed connection error, restarted: automatic poll restored view with draft unchanged. No draft send occurred. Evidence /Users/ngxuanphu/Downloads/Gotek_AI_chatbot/inbox-api-unavailable-20261001.png and inbox-draft-recovered-20261001.png. Current preview exec session87908, IAB tab2 handoff, same port4329, no notification worker.
+
+Remaining: reload-safe pending-send identity and residual misleading controls; finalize evidence scope and CI. Current browser proof covers transient API outage without page reload, not ambiguous accepted-send retry after reload. PR remains draft.
+
+### Reload-safe reply identity — 2026-10-01
+
+Added replyRetryStore backed by sessionStorage, scoped by user/workspace/conversation/visibility/body. Persist clientId before send; retry after reload reuses it, acknowledgement removes only matching identity, logout removes retry records. Storage failures block sending with explicit message. useInboxData now uses this store instead of a mounted-only Map. Tests cover simulated reload, lost acknowledgement, scope/visibility separation, stale acknowledgement and quota failure: frontend 11/11 PASS; build all PASS. Independent real local API test repeated identical internal message/clientId twice and read back exactly one message. Original CI run36756065228 at ad7caf9 now SUCCESS.
+
+This provides retry identity after reload if the same body is resubmitted; unsent composer text itself remains in memory and does not yet restore after full reload. Pending requirement: wire draft restoration or expose pending retry UI, then final audit. Changes local pending commit, no completion claim.
+
+Composer reload follow-through: InboxView now restores validated sessionStorage drafts per user/workspace/conversation/visibility and persists changes; logout clears composer and retry stores. Browser fresh build verified RELOAD_PRIVATE_DRAFT survives full reload, remains absent in public composer, appears only after choosing internal mode. Screenshot /Users/ngxuanphu/Downloads/Gotek_AI_chatbot/inbox-reload-private-draft-20261001.png. Build all PASS. This supersedes the missing-composer-restoration note immediately above. Session storage is tab-local, not a cross-device draft service.

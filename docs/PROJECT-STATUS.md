@@ -176,3 +176,7 @@ HiChat internal architecture, production hosting, provider live receipts, toàn 
 Local DOCX upload → DRAFT → READY → INTERNAL publication → reload verified. Added direct internal publication action on READY documents; no public transition required. Inbox internal-note persistence and visitor exclusion verified. Build all and frontend 9/9 pass. PR #4 remains draft; public lifecycle and negative-role/failure browser gates remain pending. No production acceptance implied.
 
 Composer remediation: separated unsent text per conversation and public/internal mode, resets across user/workspace; keyboard conversation selection added. Browser proved two-conversation separation and retained draft on TAKEOVER_REQUIRED rejection. No across-reload persistence claim yet.
+
+Local browser acceptance: Agent denied direct Knowledge URL; disposable fixture restored. Real API outage shows connection error; restart restores unsent draft without page reload. CDP offline was ineffective on localhost and excluded from evidence. Across-reload pending identity remains outstanding.
+
+Reload follow-up: session-scoped composer drafts restore after reload with user/workspace and public/internal separation (browser verified). Retry clientId persists before sending and is reused until confirmed; local API double-send readback gives exactly one message. Frontend 11/11 and build pass. CI for these new changes still pending push. Residual fake controls and final acceptance audit remain.

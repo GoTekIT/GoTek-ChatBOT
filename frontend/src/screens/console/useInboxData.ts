@@ -1,8 +1,9 @@
 import {useEffect, useRef, useState} from 'react';
+import {replyRetryStore} from '../inbox/reply-retry';
 import {InboxService, mapConversation, type InboxRow} from '../../services/inbox.service';
 import type {ChatMessage, Conversation} from '../../types';
 
-export function useInboxData(workspaceId: string, enabled: boolean) {
+export function useInboxData(workspaceId: string, enabled: boolean, userId: string) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState('');
   const [error, setError] = useState('');
@@ -10,7 +11,6 @@ export function useInboxData(workspaceId: string, enabled: boolean) {
   const rows = useRef<InboxRow[]>([]);
   const epoch = useRef(0);
   const sequence = useRef(0);
-  const pending = useRef(new Map<string, string>());
   async function refresh() {
     if (!enabled) return;
     const current = epoch.current;
@@ -33,7 +33,7 @@ export function useInboxData(workspaceId: string, enabled: boolean) {
   }
   useEffect(() => {
     epoch.current++;
-    setConversations([]); setSelectedConvId(''); rows.current = []; pending.current.clear();
+    setConversations([]); setSelectedConvId(''); rows.current = [];
     return () => {epoch.current++;};
   }, [workspaceId, enabled]);
   useEffect(() => {
@@ -52,11 +52,14 @@ export function useInboxData(workspaceId: string, enabled: boolean) {
   return {conversations, selectedConvId, setSelectedConvId, error, loading, refresh,
     async send(id: string, message: Omit<ChatMessage, 'id' | 'timestamp'>) {
       const visibility = message.senderType === 'internal_note' ? 'internal' : 'public';
-      const key = JSON.stringify([workspaceId,id,visibility,message.content]);
-      const clientId = pending.current.get(key) || crypto.randomUUID();
-      pending.current.set(key,clientId);
+      if (!enabled || !userId || !workspaceId) throw new Error('Bạn không có quyền gửi tin.');
+      const retry = replyRetryStore(userId, workspaceId, sessionStorage);
+      let clientId: string;
+      try { clientId = retry.begin(id, visibility, message.content); }
+      catch { throw new Error('Không thể lưu mã gửi an toàn trong trình duyệt. Chưa gửi tin; hãy kiểm tra bộ nhớ trình duyệt.'); }
       await action(() => InboxService.send(id,clientId,message.content,visibility));
-      pending.current.delete(key);
+      // A failed cleanup must not turn a confirmed send into a misleading failure.
+      try { retry.acknowledge(id, visibility, message.content, clientId); } catch {}
     },
     async takeover(id: string) {
       const row = rows.current.find(r => r.id === id);

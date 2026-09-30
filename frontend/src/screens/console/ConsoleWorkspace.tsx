@@ -53,7 +53,7 @@ export function ConsoleWorkspace({
   // Members are loaded from the tenant-scoped API by MembersSettings.
   const staffList: StaffMember[] = [];
 
-  const inbox = useInboxData(me?.workspaceId || '', can(me, 'inbox.use'));
+  const inbox = useInboxData(me?.workspaceId || '', can(me, 'inbox.use'), me?.user?.id || '');
   const {conversations, selectedConvId, setSelectedConvId} = inbox;
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
@@ -181,6 +181,7 @@ export function ConsoleWorkspace({
             {activeModule === 'inbox' && canOpenModule(me, 'inbox') && (
               <InboxView
                 key={JSON.stringify([me?.user?.id, me?.workspaceId])}
+                draftScope={JSON.stringify([me?.user?.id, me?.workspaceId])}
                 onRefresh={inbox.refresh}
                 error={inbox.error}
                 loading={inbox.loading}

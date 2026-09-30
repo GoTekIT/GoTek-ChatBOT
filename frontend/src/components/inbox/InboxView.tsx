@@ -5,6 +5,7 @@ import { Conversation, ChatMessage } from '../../types';
 import { useRealtimeChat } from '../../hooks/useRealtimeChat';
 
 interface InboxViewProps {
+  draftScope: string;
   conversations: Conversation[];
   selectedConvId: string;
   setSelectedConvId: (id: string) => void;
@@ -17,6 +18,7 @@ interface InboxViewProps {
 }
 
 export const InboxView: React.FC<InboxViewProps> = ({
+  draftScope,
   conversations,
   selectedConvId,
   setSelectedConvId,
@@ -28,7 +30,22 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const [filterTab, setFilterTab] = useState<'all' | 'queue' | 'bot' | 'mine'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [composerMode, setComposerMode] = useState<'public' | 'internal'>('public');
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const draftStorageKey = 'gotek.inbox.composer.v1.' + draftScope;
+  const [drafts, setDrafts] = useState<Record<string, string>>(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(draftStorageKey) || '{}');
+      const valid: Record<string, string> = {};
+      for (const [key, value] of Object.entries(saved)) {
+        const parts = JSON.parse(key);
+        if (Array.isArray(parts) && parts.length === 2 && typeof parts[0] === 'string' &&
+          (parts[1] === 'public' || parts[1] === 'internal') && typeof value === 'string' && value.length <= 10000) valid[key] = value;
+      }
+      return valid;
+    } catch { return {}; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem(draftStorageKey, JSON.stringify(drafts)); } catch { /* Sending has a separate fail-closed retry store. */ }
+  }, [drafts, draftStorageKey]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [newTagInput, setNewTagInput] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
