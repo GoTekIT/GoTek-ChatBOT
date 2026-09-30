@@ -9,7 +9,7 @@ import './channels-config-hours.css';
 import './channels-config-prechat.css';
 
 type Channel = {id: string; name: string; origin: string; greeting?: string; color?: string; enabled: boolean};
-type Install = {id: string; name: string; origin: string; snippet: string; snippetStandard?: string};
+type Install = {id: string; name: string; origin: string; snippet: string; snippetStandard?: string; snippetNextJs?: string; snippetReact?: string};
 type Member = {id: string; full_name: string; email: string; role: string; active: boolean};
 type Modal = 'create' | 'install' | 'settings' | null;
 type ToastData = {kind: 'success' | 'error'; message: string};
@@ -69,7 +69,7 @@ export function Channels({role}: {role: string}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [install, setInstall] = useState<Install | null>(null);
-  const [installTab, setInstallTab] = useState<'async' | 'standard' | 'gtm' | 'cms'>('async');
+  const [installTab, setInstallTab] = useState<'nextjs' | 'async' | 'react' | 'standard' | 'gtm' | 'cms'>('nextjs');
   const [verifying, setVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
@@ -292,7 +292,7 @@ export function Channels({role}: {role: string}) {
                   <Icon name="language" />
                 </div>
                 <div className="channel-title-group">
-                  <h2>{row.name}</h2>
+                  <h2 title={row.name}>{row.name}</h2>
                   <p className="channel-type">Website chat · Kết nối riêng của doanh nghiệp</p>
                 </div>
                 <span className={row.enabled ? 'status-pill status-on' : 'status-pill status-off'}>
@@ -667,24 +667,24 @@ export function Channels({role}: {role: string}) {
           <div className="install-tabs">
             <button
               type="button"
+              className={`install-tab-btn ${installTab === 'nextjs' ? 'active' : ''}`}
+              onClick={() => setInstallTab('nextjs')}
+            >
+              <Icon name="terminal" /> Next.js (Khuyên dùng)
+            </button>
+            <button
+              type="button"
               className={`install-tab-btn ${installTab === 'async' ? 'active' : ''}`}
               onClick={() => setInstallTab('async')}
             >
-              <Icon name="bolt" /> Mã Async (Khuyên dùng)
+              <Icon name="bolt" /> HTML / Web thuần
             </button>
             <button
               type="button"
-              className={`install-tab-btn ${installTab === 'standard' ? 'active' : ''}`}
-              onClick={() => setInstallTab('standard')}
+              className={`install-tab-btn ${installTab === 'react' ? 'active' : ''}`}
+              onClick={() => setInstallTab('react')}
             >
-              <Icon name="code" /> Mã chuẩn (HTML)
-            </button>
-            <button
-              type="button"
-              className={`install-tab-btn ${installTab === 'gtm' ? 'active' : ''}`}
-              onClick={() => setInstallTab('gtm')}
-            >
-              <Icon name="hub" /> Google Tag Manager
+              <Icon name="code" /> React SPA
             </button>
             <button
               type="button"
@@ -693,7 +693,52 @@ export function Channels({role}: {role: string}) {
             >
               <Icon name="integration_instructions" /> WordPress / CMS
             </button>
+            <button
+              type="button"
+              className={`install-tab-btn ${installTab === 'gtm' ? 'active' : ''}`}
+              onClick={() => setInstallTab('gtm')}
+            >
+              <Icon name="hub" /> Google Tag Manager
+            </button>
           </div>
+
+          {installTab === 'nextjs' && (
+            <div className="install-tab-panel">
+              <p className="install-tab-desc">
+                Mã nhúng tối ưu 100% cho Next.js 13/14/15/16 (Turbopack, Server Component). Chèn trực tiếp vào <code>src/app/layout.tsx</code> mà không bao giờ bị lỗi JSX hay Hydration:
+              </p>
+              <label className="field">
+                <span>Chèn vào <code>src/app/layout.tsx</code> trước thẻ đóng <code>&lt;/body&gt;</code></span>
+                <textarea aria-label="Mã nhúng Next.js" readOnly rows={7} value={install.snippetNextJs || install.snippet} />
+                <button
+                  type="button"
+                  className="button-secondary button-full"
+                  onClick={() => void copy(install.snippetNextJs || install.snippet, 'Đã copy mã nhúng Next.js.')}
+                >
+                  <Icon name="content_copy" /> Copy mã nhúng Next.js
+                </button>
+              </label>
+            </div>
+          )}
+
+          {installTab === 'react' && (
+            <div className="install-tab-panel">
+              <p className="install-tab-desc">
+                Custom Hook chuẩn React dành cho các dự án React Vite hoặc Create React App:
+              </p>
+              <label className="field">
+                <span>Hook <code>useGotekChatbot()</code></span>
+                <textarea aria-label="Mã nhúng React" readOnly rows={7} value={install.snippetReact || install.snippet} />
+                <button
+                  type="button"
+                  className="button-secondary button-full"
+                  onClick={() => void copy(install.snippetReact || install.snippet, 'Đã copy Hook React.')}
+                >
+                  <Icon name="content_copy" /> Copy Hook React
+                </button>
+              </label>
+            </div>
+          )}
 
           {installTab === 'async' && (
             <div className="install-tab-panel">

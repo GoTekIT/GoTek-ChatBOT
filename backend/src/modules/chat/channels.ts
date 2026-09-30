@@ -17,7 +17,9 @@ export async function channelInstallation(db:PoolClient,actor:Actor,id:string){
  const esc=(v:string)=>JSON.stringify(v).replace(/</g,'\\u003c');
  const snippet = `<!-- GoTek Chatbot Widget (Async Loader - Khuyên dùng) -->\n<script>\n  (function(g,o,t,e,k){g.GoTekObject=t;g[t]=g[t]||function(){(g[t].q=g[t].q||[]).push(arguments)};var s=o.createElement('script');s.async=1;s.src=e;var f=o.getElementsByTagName('script')[0];f.parentNode.insertBefore(s,f);})(window,document,'gotekSDK',${esc(base+'/sdk.js')});\n  window.gotekSDK('run',{websiteToken:${esc(row.public_key)},baseUrl:${esc(base)}});\n</script>`;
  const snippetStandard = `<!-- GoTek Chatbot Widget (Standard) -->\n<script src="${base}/sdk.js" async></script>\n<script>\n  window.addEventListener('DOMContentLoaded',function(){\n    if(window.gotekSDK)window.gotekSDK.run({websiteToken:${esc(row.public_key)},baseUrl:${esc(base)}});\n  });\n</script>`;
- return {id:row.id,name:row.name,origin:row.origin,enabled:row.enabled,publicKey:row.public_key,snippet,snippetStandard};
+ const snippetNextJs = `import Script from 'next/script';\n\n{/* Chèn vào file src/app/layout.tsx trước thẻ đóng </body> */}\n<Script\n  id="gotek-chatbot"\n  src="${base}/sdk.js"\n  data-website-token="${row.public_key}"\n  data-base-url="${base}"\n  strategy="afterInteractive"\n/>`;
+ const snippetReact = `import { useEffect } from 'react';\n\n// Hook nhúng GoTek Chatbot Widget cho React SPA\nexport function useGotekChatbot() {\n  useEffect(() => {\n    const s = document.createElement('script');\n    s.id = 'gotek-chatbot-sdk';\n    s.src = '${base}/sdk.js';\n    s.async = true;\n    s.setAttribute('data-website-token', '${row.public_key}');\n    s.setAttribute('data-base-url', '${base}');\n    document.body.appendChild(s);\n    return () => { s.remove(); };\n  }, []);\n}`;
+ return {id:row.id,name:row.name,origin:row.origin,enabled:row.enabled,publicKey:row.public_key,snippet,snippetStandard,snippetNextJs,snippetReact};
 }
 export async function verifyChannelInstallation(db:PoolClient,actor:Actor,id:string){
  requireRole(actor.role);
