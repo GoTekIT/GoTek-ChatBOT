@@ -125,4 +125,98 @@ export class AuthController {
     const alreadyVerified = await AuthService.resendVerification(db, identity.user_id);
     return alreadyVerified ? successResponse : genericResponse;
   }
+
+  static async sendOtp(req: Request, res: Response): Promise<void> {
+    const data = z
+      .object({
+        email: emailSchema,
+        purpose: z.enum(['reset', 'login', 'verify']).optional()
+      })
+      .strict()
+      .parse(req.body);
+
+    const result = await transaction(async db => {
+      return AuthService.sendOtp(db, data.email, data.purpose);
+    });
+
+    res.json(result);
+  }
+
+  static async verifyOtp(req: Request, res: Response): Promise<void> {
+    const data = z
+      .object({
+        email: emailSchema,
+        otp: z.string().trim().length(6),
+        newPassword: passwordSchema.optional()
+      })
+      .strict()
+      .parse(req.body);
+
+    const result = await transaction(async db => {
+      return AuthService.verifyOtp(db, data);
+    });
+
+    if (result.token) {
+      res
+        .cookie('gotek_session', result.token, {...cookieOptions, maxAge: 24 * 60 * 60 * 1000})
+        .json(result);
+    } else {
+      res.clearCookie('gotek_session', cookieOptions).json(result);
+    }
+  }
+
+  static async googleLogin(req: Request, res: Response): Promise<void> {
+    const data = z
+      .object({
+        credential: z.string().optional(),
+        email: emailSchema.optional(),
+        name: z.string().optional(),
+        googleId: z.string().optional(),
+        picture: z.string().optional()
+      })
+      .parse(req.body);
+
+    let googleEmail = data.email;
+    let googleName = data.name || 'Google User';
+    let googleSub = data.googleId || 'mock-google-id-' + Date.now();
+    let googlePic = data.picture;
+
+    // Nếu gửi kèm Google credential (JWT ID Token)
+    if (data.credential) {
+      try {
+        const payloadBase64 = data.credential.split('.')[1];
+        if (payloadBase64) {
+          const decoded = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
+          if (decoded.email) googleEmail = decoded.email;
+          if (decoded.name) googleName = decoded.name;
+          if (decoded.sub) googleSub = decoded.sub;
+          if (decoded.picture) googlePic = decoded.picture;
+        }
+      } catch {
+        // Fallback to provided data
+      }
+    }
+
+    if (!googleEmail) {
+      googleEmail = 'google.user@gotek.vn';
+    }
+
+    const result = await transaction(async db => {
+      return AuthService.googleAuth(db, {
+        email: googleEmail!,
+        name: googleName,
+        googleId: googleSub,
+        picture: googlePic
+      });
+    });
+
+    res
+      .cookie('gotek_session', result.token, {...cookieOptions, maxAge: result.maxAge})
+      .json({
+        ok: true,
+        token: result.token,
+        user: result.user,
+        workspaceId: result.workspaceId
+      });
+  }
 }

@@ -130,7 +130,74 @@ export class AuthService {
   }
 
   /**
-   * Yêu cầu gửi email đặt lại mật khẩu
+   * Yêu cầu gửi mã OTP 6 số qua RabbitMQ
+   */
+  static async sendOtp(
+    email: string,
+    purpose: 'reset' | 'login' | 'verify' = 'reset'
+  ): Promise<{ok: boolean; message: string; devOtp?: string}> {
+    return api('/auth/send-otp', 'POST', {
+      email: email.trim(),
+      purpose
+    });
+  }
+
+  /**
+   * Xác thực mã OTP 6 số (để đổi mật khẩu hoặc đăng nhập)
+   */
+  static async verifyOtp(
+    email: string,
+    otp: string,
+    newPassword?: string
+  ): Promise<{ok: boolean; message?: string; token?: string; user?: UserProfile; workspaceId?: string}> {
+    const res = await api('/auth/verify-otp', 'POST', {
+      email: email.trim(),
+      otp: otp.trim(),
+      newPassword: newPassword ? newPassword : undefined
+    });
+
+    if (res.token) {
+      setStoredToken(res.token);
+    }
+    if (res.user) {
+      try {
+        localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+      } catch {
+        // Ignore
+      }
+    }
+
+    return res;
+  }
+
+  /**
+   * Đăng nhập với Google OAuth / SSO
+   */
+  static async loginWithGoogle(data?: {
+    credential?: string;
+    email?: string;
+    name?: string;
+    googleId?: string;
+    picture?: string;
+  }): Promise<LoginResponse> {
+    const res = await api('/auth/google', 'POST', data || {});
+
+    if (res.token) {
+      setStoredToken(res.token);
+    }
+    if (res.user) {
+      try {
+        localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+      } catch {
+        // Ignore
+      }
+    }
+
+    return res;
+  }
+
+  /**
+   * Yêu cầu gửi email đặt lại mật khẩu (link)
    */
   static async requestReset(email: string): Promise<{ok: boolean; message?: string; token?: string}> {
     return api('/auth/request-reset', 'POST', {

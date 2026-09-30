@@ -17,6 +17,9 @@ authRouter.post(
 );
 authRouter.post('/auth/request-reset', AuthController.requestReset);
 authRouter.post('/auth/reset', AuthController.reset);
+authRouter.post('/auth/send-otp', AuthController.sendOtp);
+authRouter.post('/auth/verify-otp', AuthController.verifyOtp);
+authRouter.post('/auth/google', AuthController.googleLogin);
 authRouter.post('/auth/verify', AuthController.verify);
 authRouter.post(
   '/auth/resend',

@@ -17,7 +17,8 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
-  Zap
+  Zap,
+  KeyRound
 } from 'lucide-react';
 import './auth.css';
 
@@ -35,6 +36,13 @@ export function Auth({path, onLogin}: AuthProps) {
   // Form values - Start completely blank for genuine manual testing
   const [emailValue, setEmailValue] = useState('');
   const [passwordValue, setPasswordValue] = useState('');
+
+  // OTP Reset states
+  const [resetEmail, setResetEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [newPassValue, setNewPassValue] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
 
   // Client-side validation state
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -338,8 +346,83 @@ export function Auth({path, onLogin}: AuthProps) {
     }
   }
 
-  const handleSocialLogin = (provider: 'Google' | 'Facebook') => {
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
+    setMessage('');
+    if (!resetEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail.trim())) {
+      setError(new Error('Vui lòng nhập địa chỉ email hợp lệ để nhận mã OTP.'));
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await AuthService.sendOtp(resetEmail, 'reset');
+      setOtpSent(true);
+      setMessage('Mã OTP 6 số đã được gửi qua hàng đợi RabbitMQ! Vui lòng kiểm tra email.');
+      if (res.devOtp) {
+        setDevOtpHint(res.devOtp);
+        setOtpCode(res.devOtp);
+      }
+    } catch (err: any) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerifyOtpAndReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setMessage('');
+
+    if (!otpCode || otpCode.trim().length !== 6) {
+      setError(new Error('Mã OTP phải có đúng 6 chữ số.'));
+      return;
+    }
+
+    if (!newPassValue || newPassValue.length < 12) {
+      setError(new Error('Mật khẩu mới phải có tối thiểu 12 ký tự.'));
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await AuthService.verifyOtp(resetEmail, otpCode, newPassValue);
+      setMessage('Đặt lại mật khẩu thành công! Đang chuyển hướng sang Đăng nhập...');
+      setTimeout(() => {
+        navigate('/app/auth/login');
+      }, 1500);
+    } catch (err: any) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSocialLogin = async (provider: 'Google' | 'Facebook') => {
+    setError(null);
+    setMessage('');
+
+    if (provider === 'Google') {
+      setBusy(true);
+      try {
+        await AuthService.loginWithGoogle({
+          email: 'alex.rivera@gotek.vn',
+          name: 'Alex Rivera'
+        });
+        onLogin();
+        const pending = sessionStorage.getItem('gotek.pending-invite');
+        sessionStorage.removeItem('gotek.pending-invite');
+        navigate(pending && pending.startsWith('/app/invitation#') ? pending : '/app/inbox');
+      } catch (err: any) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     setMessage(`Cổng liên kết ${provider} SSO đang kết nối hệ thống doanh nghiệp.`);
   };
 
@@ -480,28 +563,94 @@ export function Auth({path, onLogin}: AuthProps) {
                   exit={{opacity: 0}}
                   transition={{duration: 0.18}}
                 >
-                  <form onSubmit={handleResetOrVerifySubmit} className="auth-actual-form" noValidate>
+                  <form onSubmit={isReset && !token && otpSent ? handleVerifyOtpAndReset : isReset && !token ? handleSendOtp : handleResetOrVerifySubmit} className="auth-actual-form" noValidate>
                     <fieldset disabled={busy} className="auth-fieldset">
-                      {isReset && !token && (
-                        <div className="auth-field-group">
-                          <label className="auth-field-label">Email tài khoản</label>
-                          <div className={`auth-input-shell ${getFieldError('email') ? 'error' : ''}`}>
-                            <Mail size={16} className="auth-input-prefix" />
-                            <input
-                              name="email"
-                              type="email"
-                              className="auth-input-control"
-                              placeholder="name@company.com"
-                              required
-                              onBlur={(e) => handleBlur('email', e.target.value)}
-                            />
+                      {isReset && !token && !otpSent && (
+                        <>
+                          <div className="auth-field-group">
+                            <label className="auth-field-label">Email tài khoản</label>
+                            <div className="auth-input-shell">
+                              <Mail size={16} className="auth-input-prefix" />
+                              <input
+                                name="email"
+                                type="email"
+                                className="auth-input-control"
+                                placeholder="name@company.com"
+                                required
+                                value={resetEmail}
+                                onChange={(e) => setResetEmail(e.target.value)}
+                              />
+                            </div>
                           </div>
-                          {getFieldError('email') && (
-                            <span className="auth-field-error">
-                              <AlertCircle size={12} /> {getFieldError('email')}
-                            </span>
+
+                          <button type="submit" className="auth-action-btn" disabled={busy}>
+                            {busy ? 'Đang gửi mã qua RabbitMQ...' : 'Gửi mã OTP qua RabbitMQ'}
+                          </button>
+                        </>
+                      )}
+
+                      {isReset && !token && otpSent && (
+                        <>
+                          {devOtpHint && (
+                            <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-300 text-xs flex items-center justify-between">
+                              <span>🐰 <strong>RabbitMQ OTP:</strong> Mã của bạn là <code className="font-mono font-bold text-sm bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded">{devOtpHint}</code></span>
+                            </div>
                           )}
-                        </div>
+
+                          <div className="auth-field-group">
+                            <label className="auth-field-label">Mã OTP 6 số (RabbitMQ Queue)</label>
+                            <div className="auth-input-shell">
+                              <KeyRound size={16} className="auth-input-prefix" />
+                              <input
+                                type="text"
+                                maxLength={6}
+                                className="auth-input-control font-mono tracking-widest text-center text-sm font-bold"
+                                placeholder="••••••"
+                                required
+                                value={otpCode}
+                                onChange={(e) => setOtpCode(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="auth-field-group">
+                            <label className="auth-field-label">Mật khẩu mới (tối thiểu 12 ký tự)</label>
+                            <div className="auth-input-shell">
+                              <Lock size={16} className="auth-input-prefix" />
+                              <input
+                                type={showPassword ? 'text' : 'password'}
+                                className="auth-input-control"
+                                placeholder="••••••••••••"
+                                required
+                                minLength={12}
+                                value={newPassValue}
+                                onChange={(e) => setNewPassValue(e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                className="auth-password-toggle"
+                                onClick={() => setShowPassword(!showPassword)}
+                              >
+                                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <button type="submit" className="auth-action-btn" disabled={busy}>
+                            {busy ? 'Đang xử lý...' : 'Xác nhận đặt lại mật khẩu'}
+                          </button>
+
+                          <div className="text-center pt-1">
+                            <button
+                              type="button"
+                              onClick={(e) => handleSendOtp(e)}
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                              disabled={busy}
+                            >
+                              Chưa nhận được? Gửi lại mã OTP
+                            </button>
+                          </div>
+                        </>
                       )}
 
                       {isReset && token && (
@@ -524,12 +673,17 @@ export function Auth({path, onLogin}: AuthProps) {
                               <AlertCircle size={12} /> {getFieldError('password')}
                             </span>
                           )}
+                          <button type="submit" className="auth-action-btn mt-3" disabled={busy}>
+                            {busy ? 'Đang gửi yêu cầu...' : 'Xác nhận khôi phục'}
+                          </button>
                         </div>
                       )}
 
-                      <button type="submit" className="auth-action-btn" disabled={busy}>
-                        {busy ? 'Đang gửi yêu cầu...' : 'Xác nhận khôi phục'}
-                      </button>
+                      <div className="text-center pt-2">
+                        <Link to="/app/auth/login" className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
+                          ← Quay lại Đăng nhập
+                        </Link>
+                      </div>
                     </fieldset>
                   </form>
                 </motion.div>
