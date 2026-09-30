@@ -17,7 +17,9 @@
     "worker:web": "tsx scripts/web-refresh-worker.ts"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^6.0.3",
     "@types/multer": "^2.2.0",
+    "@types/nodemailer": "^8.0.2",
     "amqplib": "^2.2.0",
     "argon2": "^0.45.1",
     "cookie-parser": "^1.4.7",
@@ -27,6 +29,7 @@
     "helmet": "^8.3.0",
     "mammoth": "^1.12.3",
     "multer": "^2.4.0",
+    "nodemailer": "^10.0.13",
     "pdf-parse": "^2.4.5",
     "pg": "^8.23.0",
     "saxes": "^6.0.0",

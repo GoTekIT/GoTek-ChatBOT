@@ -21,10 +21,10 @@ const messages: Record<string, string> = {
   CAPABILITY_UNAVAILABLE: 'Model không hỗ trợ khả năng được yêu cầu.',
   MODEL_NOT_GRANTED: 'Model chưa được cấp quyền hoặc đang bị tắt.',
   INVALID_CREDENTIALS: 'Email hoặc mật khẩu không đúng.',
-  UNAUTHENTICATED: 'Phiên đăng nhập đã hết hạn.',
+  UNAUTHENTICATED: 'Phiên đăng nhập đã hết hạn hoặc chưa đăng nhập.',
   FORBIDDEN: 'Bạn không có quyền thực hiện thao tác này.',
   WORKSPACE_DISABLED: 'Workspace đã tạm dừng.',
-  INVALID_OR_EXPIRED_TOKEN: 'Liên kết không hợp lệ, đã dùng hoặc hết hạn.',
+  INVALID_OR_EXPIRED_TOKEN: 'Liên kết hoặc mã xác thực không hợp lệ, đã dùng hoặc hết hạn.',
   RESEND_COOLDOWN: 'Vui lòng chờ 60 giây trước khi gửi lại.',
   RATE_LIMITED: 'Bạn thao tác quá nhiều lần. Vui lòng thử lại sau.',
   LAST_OWNER: 'Workspace phải còn ít nhất một Owner.',
@@ -32,8 +32,10 @@ const messages: Record<string, string> = {
   ALREADY_MEMBER: 'Người này đã là thành viên.',
   CONFLICT: 'Dữ liệu đã tồn tại hoặc vừa thay đổi.',
   NO_MEMBERSHIP: 'Tài khoản chưa có workspace khả dụng.',
-  VALIDATION: 'Vui lòng kiểm tra các trường thông tin bên dưới.',
-  INTERNAL: 'Chưa thể xử lý. Vui lòng thử lại.'
+  VALIDATION: 'Vui lòng kiểm tra các trường bên dưới.',
+  INTERNAL: 'Chưa thể xử lý. Vui lòng thử lại.',
+  INCORRECT_CURRENT_PASSWORD: 'Mật khẩu hiện tại không chính xác.',
+  USER_NOT_FOUND: 'Không tìm thấy thông tin tài khoản người dùng.'
 };
 
 const fieldLabelsMap: Record<string, string> = {
@@ -94,15 +96,49 @@ export class ApiError extends Error {
   }
 }
 
+const TOKEN_KEY = 'gotek_session_token';
+
+export function getStoredToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredToken(token: string): void {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function removeStoredToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export async function api(path: string, method = 'GET', body?: unknown) {
   let res: Response;
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Gotek-Request': '1'
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   try {
     res = await fetch(`/api${path}`, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Gotek-Request': '1'
-      },
+      headers,
+      credentials: 'include',
       body: body === undefined ? undefined : JSON.stringify(body)
     });
   } catch {
@@ -118,7 +154,8 @@ export async function api(path: string, method = 'GET', body?: unknown) {
   }
 
   if (!res.ok) {
-    throw new ApiError(data.error, data.fields);
+    throw new ApiError(data.error || 'INTERNAL', data.fields);
   }
+
   return data;
 }

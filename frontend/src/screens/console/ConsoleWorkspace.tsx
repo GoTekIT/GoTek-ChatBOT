@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { ConsoleModule, SettingsSubTab, KnowledgeDocument, StaffMember, Conversation, ChatMessage } from '../../types';
-import { INITIAL_DOCUMENTS, INITIAL_STAFF, INITIAL_CONVERSATIONS, INITIAL_AUDIT_LOGS } from '../../data/mockData';
+import { INITIAL_DOCUMENTS, INITIAL_CONVERSATIONS } from '../../data/mockData';
 import { TopNav } from '../../components/TopNav';
 import { Sidebar } from '../../components/Sidebar';
 import { InboxView } from '../../components/inbox/InboxView';
 import { KnowledgeBaseView } from '../../components/knowledge/KnowledgeBaseView';
-import { StaffRolesView } from '../../components/settings/StaffRolesView';
+import { MembersSettings } from '../settings/MembersSettings';
+import { AuditSettings } from '../settings/AuditSettings';
+import {can, canOpenModule} from '../../services/authorization';
 import { CustomerWidgetView } from '../../components/widget/CustomerWidgetView';
 import { Channels } from '../channels/Channels';
 import { AnalyticsView } from '../../components/analytics/AnalyticsView';
 import { CommandPalette } from '../../components/modals/CommandPalette';
-import { AuditLogModal } from '../../components/modals/AuditLogModal';
 import { navigate } from '../../hooks/usePath';
 
 interface ConsoleWorkspaceProps {
@@ -47,32 +48,8 @@ export function ConsoleWorkspace({
   }, [currentPath]);
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('staff');
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(INITIAL_DOCUMENTS);
-  const [staffList, setStaffList] = useState<StaffMember[]>(() => {
-    if (me?.user) {
-      const currentUserName = me.user.name || me.user.email?.split('@')[0] || 'Admin';
-      const currentUserEmail = me.user.email || 'admin@gotek.vn';
-      return [
-        {
-          id: me.user.id || 'current-user',
-          name: currentUserName,
-          email: currentUserEmail,
-          avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUserName)}`,
-          role: 'owner',
-          roleTitle: 'Workspace Owner',
-          isCurrentUser: true,
-          status: 'online',
-          statusText: 'Đang trực tuyến',
-          activeChats: 1,
-          maxChats: 6,
-          assignedChannels: ['Widget', 'Email'],
-          lastActive: 'Vừa xong',
-          locationInfo: 'Hà Nội, VN',
-        },
-        ...INITIAL_STAFF.filter((s) => !s.isCurrentUser),
-      ];
-    }
-    return INITIAL_STAFF;
-  });
+  // Members are loaded from the tenant-scoped API by MembersSettings.
+  const staffList: StaffMember[] = [];
 
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
@@ -88,6 +65,7 @@ export function ConsoleWorkspace({
 
   // Synchronize route when module changes according to Frontend Group Routes
   const handleSelectModule = (mod: ConsoleModule) => {
+    if (!canOpenModule(me, mod)) { showGlobalToast('Bạn không có quyền truy cập chức năng này.'); return; }
     setActiveModule(mod);
     const routeMap: Record<ConsoleModule, string> = {
       inbox: '/app/inbox',
@@ -161,32 +139,6 @@ export function ConsoleWorkspace({
   const handleDeleteDocument = (id: string) => {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
     showGlobalToast('Đã gỡ tài liệu khỏi kho tri thức');
-  };
-
-  // Staff actions
-  const handleInviteStaff = (newStaff: StaffMember) => {
-    setStaffList((prev) => [...prev, newStaff]);
-    showGlobalToast(`Đã gửi lời mời tham gia tới ${newStaff.email}`);
-  };
-
-  const handleUpdateStaffRole = (id: string, newRole: any) => {
-    setStaffList((prev) =>
-      prev.map((s) =>
-        s.id === id
-          ? {
-              ...s,
-              role: newRole,
-              roleTitle: newRole === 'admin' ? 'Workspace Admin' : 'Agent',
-            }
-          : s
-      )
-    );
-    showGlobalToast('Đã phân lại quyền hạn nhân viên');
-  };
-
-  const handleRevokeStaff = (id: string) => {
-    setStaffList((prev) => prev.filter((s) => s.id !== id));
-    showGlobalToast('Đã thu hồi quyền truy cập của nhân viên');
   };
 
   // Chat actions
@@ -263,7 +215,9 @@ export function ConsoleWorkspace({
         activeModule={activeModule}
         setActiveModule={handleSelectModule}
         openCommandPalette={() => setIsCommandPaletteOpen(true)}
-        onOpenAuditLogs={() => setIsAuditModalOpen(true)}
+        onOpenAuditLogs={() => { if (can(me, 'audit.read')) setIsAuditModalOpen(true); }}
+        me={me}
+        onLogout={onLogout}
       />
 
       {/* Main Workspace Frame */}
@@ -272,11 +226,13 @@ export function ConsoleWorkspace({
           <>
             {/* Left Sidebar */}
             <Sidebar
+              authorization={me}
+              workspaceName={me?.workspaces?.find((w: any) => w.id === me.workspaceId)?.name}
               activeModule={activeModule}
               setActiveModule={handleSelectModule}
               settingsSubTab={settingsSubTab}
               setSettingsSubTab={setSettingsSubTab}
-              onOpenAuditLogs={() => setIsAuditModalOpen(true)}
+              onOpenAuditLogs={() => { if (can(me, 'audit.read')) setIsAuditModalOpen(true); }}
               onSwitchWorkspace={() => setWorkspaceModalOpen(true)}
               sidebarWidth={sidebarWidth}
               isCollapsed={isSidebarCollapsed}
@@ -294,8 +250,9 @@ export function ConsoleWorkspace({
               />
             )}
 
-            {/* Content Viewport */}
-            {activeModule === 'inbox' && (
+            {/* Content Viewport: deny direct URLs as well as menu navigation. */}
+            {!canOpenModule(me, activeModule) && <main className="p-6" role="alert">Bạn không có quyền truy cập chức năng này. <button onClick={() => handleSelectModule('inbox')}>Về hộp thư</button></main>}
+            {activeModule === 'inbox' && canOpenModule(me, 'inbox') && (
               <InboxView
                 conversations={conversations}
                 selectedConvId={selectedConvId}
@@ -306,7 +263,7 @@ export function ConsoleWorkspace({
               />
             )}
 
-            {activeModule === 'knowledge' && (
+            {activeModule === 'knowledge' && canOpenModule(me, 'knowledge') && (
               <KnowledgeBaseView
                 documents={documents}
                 onAddDocument={handleAddDocument}
@@ -315,30 +272,25 @@ export function ConsoleWorkspace({
               />
             )}
 
-            {activeModule === 'settings' && (
-              <StaffRolesView
-                staffList={staffList}
-                onInviteMember={handleInviteStaff}
-                onUpdateMemberRole={handleUpdateStaffRole}
-                onRevokeMember={handleRevokeStaff}
-                onOpenAuditLogs={() => setIsAuditModalOpen(true)}
-              />
+            {activeModule === 'settings' && canOpenModule(me, 'settings') && (
+              <main className="flex-1 overflow-y-auto p-6 space-y-4"><MembersSettings authorization={me} onChange={async () => { await onRefresh?.(); }} /></main>
             )}
 
-            {activeModule === 'channels' && <Channels role={me?.role ?? 'Agent'} />}
-            {activeModule === 'analytics' && <AnalyticsView />}
+            {activeModule === 'channels' && canOpenModule(me, 'channels') && <Channels role={me?.role ?? 'Agent'} />}
+            {activeModule === 'analytics' && canOpenModule(me, 'analytics') && <AnalyticsView />}
           </>
         ) : (
           /* Live Customer Widget View */
-          <CustomerWidgetView onBackToConsole={() => handleSelectModule('inbox')} />
+          canOpenModule(me, 'widget-demo') ? <CustomerWidgetView onBackToConsole={() => handleSelectModule('inbox')} /> : <p role="alert">Bạn không có quyền cấu hình widget.</p>
         )}
       </div>
 
       {/* Command Palette (⌘K) */}
       <CommandPalette
+        authorization={me}
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
-        documents={documents}
+        documents={can(me, 'knowledge.manage') ? documents : []}
         conversations={conversations}
         staff={staffList}
         onSelectModule={(m) => {
@@ -352,11 +304,7 @@ export function ConsoleWorkspace({
       />
 
       {/* Audit Log Modal */}
-      <AuditLogModal
-        isOpen={isAuditModalOpen}
-        onClose={() => setIsAuditModalOpen(false)}
-        logs={INITIAL_AUDIT_LOGS}
-      />
+      {isAuditModalOpen && can(me, 'audit.read') && <div className="fixed inset-0 z-50 bg-black/40 p-8 overflow-auto"><div className="panel bg-white p-6"><button onClick={() => setIsAuditModalOpen(false)}>Đóng nhật ký</button><AuditSettings /></div></div>}
 
       {/* Expansive Bento Workspace Hub Modal */}
       {workspaceModalOpen && (
@@ -393,125 +341,23 @@ export function ConsoleWorkspace({
             </div>
 
             {/* Current Organization Info */}
-            <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
+            <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
               <span className="text-slate-600 dark:text-slate-400 font-medium">
-                Tài khoản đăng nhập: <strong className="text-slate-900 dark:text-slate-200">{me?.user?.email || 'admin@gotek.vn'}</strong>
+                Tài khoản đăng nhập: <strong className="text-slate-900 dark:text-slate-200">{me?.user?.email || 'Chưa xác định'}</strong>
               </span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-semibold border border-emerald-200/80 dark:border-emerald-800/50">
-                Tenant Admin
+                {me?.role}
               </span>
             </div>
 
             {/* Workspaces List */}
             <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
-              {/* WS 1: Active HQ */}
-              <div
-                onClick={() => {
-                  showGlobalToast('Đang ở không gian chính: GoTek Solutions HQ');
-                  setWorkspaceModalOpen(false);
-                }}
-                className="w-full p-3.5 rounded-xl border-2 border-[#1664ff] dark:border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-left flex items-center justify-between cursor-pointer shadow-sm hover:shadow transition-all group"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 flex items-center justify-center p-1 shadow-xs shrink-0 ring-2 ring-blue-500/20">
-                    <img src="/gotek-logo.png" alt="GoTek" className="w-full h-full object-contain" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                        GoTek Solutions HQ
-                      </p>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      Cluster Chính · Enterprise Tier · pgvector 1536d · 24 Nhân sự
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="px-2.5 py-1 rounded-full bg-[#1664ff] text-white text-[11px] font-bold shadow-xs">
-                    Đang chọn
-                  </span>
-                </div>
-              </div>
-
-              {/* WS 2: Techcombank Hub */}
-              <div
-                onClick={() => {
-                  showGlobalToast('Đã chuyển sang: Techcombank Corporate Banking Hub');
-                  setWorkspaceModalOpen(false);
-                }}
-                className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-left flex items-center justify-between cursor-pointer transition-all group"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                    TCB
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
-                      Techcombank Corporate Banking
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      Fintech Dedicated Cluster · RAG NDA Strict · SLA 2m Handoff
-                    </p>
-                  </div>
-                </div>
-                <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 group-hover:text-[#1664ff] dark:group-hover:text-blue-400 text-[20px] transition-colors">
-                  arrow_forward
-                </span>
-              </div>
-
-              {/* WS 3: Vingroup Retail */}
-              <div
-                onClick={() => {
-                  showGlobalToast('Đã chuyển sang: Vingroup Retail CSKH 24/7');
-                  setWorkspaceModalOpen(false);
-                }}
-                className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-left flex items-center justify-between cursor-pointer transition-all group"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                    VIN
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
-                      Vingroup Retail CSKH 24/7
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      E-Commerce Omni-channel · 8 Kênh live chat · 48 Nhân sự
-                    </p>
-                  </div>
-                </div>
-                <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 group-hover:text-[#1664ff] dark:group-hover:text-blue-400 text-[20px] transition-colors">
-                  arrow_forward
-                </span>
-              </div>
-
-              {/* WS 4: Sandbox Staging */}
-              <div
-                onClick={() => {
-                  showGlobalToast('Chuyển sang môi trường thử nghiệm Sandbox');
-                  setWorkspaceModalOpen(false);
-                }}
-                className="w-full p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-400 bg-white dark:bg-slate-850/60 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 text-left flex items-center justify-between cursor-pointer transition-all group"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                    <span className="material-symbols-outlined text-[20px]">science</span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
-                      GoTek Staging & Sandbox
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      Môi trường QA & Kiểm thử tự động · Disposable DB Restore
-                    </p>
-                  </div>
-                </div>
-                <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 text-[20px] transition-colors">
-                  arrow_forward
-                </span>
-              </div>
+              {me?.workspaces?.map((workspace: any) => <button key={workspace.id} type="button"
+                className="w-full p-3.5 rounded-xl border text-left"
+                disabled={workspace.id === me.workspaceId}
+                onClick={async () => { try { await onSwitchWorkspace?.(workspace.id); setWorkspaceModalOpen(false); } catch { showGlobalToast('Không thể chuyển workspace.'); } }}>
+                {workspace.name} · {workspace.role} {workspace.id === me.workspaceId ? '· Đang chọn' : ''}
+              </button>)}
             </div>
 
             {/* Modal Actions */}

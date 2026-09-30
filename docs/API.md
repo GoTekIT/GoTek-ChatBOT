@@ -10,6 +10,8 @@ Base URL in local development: `http://127.0.0.1:4317`. Workspace routes are und
 
 ## Authentication and workspace
 
+Authorization update (2026-09-30): `/api/me` now includes workspace `permissions` and a safe user projection without password hashes. Workspace Owner/Admin/Agent and Platform Admin remain separate. Member revocation invalidates sessions for that workspace; role changes apply on the next API request. See [authorization contract](AUTHORIZATION.md).
+
 | Method/path | Auth / purpose | Handler |
 |---|---|---|
 | POST `/api/auth/signup` | Public; creates user + workspace + Owner + quota; generic 202 | `app.ts` |

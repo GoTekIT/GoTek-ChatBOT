@@ -5,6 +5,7 @@ import {WorkspaceRepository} from '../repositories/workspace.repository';
 import {MembershipRepository} from '../repositories/membership.repository';
 import {InvitationRepository} from '../repositories/invitation.repository';
 import {UserRepository} from '../repositories/user.repository';
+import {requirePermission} from '../core/authorization';
 
 export class MemberService {
   static async listMembers(db: PoolClient, workspaceId: string): Promise<any[]> {
@@ -19,6 +20,7 @@ export class MemberService {
     targetUserId: string,
     data: {role: 'Owner' | 'Admin' | 'Agent'; active: boolean}
   ): Promise<void> {
+    requirePermission(operatorRole, 'members.manage');
     await WorkspaceRepository.lockById(db, workspaceId);
 
     const current = await MembershipRepository.find(db, workspaceId, targetUserId);

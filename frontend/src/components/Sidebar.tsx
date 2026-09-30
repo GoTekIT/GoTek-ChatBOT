@@ -1,8 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ConsoleModule, SettingsSubTab } from '../types';
+import {can, canOpenModule, type AuthorizationContext} from '../services/authorization';
 
 interface SidebarProps {
+  authorization: AuthorizationContext;
+  workspaceName?: string;
   activeModule: ConsoleModule;
   setActiveModule: (m: ConsoleModule) => void;
   settingsSubTab: SettingsSubTab;
@@ -15,6 +18,8 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
+  authorization,
+  workspaceName,
   activeModule,
   setActiveModule,
   settingsSubTab,
@@ -67,7 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="flex flex-col min-w-0 overflow-hidden whitespace-nowrap"
                 >
                   <span className="font-bold text-[13px] text-slate-800 dark:text-slate-100 truncate group-hover:text-[#1664ff] dark:group-hover:text-blue-400 transition-colors">
-                    GoTek Solutions HQ
+                    {workspaceName || 'Workspace'}
                   </span>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -163,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Tab 2: Knowledge Base */}
-        <div className="relative group w-full flex justify-center">
+        <div style={{display: canOpenModule(authorization, 'knowledge') ? undefined : 'none'}} className="relative group w-full flex justify-center">
           <button
             onClick={() => setActiveModule('knowledge')}
             className={`flex items-center rounded-xl transition-all duration-200 border-0 border-none outline-none cursor-pointer relative ${
@@ -209,7 +214,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Tab 3: Channels & Integrations */}
-        <div className="relative group w-full flex justify-center">
+        <div style={{display: canOpenModule(authorization, 'channels') ? undefined : 'none'}} className="relative group w-full flex justify-center">
           <button
             onClick={() => setActiveModule('channels')}
             className={`flex items-center rounded-xl transition-all duration-200 border-0 border-none outline-none cursor-pointer relative ${
@@ -247,7 +252,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Tab 4: Analytics */}
-        <div className="relative group w-full flex justify-center">
+        <div style={{display: canOpenModule(authorization, 'analytics') ? undefined : 'none'}} className="relative group w-full flex justify-center">
           <button
             onClick={() => setActiveModule('analytics')}
             className={`flex items-center rounded-xl transition-all duration-200 border-0 border-none outline-none cursor-pointer relative ${
@@ -285,7 +290,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Tab 5: Settings */}
-        <div className="relative group w-full flex flex-col items-center">
+        <div style={{display: canOpenModule(authorization, 'settings') ? undefined : 'none'}} className="relative group w-full flex flex-col items-center">
           <button
             onClick={() => setActiveModule('settings')}
             className={`flex items-center rounded-xl transition-all duration-200 border-0 border-none outline-none cursor-pointer relative ${
@@ -389,7 +394,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Section 2: Pipelines & Triage (only when expanded) */}
         <AnimatePresence>
-          {!isCollapsed && (
+          {!isCollapsed && can(authorization, 'workspace.manage') && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -465,7 +470,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ===================================================================== */}
       <div className="p-2 border-t border-slate-200/70 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 flex flex-col gap-1.5">
         {/* Audit Logs button */}
-        <div className="relative group w-full flex justify-center">
+        <div style={{display: can(authorization, 'audit.read') ? undefined : 'none'}} className="relative group w-full flex justify-center">
           <button
             onClick={onOpenAuditLogs}
             className={`flex items-center rounded-xl text-[#646a73] dark:text-slate-400 hover:bg-[#ebedf0] dark:hover:bg-slate-800/80 hover:text-[#1f2329] dark:hover:text-slate-200 transition-all border-0 border-none outline-none cursor-pointer ${

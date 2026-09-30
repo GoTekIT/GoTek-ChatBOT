@@ -2,13 +2,17 @@ import React, { useState } from 'react';
 import { ConsoleModule } from '../types';
 import { ThreeNeuralCore } from './common/ThreeNeuralCore';
 import { VectorSpace3DModal } from './modals/VectorSpace3DModal';
+import { ChangePasswordModal } from './modals/ChangePasswordModal';
 import { useTheme } from '../context/ThemeContext';
+import {can} from '../services/authorization';
 
 interface TopNavProps {
   activeModule: ConsoleModule;
   setActiveModule: (m: ConsoleModule) => void;
   openCommandPalette: () => void;
   onOpenAuditLogs?: () => void;
+  me?: any;
+  onLogout?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -16,13 +20,21 @@ export const TopNav: React.FC<TopNavProps> = ({
   setActiveModule,
   openCommandPalette,
   onOpenAuditLogs,
+  me,
+  onLogout,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showTuneModal, setShowTuneModal] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showVectorModal, setShowVectorModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [activeQueueTab, setActiveQueueTab] = useState<'live' | 'handoffs' | 'resolved'>('live');
+
+  const displayName = me?.user?.fullName || me?.user?.full_name || me?.user?.name || me?.user?.email?.split('@')[0] || 'Chưa xác định';
+  const displayEmail = me?.user?.email || 'Chưa xác định';
+  const displayRole = me?.role === 'Owner' ? 'Workspace Owner' : me?.role || 'Chưa xác định';
+  const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`;
 
   return (
     <>
@@ -49,7 +61,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               readOnly
               onClick={openCommandPalette}
               placeholder="Tìm kiếm hội thoại, tài liệu (/)..."
-              className="w-full pl-9 pr-9 py-1.5 bg-slate-100/80 dark:bg-slate-900/90 hover:bg-slate-100 dark:hover:bg-slate-850 border border-transparent dark:border-slate-800 focus:border-[#1664ff] dark:focus:border-blue-500 rounded-lg text-[13px] text-[#1f2329] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 cursor-pointer transition-all focus:outline-none"
+              className="w-full pl-9 pr-9 py-1.5 bg-slate-100/80 dark:bg-slate-900/90 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent dark:border-slate-800 focus:border-[#1664ff] dark:focus:border-blue-500 rounded-lg text-[13px] text-[#1f2329] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 cursor-pointer transition-all focus:outline-none"
             />
             <kbd 
               onClick={openCommandPalette}
@@ -69,7 +81,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           <span className="text-slate-300 dark:text-slate-700">/</span>
           <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 text-[12px] font-medium flex items-center gap-1.5 border border-transparent dark:border-slate-700/60">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>Techcombank Corporate · Khối CNTT</span>
+            <span>{me?.workspaces?.find((workspace: any) => workspace.id === me.workspaceId)?.name || 'Workspace'}</span>
           </span>
         </div>
 
@@ -77,6 +89,7 @@ export const TopNav: React.FC<TopNavProps> = ({
         <div className="flex items-center gap-3">
           {/* Interactive Three.js 3D Neural Core Orb */}
           <button
+            style={{display: can(me, 'knowledge.manage') ? undefined : 'none'}}
             onClick={() => setShowVectorModal(true)}
             className="flex items-center gap-2.5 px-3 py-1 bg-gradient-to-r from-blue-50/90 to-indigo-50/90 dark:from-blue-950/40 dark:to-indigo-950/40 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/50 dark:hover:to-indigo-900/50 border border-blue-200/80 dark:border-blue-800/60 rounded-full transition-all group shadow-xs cursor-pointer"
             title="Khám phá Không gian Vector Tri thức 3D (Three.js WebGL)"
@@ -111,6 +124,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               Console
             </button>
             <button
+              style={{display: can(me, 'channels.manage') ? undefined : 'none'}}
               onClick={() => setActiveModule('widget-demo')}
               className={`px-3 py-1 rounded-md font-semibold flex items-center gap-1 transition-all ${
                 activeModule === 'widget-demo'
@@ -191,6 +205,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           {/* Quick Settings / Console Tuning */}
           <div className="relative">
             <button
+              style={{display: can(me, 'workspace.manage') ? undefined : 'none'}}
               onClick={() => setShowTuneModal(!showTuneModal)}
               className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               title="RAG Pipeline Tuning"
@@ -234,7 +249,7 @@ export const TopNav: React.FC<TopNavProps> = ({
 
           <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
 
-          {/* Alex Rivera Profile Avatar */}
+          {/* User Profile Avatar */}
           <div className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -242,67 +257,95 @@ export const TopNav: React.FC<TopNavProps> = ({
               type="button"
             >
               <img
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIpnACt-DPC3EKmST8JcrUEP9KWQ8q1_M7agMdnMqkzEK7tjVPpxLI9Cx9LbwC3aoyC5uEoxuVCyJmtffZtxqnhmgTEv9kf4T_yjafri4PEh7D2Lx5zYBOeH-rkZwWrIVaQADElxBweXoaSus1DU1Cu0jfvtexBbpPT-wcHmXzzeBQsXxjzhMsO2zGm1uvrDKKJydKLE9mbiH31T126aR6_jdWfez4UGeUCVUOnUJr3dqJTL7v55yh"
-                alt="Agent Alex Rivera"
-                referrerPolicy="no-referrer"
-                className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 ring-1 ring-blue-500/30"
+                src={avatarUrl}
+                alt={displayName}
+                className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 ring-1 ring-blue-500/30 bg-blue-50 dark:bg-slate-800"
               />
               <div className="hidden xl:block leading-tight">
-                <p className="font-semibold text-xs text-slate-900 dark:text-slate-100">Alex Rivera</p>
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Senior AI Admin</p>
+                <p className="font-semibold text-xs text-slate-900 dark:text-slate-100 truncate max-w-[120px]">{displayName}</p>
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium truncate max-w-[120px]">{displayRole}</p>
               </div>
               <span className="material-symbols-outlined text-slate-400 text-[16px]">expand_more</span>
             </button>
 
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-2 z-50 text-xs">
+              <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
                 <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
-                  <p className="font-semibold text-slate-900 dark:text-slate-100">Alex Rivera</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">alex.rivera@gotek.vn</p>
+                  <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{displayName}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{displayEmail}</p>
                 </div>
                 <div className="py-1">
-                  <button 
+                  <button style={{display: can(me, 'members.manage') ? undefined : 'none'}}
                     onClick={() => {
                       setActiveModule('settings');
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">settings</span>
                     <span>Cấu hình Nhân sự & Vai trò</span>
                   </button>
-                  <button 
+                  <button style={{display: can(me, 'audit.read') ? undefined : 'none'}}
                     onClick={() => {
                       if (onOpenAuditLogs) onOpenAuditLogs();
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">receipt_long</span>
                     <span>Nhật ký Kiểm toán (Audit)</span>
                   </button>
-                  <button 
+                  <button style={{display: can(me, 'channels.manage') ? undefined : 'none'}}
                     onClick={() => {
                       setActiveModule('widget-demo');
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400">visibility</span>
                     <span>Xem Thử Live Widget</span>
                   </button>
+                  <button 
+                    onClick={() => {
+                      setShowChangePasswordModal(true);
+                      setShowProfileMenu(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">lock_reset</span>
+                    <span>Đổi mật khẩu</span>
+                  </button>
                 </div>
+                {onLogout && (
+                  <div className="pt-1 mt-1 border-t border-slate-100 dark:border-slate-800">
+                    <button 
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        onLogout();
+                      }}
+                      className="w-full text-left px-3 py-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">logout</span>
+                      <span>Đăng xuất</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       </header>
 
-
       {/* Cinematic 3D Vector Space Modal */}
       <VectorSpace3DModal
         isOpen={showVectorModal}
         onClose={() => setShowVectorModal(false)}
+      />
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
       />
     </>
   );

@@ -11,7 +11,7 @@ workspaceRouter.get(
 
 workspaceRouter.patch(
   '/workspace',
-  authed((db, identity, req) => WorkspaceController.updateWorkspace(db, identity, req))
+  authed((db, identity, req) => WorkspaceController.updateWorkspace(db, identity, req), 'workspace.manage')
 );
 
 workspaceRouter.post(
@@ -21,10 +21,10 @@ workspaceRouter.post(
 
 workspaceRouter.get(
   '/usage/ai',
-  authed((db, identity, req) => WorkspaceController.getAiUsage(db, identity, req))
+  authed((db, identity, req) => WorkspaceController.getAiUsage(db, identity, req), 'usage.read')
 );
 
 workspaceRouter.get(
   '/usage',
-  authed((db, identity) => WorkspaceController.getUsage(db, identity))
+  authed((db, identity) => WorkspaceController.getUsage(db, identity), 'usage.read')
 );
