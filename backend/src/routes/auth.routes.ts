@@ -11,6 +11,10 @@ authRouter.get(
   authed((db, identity) => AuthController.getMe(db, identity))
 );
 authRouter.post('/auth/logout', AuthController.logout);
+authRouter.post(
+  '/auth/change-password',
+  authed((db, identity, req) => AuthController.changePassword(db, identity, req))
+);
 authRouter.post('/auth/request-reset', AuthController.requestReset);
 authRouter.post('/auth/reset', AuthController.reset);
 authRouter.post('/auth/verify', AuthController.verify);

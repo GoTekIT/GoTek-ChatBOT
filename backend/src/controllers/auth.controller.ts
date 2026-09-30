@@ -2,7 +2,7 @@ import type {Request, Response} from 'express';
 import {z} from 'zod';
 import {transaction} from '../core/db';
 import {AuthService} from '../services/auth.service';
-import {cookieOptions} from '../middlewares/auth.middleware';
+import {cookieOptions, extractToken} from '../middlewares/auth.middleware';
 
 import {
   emailSchema,
@@ -49,7 +49,14 @@ export class AuthController {
       return AuthService.login(db, data);
     });
 
-    res.cookie('gotek_session', result.token, {...cookieOptions, maxAge: result.maxAge}).json(successResponse);
+    res
+      .cookie('gotek_session', result.token, {...cookieOptions, maxAge: result.maxAge})
+      .json({
+        ok: true,
+        token: result.token,
+        user: result.user,
+        workspaceId: result.workspaceId
+      });
   }
 
   static async getMe(db: any, identity: any): Promise<any> {
@@ -57,18 +64,36 @@ export class AuthController {
   }
 
   static async logout(req: Request, res: Response): Promise<void> {
-    const token = req.cookies?.gotek_session;
+    const token = extractToken(req);
     await transaction(async db => {
       await AuthService.logout(db, token);
     });
     res.clearCookie('gotek_session', cookieOptions).json(successResponse);
   }
 
+  static async changePassword(db: any, identity: any, req: Request): Promise<any> {
+    const data = z
+      .object({
+        currentPassword: z.string().min(1).max(128),
+        newPassword: passwordSchema
+      })
+      .strict()
+      .parse(req.body);
+
+    const currentToken = extractToken(req);
+    await AuthService.changePassword(db, identity.user_id, data, currentToken);
+    return successResponse;
+  }
+
   static async requestReset(req: Request, res: Response): Promise<void> {
     const data = z.object({email: emailSchema}).strict().parse(req.body);
-    await transaction(async db => {
-      await AuthService.requestReset(db, data.email);
+    const token = await transaction(async db => {
+      return AuthService.requestReset(db, data.email);
     });
+    if (process.env.NODE_ENV !== 'production' && token) {
+      res.status(202).json({ok: true, token});
+      return;
+    }
     res.status(202).json(genericResponse);
   }
 

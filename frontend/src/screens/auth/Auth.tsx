@@ -1,6 +1,7 @@
 import React, {useState, type FormEvent, useRef} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
-import {api, ApiError} from '@/api/api';
+import {ApiError} from '@/api/api';
+import {AuthService} from '../../services/auth.service';
 import {navigate} from '../../hooks/usePath';
 import {Link} from '../../components/common/Link';
 import {
@@ -222,9 +223,9 @@ export function Auth({path, onLogin}: AuthProps) {
     const form = new FormData(e.currentTarget);
 
     try {
-      await api('/auth/login', 'POST', {
-        email: form.get('email'),
-        password: form.get('password'),
+      await AuthService.login({
+        email: String(form.get('email') || ''),
+        password: String(form.get('password') || ''),
         remember: form.get('remember') === 'on'
       });
       onLogin();
@@ -249,6 +250,7 @@ export function Auth({path, onLogin}: AuthProps) {
     const email = String(form.get('email') || '');
     const phone = String(form.get('phone') || '');
     const password = String(form.get('password') || '');
+    const referral = String(form.get('referral') || '');
 
     const nameErr = validateField('fullName', fullName);
     const bizErr = validateField('business', business);
@@ -271,7 +273,14 @@ export function Auth({path, onLogin}: AuthProps) {
 
     setBusy(true);
     try {
-      await api('/auth/signup', 'POST', Object.fromEntries(form));
+      await AuthService.signup({
+        fullName,
+        business,
+        email,
+        phone,
+        password,
+        referral: referral || undefined
+      });
       setMessage('Đã nhận yêu cầu đăng ký. Vui lòng kiểm tra hướng dẫn xác thực rồi đăng nhập.');
     } catch (err) {
       setError(err as Error);
@@ -307,15 +316,19 @@ export function Auth({path, onLogin}: AuthProps) {
     setBusy(true);
     try {
       if (isVerify) {
-        await api('/auth/verify', 'POST', {token});
+        await AuthService.verifyEmail(token || '');
         setMessage('Email đã được xác thực thành công. Bạn có thể đăng nhập ngay.');
       } else if (isReset) {
         if (token) {
-          await api('/auth/reset', 'POST', {token, password});
+          await AuthService.resetPassword(token, password);
           setMessage('Mật khẩu đã được cập nhật thành công. Vui lòng đăng nhập lại.');
         } else {
-          const r = await api('/auth/request-reset', 'POST', {email});
-          setMessage(r.message || 'Hướng dẫn khôi phục mật khẩu đã được gửi đến email của bạn.');
+          const r = await AuthService.requestReset(email);
+          if (r.token) {
+            setMessage(`Yêu cầu thành công! Liên kết đặt lại mật khẩu: /app/auth/reset?token=${r.token}`);
+          } else {
+            setMessage(r.message || 'Hướng dẫn khôi phục mật khẩu đã được gửi đến email của bạn.');
+          }
         }
       }
     } catch (err) {

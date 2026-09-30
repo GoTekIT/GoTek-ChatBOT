@@ -17,8 +17,19 @@ export const cookieOptions = {
   path: '/'
 };
 
+export function extractToken(req: Request): string | undefined {
+  if (req.cookies?.gotek_session) {
+    return req.cookies.gotek_session;
+  }
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7).trim();
+  }
+  return undefined;
+}
+
 export async function identity(db: PoolClient, req: Request): Promise<Identity> {
-  const raw = req.cookies?.gotek_session;
+  const raw = extractToken(req);
   if (!raw) {
     throw new HttpError(401, 'UNAUTHENTICATED');
   }

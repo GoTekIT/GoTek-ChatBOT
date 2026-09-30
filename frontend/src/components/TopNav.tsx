@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ConsoleModule } from '../types';
 import { ThreeNeuralCore } from './common/ThreeNeuralCore';
 import { VectorSpace3DModal } from './modals/VectorSpace3DModal';
+import { ChangePasswordModal } from './modals/ChangePasswordModal';
 import { useTheme } from '../context/ThemeContext';
 
 interface TopNavProps {
@@ -9,6 +10,8 @@ interface TopNavProps {
   setActiveModule: (m: ConsoleModule) => void;
   openCommandPalette: () => void;
   onOpenAuditLogs?: () => void;
+  me?: any;
+  onLogout?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -16,13 +19,21 @@ export const TopNav: React.FC<TopNavProps> = ({
   setActiveModule,
   openCommandPalette,
   onOpenAuditLogs,
+  me,
+  onLogout,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showTuneModal, setShowTuneModal] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showVectorModal, setShowVectorModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [activeQueueTab, setActiveQueueTab] = useState<'live' | 'handoffs' | 'resolved'>('live');
+
+  const displayName = me?.user?.fullName || me?.user?.name || me?.user?.email?.split('@')[0] || 'Alex Rivera';
+  const displayEmail = me?.user?.email || 'admin@gotek.vn';
+  const displayRole = me?.role === 'Owner' ? 'Workspace Owner' : me?.role || 'Admin';
+  const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`;
 
   return (
     <>
@@ -234,7 +245,7 @@ export const TopNav: React.FC<TopNavProps> = ({
 
           <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
 
-          {/* Alex Rivera Profile Avatar */}
+          {/* User Profile Avatar */}
           <div className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -242,23 +253,22 @@ export const TopNav: React.FC<TopNavProps> = ({
               type="button"
             >
               <img
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIpnACt-DPC3EKmST8JcrUEP9KWQ8q1_M7agMdnMqkzEK7tjVPpxLI9Cx9LbwC3aoyC5uEoxuVCyJmtffZtxqnhmgTEv9kf4T_yjafri4PEh7D2Lx5zYBOeH-rkZwWrIVaQADElxBweXoaSus1DU1Cu0jfvtexBbpPT-wcHmXzzeBQsXxjzhMsO2zGm1uvrDKKJydKLE9mbiH31T126aR6_jdWfez4UGeUCVUOnUJr3dqJTL7v55yh"
-                alt="Agent Alex Rivera"
-                referrerPolicy="no-referrer"
-                className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 ring-1 ring-blue-500/30"
+                src={avatarUrl}
+                alt={displayName}
+                className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 ring-1 ring-blue-500/30 bg-blue-50 dark:bg-slate-800"
               />
               <div className="hidden xl:block leading-tight">
-                <p className="font-semibold text-xs text-slate-900 dark:text-slate-100">Alex Rivera</p>
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Senior AI Admin</p>
+                <p className="font-semibold text-xs text-slate-900 dark:text-slate-100 truncate max-w-[120px]">{displayName}</p>
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium truncate max-w-[120px]">{displayRole}</p>
               </div>
               <span className="material-symbols-outlined text-slate-400 text-[16px]">expand_more</span>
             </button>
 
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-2 z-50 text-xs">
+              <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
                 <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
-                  <p className="font-semibold text-slate-900 dark:text-slate-100">Alex Rivera</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">alex.rivera@gotek.vn</p>
+                  <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{displayName}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{displayEmail}</p>
                 </div>
                 <div className="py-1">
                   <button 
@@ -266,7 +276,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                       setActiveModule('settings');
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">settings</span>
                     <span>Cấu hình Nhân sự & Vai trò</span>
@@ -276,7 +286,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                       if (onOpenAuditLogs) onOpenAuditLogs();
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">receipt_long</span>
                     <span>Nhật ký Kiểm toán (Audit)</span>
@@ -286,23 +296,52 @@ export const TopNav: React.FC<TopNavProps> = ({
                       setActiveModule('widget-demo');
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400">visibility</span>
                     <span>Xem Thử Live Widget</span>
                   </button>
+                  <button 
+                    onClick={() => {
+                      setShowChangePasswordModal(true);
+                      setShowProfileMenu(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">lock_reset</span>
+                    <span>Đổi mật khẩu</span>
+                  </button>
                 </div>
+                {onLogout && (
+                  <div className="pt-1 mt-1 border-t border-slate-100 dark:border-slate-800">
+                    <button 
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        onLogout();
+                      }}
+                      className="w-full text-left px-3 py-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">logout</span>
+                      <span>Đăng xuất</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       </header>
 
-
       {/* Cinematic 3D Vector Space Modal */}
       <VectorSpace3DModal
         isOpen={showVectorModal}
         onClose={() => setShowVectorModal(false)}
+      />
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
       />
     </>
   );

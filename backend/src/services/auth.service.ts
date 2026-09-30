@@ -65,7 +65,7 @@ export class AuthService {
   static async login(
     db: PoolClient,
     data: {email: string; password: string; remember?: boolean}
-  ): Promise<{token: string; maxAge: number}> {
+  ): Promise<{token: string; maxAge: number; user: any; workspaceId: string}> {
     const user = await UserRepository.findByEmailForUpdate(db, data.email);
     if (!user) {
       await hashPassword('nonexistent-account-dummy');
@@ -97,7 +97,15 @@ export class AuthService {
     await SessionRepository.create(db, digest(token), user.id, activeWorkspaceId, `${maxAge} milliseconds`);
     await audit(db, activeWorkspaceId, user.id, 'auth.login', user.id);
 
-    return {token, maxAge};
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      fullName: user.full_name,
+      phone: user.phone,
+      verifiedAt: user.verified_at
+    };
+
+    return {token, maxAge, user: safeUser, workspaceId: activeWorkspaceId};
   }
 
   static async getMe(
@@ -136,14 +144,47 @@ export class AuthService {
     }
   }
 
-  static async requestReset(db: PoolClient, email: string): Promise<void> {
+  static async changePassword(
+    db: PoolClient,
+    userId: string,
+    data: {currentPassword: string; newPassword: string},
+    currentSessionToken?: string
+  ): Promise<void> {
+    await UserRepository.lockById(db, userId);
+    const user = await UserRepository.findById(db, userId);
+    if (!user) {
+      throw new HttpError(404, 'USER_NOT_FOUND');
+    }
+
+    const isValid = await verifyPassword(user.password_hash, data.currentPassword);
+    if (!isValid) {
+      throw new HttpError(400, 'INCORRECT_CURRENT_PASSWORD');
+    }
+
+    const hash = await hashPassword(data.newPassword);
+    await UserRepository.updatePassword(db, userId, hash);
+
+    if (currentSessionToken) {
+      const currentHash = digest(currentSessionToken);
+      await db.query('DELETE FROM sessions WHERE user_id = $1 AND token_hash != $2', [userId, currentHash]);
+    } else {
+      await SessionRepository.deleteByUserId(db, userId);
+    }
+  }
+
+  static async requestReset(db: PoolClient, email: string): Promise<string | undefined> {
     const user = await UserRepository.findByEmailForUpdate(db, email);
-    if (!user) return;
+    if (!user) return undefined;
 
     const hasRecent = await ChallengeRepository.hasRecent(db, user.id, 'reset', 60);
-    if (hasRecent) return;
+    if (hasRecent) return undefined;
 
-    await challenge(db, user.id, 'reset');
+    const token = opaque();
+    await db.query('UPDATE challenges SET used_at=now() WHERE user_id=$1 AND kind=$2 AND used_at IS NULL', [user.id, 'reset']);
+    await db.query("INSERT INTO challenges(id,user_id,kind,token_hash,expires_at) VALUES($1,$2,$3,$4,now()+'30 minutes'::interval)", [uuid(), user.id, 'reset', digest(token)]);
+    await db.query('INSERT INTO local_delivery(id,user_id,kind,payload) VALUES($1,$2,$3,$4)', [uuid(), user.id, 'reset', JSON.stringify({token})]);
+
+    return token;
   }
 
   static async resetPassword(db: PoolClient, token: string, newPassword: string): Promise<void> {

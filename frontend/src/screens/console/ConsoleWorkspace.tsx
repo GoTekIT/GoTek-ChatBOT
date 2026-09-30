@@ -264,6 +264,8 @@ export function ConsoleWorkspace({
         setActiveModule={handleSelectModule}
         openCommandPalette={() => setIsCommandPaletteOpen(true)}
         onOpenAuditLogs={() => setIsAuditModalOpen(true)}
+        me={me}
+        onLogout={onLogout}
       />
 
       {/* Main Workspace Frame */}

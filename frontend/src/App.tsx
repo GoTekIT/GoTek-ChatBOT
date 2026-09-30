@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from 'react';
-import {api, ApiError} from './api/api';
+import {ApiError} from './api/api';
+import {AuthService} from './services/auth.service';
 import {usePath, navigate} from './hooks/usePath';
 import {Notice} from './components/common/Notice';
 import {Auth} from './screens/auth/Auth';
@@ -15,7 +16,8 @@ export function App() {
 
   async function refresh() {
     try {
-      setMe(await api('/me'));
+      const data = await AuthService.getMe();
+      setMe(data);
       setError(null);
     } catch (e) {
       if (e instanceof ApiError && e.code === 'UNAUTHENTICATED') {
@@ -48,7 +50,7 @@ export function App() {
 
   async function switchWorkspace(workspaceId: string) {
     try {
-      await api('/workspace/switch', 'POST', {workspaceId});
+      await AuthService.switchWorkspace(workspaceId);
       setMe(null);
       await refresh();
       navigate('/app/inbox');
@@ -59,7 +61,7 @@ export function App() {
 
   async function handleLogout() {
     try {
-      await api('/auth/logout', 'POST', {});
+      await AuthService.logout();
       setMe(null);
       navigate('/app/auth/login');
     } catch (e) {
