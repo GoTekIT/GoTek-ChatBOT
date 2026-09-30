@@ -65,6 +65,10 @@ Xem chi tiết hướng dẫn lập trình và cấu trúc dự án tại: **[C�
 
 Không có script lint. Xem [TESTING](docs/TESTING.md) trước khi chạy test.
 
+## Team collaboration
+
+Before editing or merging, follow [CONTRIBUTING.md](CONTRIBUTING.md). Work in a separate branch/checkout and use a reviewed PR into `main`.
+
 ## Documentation map
 
 - [Software Requirements Specification](docs/SRS.md)

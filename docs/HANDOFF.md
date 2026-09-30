@@ -1,5 +1,16 @@
 # Development handoff
 
+## Collaboration safety checkpoint — 2026-09-30
+
+Goal: cho nhiều contributor cập nhật cùng lúc mà không ghi đè công việc đã commit. Chỉ làm trên clone riêng tại `Downloads/Gotek_AI_chatbot/GoTek-ChatBOT`, nhánh `codex/collaboration-safety-20260930` từ `main` `4c57bca66aa80035b240cd4ac33af7e8da0088a3`; checkout cũ `Documents/ChatGPT/GoTek ChatBOT - CTO` không bị thay đổi hoặc push.
+
+Completed locally: đồng bộ root `package-lock.json`, chuyển `install:all` sang ba bước `npm ci`, thêm `CONTRIBUTING.md` và PR template, nối README. `npm run install:all`, `npm run build:all`, `npm run test:frontend` (7/7) và `git diff --check` PASS. Chưa chạy backend DB suite trên clone vì không dùng DB của contributor khác; CI PR là gate tiếp theo. Không sửa nghiệp vụ hoặc nâng trạng thái H/E.
+
+Outstanding branches cần giữ: `origin/nguyen` (`802b435`, code channel/widget và plan) chưa vào `main`; merge thử báo conflict `frontend/src/App.tsx` và `frontend/src/screens/console/ConsoleWorkspace.tsx`. `origin/codex/chatbot-delivery` (`aefffad`, bốn commit tài liệu) chưa vào `main`; merge thử báo conflict `docs/00-START-HERE.md` và `docs/PROJECT-STATUS.md`. Không cherry-pick/merge mù; owner từng nhánh phải review chỗ tự merge và conflict.
+
+Next exact step: push nhánh an toàn Git, mở PR vào `main`, chờ CI backend + reviewer; bật required review/check trên ruleset `main`; sau đó chọn backend core slice không trùng file Nam/Lợi/Nguyên và cập nhật checkpoint/test riêng.
+
+
 ## Latest correction — Google login runtime (2026-09-30)
 
 User-reported Google login into the sample admin was traced to the actual Nginx
