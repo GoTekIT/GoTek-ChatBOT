@@ -1,4 +1,5 @@
 import {api, getStoredToken, setStoredToken, removeStoredToken} from '../api/api';
+import type {Permission, WorkspaceRole} from './authorization';
 
 export interface UserProfile {
   id: string;
@@ -19,7 +20,8 @@ export interface MeResponse {
   user: UserProfile;
   workspaces: WorkspaceSummary[];
   workspaceId: string;
-  role: string;
+  role: WorkspaceRole;
+  permissions: Permission[];
   platformAdmin: boolean;
 }
 

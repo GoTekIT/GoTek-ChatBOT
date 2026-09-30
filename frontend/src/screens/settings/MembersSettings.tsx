@@ -2,17 +2,21 @@ import React, {useState, useEffect} from 'react';
 import {api} from '@/api/api';
 import {Field} from '../../components/common/Field';
 import {Notice} from '../../components/common/Notice';
+import {can, canManageMember, type AuthorizationContext} from '../../services/authorization';
+import './members-settings.css';
 
 interface MembersSettingsProps {
-  onChange: () => void;
+  onChange: () => Promise<void>;
+  authorization: AuthorizationContext;
 }
 
-export function MembersSettings({onChange}: MembersSettingsProps) {
+export function MembersSettings({onChange, authorization}: MembersSettingsProps) {
   const [members, setMembers] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const activeOwners = members.filter(m => m.active && m.role === 'Owner').length;
 
   async function load() {
     const [a, b] = await Promise.all([api('/members'), api('/invitations')]);
@@ -29,8 +33,8 @@ export function MembersSettings({onChange}: MembersSettingsProps) {
     setError(null);
     try {
       await fn();
+      await onChange();
       await load();
-      onChange();
       setMessage('Đã lưu thay đổi.');
     } catch (e) {
       setError(e as Error);
@@ -40,7 +44,7 @@ export function MembersSettings({onChange}: MembersSettingsProps) {
   }
 
   return (
-    <>
+    <div className="members-settings">
       <h1>Quản lý nhân sự</h1>
       <div className="tabs">Nhân viên</div>
       <Notice error={error} message={message} />
@@ -89,14 +93,14 @@ export function MembersSettings({onChange}: MembersSettingsProps) {
                   <select
                     aria-label={`Vai trò ${m.full_name}`}
                     value={m.role}
-                    disabled={busy}
+                    disabled={busy || !canManageMember(authorization, m, activeOwners)}
                     onChange={e =>
                       void action(() =>
                         api(`/members/${m.id}`, 'PATCH', {role: e.target.value, active: m.active})
                       )
                     }
                   >
-                    <option>Owner</option>
+                    {(can(authorization, 'ownership.manage') || m.role === 'Owner') && <option>Owner</option>}
                     <option>Admin</option>
                     <option>Agent</option>
                   </select>
@@ -104,7 +108,7 @@ export function MembersSettings({onChange}: MembersSettingsProps) {
                 <td>{m.active ? 'Hoạt động' : 'Đã thu hồi'}</td>
                 <td>
                   <button
-                    disabled={busy}
+                    disabled={busy || !canManageMember(authorization, m, activeOwners)}
                     onClick={() =>
                       void action(() =>
                         api(`/members/${m.id}`, 'PATCH', {role: m.role, active: !m.active})
@@ -148,6 +152,6 @@ export function MembersSettings({onChange}: MembersSettingsProps) {
           </div>
         ))
       )}
-    </>
+    </div>
   );
 }

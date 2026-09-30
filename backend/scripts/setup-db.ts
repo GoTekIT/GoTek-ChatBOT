@@ -5,7 +5,7 @@ import {resolve} from 'node:path';
 
 // Support both monorepo root and backend directory execution
 const rootDir = existsSync('backend') ? process.cwd() : resolve(process.cwd(), '..');
-const localDir = resolve(rootDir, '.local');
+const localDir = process.env.DB_RUNTIME_DIR || resolve(rootDir, '.local');
 mkdirSync(localDir, {recursive: true});
 const file = resolve(localDir, 'runtime.json');
 
@@ -21,8 +21,8 @@ if (existsSync(envFile)) {
 const config = existsSync(file)
   ? JSON.parse(readFileSync(file, 'utf8'))
   : {
-      host: '127.0.0.1',
-      port: 55432,
+      host: process.env.DB_HOST || '127.0.0.1',
+      port: Number(process.env.DB_PORT) || 55432,
       user: 'gotek_app',
       password: envPassword || randomBytes(32).toString('hex'),
       database: 'gotek_chatbot'
@@ -45,10 +45,10 @@ await admin.connect();
 
 if (!(await admin.query("SELECT 1 FROM pg_roles WHERE rolname='gotek_app'")).rowCount) {
   await admin.query(
-    `CREATE ROLE gotek_app LOGIN PASSWORD '${config.password}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`
+    `CREATE ROLE gotek_app LOGIN PASSWORD '${String(config.password).replaceAll("'", "''")}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`
   );
 } else {
-  await admin.query(`ALTER ROLE gotek_app WITH PASSWORD '${config.password}'`);
+  await admin.query(`ALTER ROLE gotek_app WITH PASSWORD '${String(config.password).replaceAll("'", "''")}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`);
 }
 
 if (!(await admin.query('SELECT 1 FROM pg_database WHERE datname=$1', [config.database])).rowCount) {

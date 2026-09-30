@@ -1,6 +1,9 @@
 # Frontend Dockerfile for GoTek Chatbot
 FROM node:22-alpine AS builder
 
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 WORKDIR /app
 
 COPY package*.json ./

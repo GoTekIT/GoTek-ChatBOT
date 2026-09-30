@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import {canOpenModule, type AuthorizationContext} from '../../services/authorization';
 import { ConsoleModule, KnowledgeDocument, Conversation, StaffMember } from '../../types';
 
 interface CommandPaletteProps {
+  authorization: AuthorizationContext;
   isOpen: boolean;
   onClose: () => void;
   documents: KnowledgeDocument[];
@@ -12,6 +14,7 @@ interface CommandPaletteProps {
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
+  authorization,
   isOpen,
   onClose,
   documents,
@@ -81,6 +84,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               Quick Navigation
             </p>
             <button
+              style={{display: canOpenModule(authorization, 'inbox') ? undefined : 'none'}}
               onClick={() => {
                 onSelectModule('inbox');
                 onClose();
@@ -94,6 +98,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               <span className="text-[10px] text-[#777587] font-mono">Module 1</span>
             </button>
             <button
+              style={{display: canOpenModule(authorization, 'knowledge') ? undefined : 'none'}}
               onClick={() => {
                 onSelectModule('knowledge');
                 onClose();
@@ -107,6 +112,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               <span className="text-[10px] text-[#777587] font-mono">Module 3</span>
             </button>
             <button
+              style={{display: canOpenModule(authorization, 'settings') ? undefined : 'none'}}
               onClick={() => {
                 onSelectModule('settings');
                 onClose();
@@ -120,6 +126,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               <span className="text-[10px] text-[#777587] font-mono">Settings</span>
             </button>
             <button
+              style={{display: canOpenModule(authorization, 'widget-demo') ? undefined : 'none'}}
               onClick={() => {
                 onSelectModule('widget-demo');
                 onClose();

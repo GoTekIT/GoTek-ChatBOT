@@ -1,5 +1,25 @@
 # Development handoff
 
+## Latest correction — Google login runtime (2026-09-30)
+
+User-reported Google login into the sample admin was traced to the actual Nginx
+bundle at localhost:3001, which still called `loginWithGoogle` with Alex Rivera's
+email. Rebuilt/recreated local backend/frontend containers and connected the
+frontend Docker build to the public Client ID (`VITE_GOOGLE_CLIENT_ID`, falling
+back to `GOOGLE_CLIENT_ID`). Vite local configuration preserves frontend/.env
+and supports the root Client ID. Popup creation no longer awaits logout first.
+
+Verified served bundle changed from `index-Wox_u0g8.js` to `index-DR5RoQoN.js`,
+contains real Google popup code/configured Client ID, and contains no mock login
+email. Old mock payload and empty payload both return 401 with no session cookie.
+Docker builds passed; frontend tests 5/5 passed. Real Google login, full DB regression
+and `/api/me` account comparison remain **NEEDS VERIFICATION**. Source fixes/builds
+alone did not update the previously running container.
+
+Evidence, limitations and next exact check:
+[Google runtime correction](../delivery/evidence/google-login-runtime-2026-09-30.md).
+Preserve existing unfinished changes. Do not close H01/H22 based on these checks.
+
 ## Current state
 
 Dự án đã được refactor toàn diện sang kiến trúc Monorepo chuẩn mực theo format tham khảo của dự án `wdp` (Branch: `namnv`):

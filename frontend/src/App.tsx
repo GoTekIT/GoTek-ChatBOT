@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {ApiError} from './api/api';
 import {AuthService} from './services/auth.service';
 import {usePath, navigate} from './hooks/usePath';
@@ -13,25 +13,33 @@ export function App() {
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const refreshSequence = useRef(0);
 
   async function refresh() {
+    const sequence = ++refreshSequence.current;
     try {
       const data = await AuthService.getMe();
+      if (sequence !== refreshSequence.current) return;
       setMe(data);
       setError(null);
     } catch (e) {
+      if (sequence !== refreshSequence.current) return;
+      setMe(null);
       if (e instanceof ApiError && e.code === 'UNAUTHENTICATED') {
         setMe(null);
       } else {
         setError(e as Error);
       }
     } finally {
-      setLoading(false);
+      if (sequence === refreshSequence.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     void refresh();
+    const onFocus = () => { void refresh(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   // Auto-redirect to /app/inbox when authenticated and entering root or alias paths
@@ -60,6 +68,7 @@ export function App() {
   }
 
   async function handleLogout() {
+    ++refreshSequence.current;
     try {
       await AuthService.logout();
       setMe(null);
@@ -70,7 +79,12 @@ export function App() {
   }
 
   // 1. Platform Admin Group Routes (/platform/*)
-  if (path.startsWith('/platform')) return <Platform />;
+  if (path.startsWith('/platform') && loading) return <p role="status">Đang kiểm tra quyền…</p>;
+  if (path.startsWith('/platform') && me) {
+    return me.platformAdmin === true ? <Platform /> : <div className="boot" role="alert">
+      Bạn không có quyền Platform Admin. <button onClick={() => navigate('/app/inbox')}>Về hộp thư</button>
+    </div>;
+  }
 
   // 2. Invitation Route (/app/invitation)
   if (path === '/app/invitation') {
@@ -111,6 +125,7 @@ export function App() {
 
   return (
     <ConsoleWorkspace
+      key={`${me.user.id}:${me.workspaceId}:${me.role}`}
       me={me}
       currentPath={path}
       onRefresh={refresh}

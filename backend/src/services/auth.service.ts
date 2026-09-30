@@ -16,6 +16,7 @@ import {MembershipRepository} from '../repositories/membership.repository';
 import {SessionRepository} from '../repositories/session.repository';
 import {ChallengeRepository} from '../repositories/challenge.repository';
 import {publishTask, QUEUES} from '../core/rabbitmq.js';
+import {workspacePermissions} from '../core/authorization';
 
 export class AuthService {
   static async signup(
@@ -131,10 +132,13 @@ export class AuthService {
     const isPlatform = await MembershipRepository.isPlatformAdmin(db, userId);
 
     return {
-      user,
+      user: user ? {id: user.id, email: user.email, fullName: user.full_name,
+        full_name: user.full_name, phone: user.phone, verifiedAt: user.verified_at,
+        verified_at: user.verified_at} : null,
       workspaces,
       workspaceId: currentWorkspaceId,
       role: currentRole,
+      permissions: workspacePermissions(currentRole),
       platformAdmin: isPlatform
     };
   }
@@ -278,13 +282,17 @@ export class AuthService {
     );
 
     // BẮN TASK VÀO RABBITMQ QUEUE 'gotek.notifications'
-    await publishTask(QUEUES.NOTIFICATIONS, {
+    const published = await publishTask(QUEUES.NOTIFICATIONS, {
       type: 'EMAIL_OTP',
       email: normalizedEmail,
       code: otp,
       purpose,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
     });
+
+    if (!published) {
+      throw new HttpError(503, 'OTP_DELIVERY_UNAVAILABLE');
+    }
 
     return {
       ok: true,

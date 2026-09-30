@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {transaction} from '../core/db';
 import {AuthService} from '../services/auth.service';
 import {cookieOptions, extractToken} from '../middlewares/auth.middleware';
+import {HttpError} from '../core/security';
 
 import {
   emailSchema,
@@ -176,30 +177,21 @@ export class AuthController {
       })
       .parse(req.body);
 
-    let googleEmail = data.email;
-    let googleName = data.name || 'Google User';
-    let googleSub = data.googleId || 'mock-google-id-' + Date.now();
-    let googlePic = data.picture;
-
-    // Nếu gửi kèm Google credential (JWT ID Token)
-    if (data.credential) {
-      try {
-        const payloadBase64 = data.credential.split('.')[1];
-        if (payloadBase64) {
-          const decoded = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
-          if (decoded.email) googleEmail = decoded.email;
-          if (decoded.name) googleName = decoded.name;
-          if (decoded.sub) googleSub = decoded.sub;
-          if (decoded.picture) googlePic = decoded.picture;
-        }
-      } catch {
-        // Fallback to provided data
-      }
+    if (!data.credential) throw new HttpError(401, 'GOOGLE_CREDENTIAL_REQUIRED');
+    const tokenInfo = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(data.credential)}`);
+    if (!tokenInfo.ok) throw new HttpError(401, 'INVALID_GOOGLE_CREDENTIAL');
+    const claims = await tokenInfo.json() as {aud?: string; sub?: string; email?: string; email_verified?: string};
+    const expectedClientId = process.env.GOOGLE_CLIENT_ID;
+    if (!claims.sub || !claims.email || claims.email_verified !== 'true' || (expectedClientId && claims.aud !== expectedClientId)) {
+      throw new HttpError(401, 'INVALID_GOOGLE_CREDENTIAL');
     }
-
-    if (!googleEmail) {
-      googleEmail = 'google.user@gotek.vn';
-    }
+    const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {headers: {Authorization: `Bearer ${data.credential}`}});
+    if (!profileResponse.ok) throw new HttpError(401, 'INVALID_GOOGLE_CREDENTIAL');
+    const profile = await profileResponse.json() as {email?: string; name?: string; sub?: string; picture?: string};
+    const googleEmail = profile.email ?? claims.email;
+    const googleName = profile.name ?? data.name ?? 'Google User';
+    const googleSub = profile.sub ?? claims.sub;
+    const googlePic = profile.picture ?? data.picture;
 
     const result = await transaction(async db => {
       return AuthService.googleAuth(db, {

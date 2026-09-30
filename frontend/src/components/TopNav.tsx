@@ -4,6 +4,7 @@ import { ThreeNeuralCore } from './common/ThreeNeuralCore';
 import { VectorSpace3DModal } from './modals/VectorSpace3DModal';
 import { ChangePasswordModal } from './modals/ChangePasswordModal';
 import { useTheme } from '../context/ThemeContext';
+import {can} from '../services/authorization';
 
 interface TopNavProps {
   activeModule: ConsoleModule;
@@ -30,9 +31,9 @@ export const TopNav: React.FC<TopNavProps> = ({
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [activeQueueTab, setActiveQueueTab] = useState<'live' | 'handoffs' | 'resolved'>('live');
 
-  const displayName = me?.user?.fullName || me?.user?.name || me?.user?.email?.split('@')[0] || 'Alex Rivera';
-  const displayEmail = me?.user?.email || 'admin@gotek.vn';
-  const displayRole = me?.role === 'Owner' ? 'Workspace Owner' : me?.role || 'Admin';
+  const displayName = me?.user?.fullName || me?.user?.full_name || me?.user?.name || me?.user?.email?.split('@')[0] || 'Chưa xác định';
+  const displayEmail = me?.user?.email || 'Chưa xác định';
+  const displayRole = me?.role === 'Owner' ? 'Workspace Owner' : me?.role || 'Chưa xác định';
   const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`;
 
   return (
@@ -80,7 +81,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           <span className="text-slate-300 dark:text-slate-700">/</span>
           <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 text-[12px] font-medium flex items-center gap-1.5 border border-transparent dark:border-slate-700/60">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>Techcombank Corporate · Khối CNTT</span>
+            <span>{me?.workspaces?.find((workspace: any) => workspace.id === me.workspaceId)?.name || 'Workspace'}</span>
           </span>
         </div>
 
@@ -88,6 +89,7 @@ export const TopNav: React.FC<TopNavProps> = ({
         <div className="flex items-center gap-3">
           {/* Interactive Three.js 3D Neural Core Orb */}
           <button
+            style={{display: can(me, 'knowledge.manage') ? undefined : 'none'}}
             onClick={() => setShowVectorModal(true)}
             className="flex items-center gap-2.5 px-3 py-1 bg-gradient-to-r from-blue-50/90 to-indigo-50/90 dark:from-blue-950/40 dark:to-indigo-950/40 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/50 dark:hover:to-indigo-900/50 border border-blue-200/80 dark:border-blue-800/60 rounded-full transition-all group shadow-xs cursor-pointer"
             title="Khám phá Không gian Vector Tri thức 3D (Three.js WebGL)"
@@ -122,6 +124,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               Console
             </button>
             <button
+              style={{display: can(me, 'channels.manage') ? undefined : 'none'}}
               onClick={() => setActiveModule('widget-demo')}
               className={`px-3 py-1 rounded-md font-semibold flex items-center gap-1 transition-all ${
                 activeModule === 'widget-demo'
@@ -202,6 +205,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           {/* Quick Settings / Console Tuning */}
           <div className="relative">
             <button
+              style={{display: can(me, 'workspace.manage') ? undefined : 'none'}}
               onClick={() => setShowTuneModal(!showTuneModal)}
               className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               title="RAG Pipeline Tuning"
@@ -271,7 +275,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{displayEmail}</p>
                 </div>
                 <div className="py-1">
-                  <button 
+                  <button style={{display: can(me, 'members.manage') ? undefined : 'none'}}
                     onClick={() => {
                       setActiveModule('settings');
                       setShowProfileMenu(false);
@@ -281,7 +285,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                     <span className="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">settings</span>
                     <span>Cấu hình Nhân sự & Vai trò</span>
                   </button>
-                  <button 
+                  <button style={{display: can(me, 'audit.read') ? undefined : 'none'}}
                     onClick={() => {
                       if (onOpenAuditLogs) onOpenAuditLogs();
                       setShowProfileMenu(false);
@@ -291,7 +295,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                     <span className="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">receipt_long</span>
                     <span>Nhật ký Kiểm toán (Audit)</span>
                   </button>
-                  <button 
+                  <button style={{display: can(me, 'channels.manage') ? undefined : 'none'}}
                     onClick={() => {
                       setActiveModule('widget-demo');
                       setShowProfileMenu(false);

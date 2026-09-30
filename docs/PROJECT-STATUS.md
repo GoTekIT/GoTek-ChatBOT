@@ -1,5 +1,13 @@
 # Current snapshot
 
+**2026-09-30 correction — H01/H22 Google login:** confirmed the active frontend
+container served a stale bundle that logged into sample admin Alex Rivera directly.
+Local backend/frontend containers were rebuilt with the mock path removed and
+the configured Google Client ID supplied to the frontend build. Runtime asset and
+negative API checks passed; frontend tests 5/5 passed. Google account selection and
+successful login remain **NEEDS VERIFICATION**; no full backend regression was run
+for this correction. See [runtime evidence](../delivery/evidence/google-login-runtime-2026-09-30.md).
+
 Ngày audit: 2026-09-28. Branch: `namnv`. Trạng thái: **Monorepo Refactoring Completed (Backend + Frontend + Infra + GitOps + Mobile)**. Kiến trúc đã được chuẩn hóa theo format dự án tham khảo `wdp`. Checkpoint tài liệu + hardening đã được push; dùng `git log -1` để lấy commit snapshot hiện hành. Trạng thái: **MVP — In Progress**.
 
 Source, migration và test là bằng chứng triển khai; `delivery/BACKLOG.csv` là phạm vi chi tiết; tài liệu này tổng hợp trạng thái. Không có bằng chứng hoàn tất toàn bộ backend hay HiChat parity. `delivery/CHECKPOINT.md` giữ lịch sử; entry mới hơn thay thế nhận định cũ khi có bằng chứng sửa lỗi.

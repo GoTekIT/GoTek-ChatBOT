@@ -1,0 +1,11 @@
+.members-settings { color: #1f2329; }
+.members-settings .panel, .members-settings table, .members-settings .list-row { background: #fff; color: #1f2329; }
+.members-settings button.primary { padding: 9px 14px; border-radius: 6px; background: #1664ff; color: #fff; }
+.members-settings button:disabled, .members-settings select:disabled { cursor: not-allowed; }
+.members-settings [role="status"] { color: #1e40af; }
+.members-settings [role="alert"] { color: #991b1b; }
+.dark .members-settings { color: #e2e8f0; }
+.dark .members-settings .panel, .dark .members-settings table, .dark .members-settings .list-row { background: #0d131f; color: #e2e8f0; }
+.dark .members-settings th { background: #172033; color: #cbd5e1; }
+.dark .members-settings input, .dark .members-settings select, .dark .members-settings button:not(.primary) { background: #172033; color: #e2e8f0; border-color: #475569; }
+.dark .members-settings .muted { color: #94a3b8; }

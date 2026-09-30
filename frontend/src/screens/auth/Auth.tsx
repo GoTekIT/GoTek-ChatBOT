@@ -24,7 +24,7 @@ import './auth.css';
 
 interface AuthProps {
   path: string;
-  onLogin: () => void;
+  onLogin: () => Promise<void>;
 }
 
 export function Auth({path, onLogin}: AuthProps) {
@@ -400,26 +400,59 @@ export function Auth({path, onLogin}: AuthProps) {
     }
   };
 
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
   const handleSocialLogin = async (provider: 'Google' | 'Facebook') => {
     setError(null);
     setMessage('');
 
     if (provider === 'Google') {
-      setBusy(true);
-      try {
-        await AuthService.loginWithGoogle({
-          email: 'alex.rivera@gotek.vn',
-          name: 'Alex Rivera'
-        });
-        onLogin();
-        const pending = sessionStorage.getItem('gotek.pending-invite');
-        sessionStorage.removeItem('gotek.pending-invite');
-        navigate(pending && pending.startsWith('/app/invitation#') ? pending : '/app/inbox');
-      } catch (err: any) {
-        setError(err instanceof Error ? err : new Error(String(err)));
-      } finally {
-        setBusy(false);
+      if (!googleClientId) {
+        setError(new Error('Thiếu VITE_GOOGLE_CLIENT_ID. Hãy cấu hình OAuth client cho frontend.'));
+        return;
       }
+      // Sử dụng Google Identity Services Token Client chính thức để mở Popup
+      if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
+        try {
+          const client = (window as any).google.accounts.oauth2.initTokenClient({
+            client_id: googleClientId,
+            scope: 'email profile openid',
+            callback: async (tokenResponse: any) => {
+              if (tokenResponse?.access_token) {
+                setBusy(true);
+                try {
+                  // Lấy thông tin tài khoản thật từ Google UserInfo API
+                  const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: {Authorization: `Bearer ${tokenResponse.access_token}`}
+                  });
+                  const profile = await userRes.json();
+
+                  // Keep popup creation synchronous with the click; clear the old
+                  // session only after Google returns a credential.
+                  await AuthService.logout();
+                  await AuthService.loginWithGoogle({credential: tokenResponse.access_token});
+                  await onLogin();
+                  const pending = sessionStorage.getItem('gotek.pending-invite');
+                  sessionStorage.removeItem('gotek.pending-invite');
+                  navigate(pending && pending.startsWith('/app/invitation#') ? pending : '/app/inbox');
+                } catch (err: any) {
+                  setError(err instanceof Error ? err : new Error(String(err)));
+                } finally {
+                  setBusy(false);
+                }
+              }
+            }
+          });
+          client.requestAccessToken();
+          return;
+        } catch (err: any) {
+          console.warn('Google popup error:', err);
+        }
+      }
+
+      // Không dùng tài khoản giả khi Google SDK chưa tải hoặc popup thất bại.
+      // Fallback cũ đã đăng nhập cố định vào Alex Rivera (tài khoản admin mẫu).
+      setError(new Error('Google chưa sẵn sàng. Vui lòng tải lại trang và thử lại.'));
       return;
     }
 
