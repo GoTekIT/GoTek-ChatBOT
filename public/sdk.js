@@ -106,7 +106,13 @@
       </form>
     </section>`;
 
-    document.body.append(host);
+    if (document.body) {
+      document.body.append(host);
+    } else {
+      document.addEventListener('DOMContentLoaded', () => {
+        if (!document.body.contains(host)) document.body.append(host);
+      });
+    }
     const $ = s => root.querySelector(s);
     const panel = $('.panel'), launcher = $('.launcher'), close = $('.close');
     const messages = $('.messages'), empty = $('.empty'), error = $('.error');
@@ -459,11 +465,12 @@
 
   // Execute queued commands
   if (priorQueue.length) {
-    priorQueue.forEach(args => {
-      if (Array.isArray(args)) {
+    priorQueue.forEach(rawArgs => {
+      const args = Array.isArray(rawArgs) ? rawArgs : (rawArgs && typeof rawArgs === 'object' ? Array.from(rawArgs) : []);
+      if (args.length) {
         const [fn, ...params] = args;
         if (fn === 'run' || fn === 'init') createInstance(params[0]);
-        else if (typeof fn === 'object') createInstance(fn);
+        else if (typeof fn === 'object' && fn !== null) createInstance(fn);
       }
     });
   }
