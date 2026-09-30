@@ -1,4 +1,5 @@
 import React, {useState, type FormEvent} from 'react';
+import {motion, AnimatePresence} from 'framer-motion';
 import {api, ApiError} from '@/api/api';
 import {navigate} from '../../hooks/usePath';
 import {Link} from '../../components/common/Link';
@@ -31,7 +32,7 @@ export function Auth({path, onLogin}: AuthProps) {
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Form values - Start completely blank for genuine testing
+  // Form values - Start completely blank for genuine manual testing
   const [emailValue, setEmailValue] = useState('');
   const [passwordValue, setPasswordValue] = useState('');
 
@@ -111,7 +112,6 @@ export function Auth({path, onLogin}: AuthProps) {
     setError(null);
     setMessage('');
 
-    // Pre-flight Client Validation
     const emailErr = validateField('email', emailValue);
     const passErr = validateField('password', passwordValue);
 
@@ -154,7 +154,6 @@ export function Auth({path, onLogin}: AuthProps) {
     const phone = String(form.get('phone') || '');
     const password = String(form.get('password') || '');
 
-    // Pre-flight Client Validation for Signup
     const nameErr = validateField('fullName', fullName);
     const bizErr = validateField('business', business);
     const emailErr = validateField('email', email);
@@ -230,7 +229,6 @@ export function Auth({path, onLogin}: AuthProps) {
     }
   }
 
-  // Social SSO handler
   const handleSocialLogin = (provider: 'Google' | 'Facebook') => {
     setError(null);
     setMessage(`Cổng liên kết ${provider} SSO đang kết nối hệ thống doanh nghiệp.`);
@@ -238,7 +236,6 @@ export function Auth({path, onLogin}: AuthProps) {
 
   const serverFields = error instanceof ApiError ? (error.fields as Record<string, string[]>) : {};
 
-  // Helper to retrieve active field error (client or server)
   const getFieldError = (fieldName: string) => {
     if (clientErrors[fieldName]) return clientErrors[fieldName];
     if (serverFields[fieldName]) return serverFields[fieldName].join(' ');
@@ -268,7 +265,7 @@ export function Auth({path, onLogin}: AuthProps) {
               <span className="auth-brand-title">GoTek Solutions</span>
             </Link>
             <div className="auth-status-pill">
-              <ShieldCheck size={13} className="text-blue-500" />
+              <ShieldCheck size={13} className="text-blue-600" />
               <span>Enterprise Tier</span>
             </div>
           </div>
@@ -296,7 +293,7 @@ export function Auth({path, onLogin}: AuthProps) {
               </p>
             </div>
 
-            {/* Segmented Tab Switcher */}
+            {/* Segmented Tab Switcher with Smooth Slide Indicator */}
             {!isReset && !isVerify && (
               <div className="auth-tab-group">
                 <button
@@ -304,14 +301,28 @@ export function Auth({path, onLogin}: AuthProps) {
                   className={`auth-tab-item ${!isSignup ? 'active' : ''}`}
                   onClick={() => handleTabSwitch('login')}
                 >
-                  Đăng nhập
+                  {!isSignup && (
+                    <motion.div
+                      layoutId="authTabIndicator"
+                      className="auth-tab-indicator"
+                      transition={{type: 'spring', stiffness: 450, damping: 32}}
+                    />
+                  )}
+                  <span className="auth-tab-label">Đăng nhập</span>
                 </button>
                 <button
                   type="button"
                   className={`auth-tab-item ${isSignup ? 'active' : ''}`}
                   onClick={() => handleTabSwitch('signup')}
                 >
-                  Tạo tài khoản mới
+                  {isSignup && (
+                    <motion.div
+                      layoutId="authTabIndicator"
+                      className="auth-tab-indicator"
+                      transition={{type: 'spring', stiffness: 450, damping: 32}}
+                    />
+                  )}
+                  <span className="auth-tab-label">Tạo tài khoản mới</span>
                 </button>
               </div>
             )}
@@ -319,343 +330,368 @@ export function Auth({path, onLogin}: AuthProps) {
             {/* Feedback Alerts */}
             {error && (
               <div className="auth-msg-alert error" role="alert">
-                <AlertCircle size={16} className="shrink-0" />
+                <AlertCircle size={15} className="shrink-0" />
                 <span>{error.message}</span>
               </div>
             )}
 
             {message && (
               <div className="auth-msg-alert success" role="status">
-                <CheckCircle2 size={16} className="shrink-0" />
+                <CheckCircle2 size={15} className="shrink-0" />
                 <span>{message}</span>
               </div>
             )}
 
-            {/* Reset / Verify Form */}
-            {isReset || isVerify ? (
-              <form onSubmit={handleResetOrVerifySubmit} className="auth-actual-form" noValidate>
-                <fieldset disabled={busy} className="auth-fieldset">
-                  {isReset && !token && (
-                    <div className="auth-field-group">
-                      <label className="auth-field-label">Email tài khoản</label>
-                      <div className={`auth-input-shell ${getFieldError('email') ? 'error' : ''}`}>
-                        <Mail size={16} className="auth-input-prefix" />
-                        <input
-                          name="email"
-                          type="email"
-                          className="auth-input-control"
-                          placeholder="name@company.com"
-                          required
-                          onBlur={(e) => handleBlur('email', e.target.value)}
-                        />
-                      </div>
-                      {getFieldError('email') && (
-                        <span className="auth-field-error">
-                          <AlertCircle size={12} /> {getFieldError('email')}
-                        </span>
+            {/* Animated Form Transitions (Slide between Login and Signup) */}
+            <AnimatePresence mode="wait" initial={false}>
+              {isReset || isVerify ? (
+                <motion.div
+                  key="reset-verify"
+                  initial={{opacity: 0, x: 25}}
+                  animate={{opacity: 1, x: 0}}
+                  exit={{opacity: 0, x: -25}}
+                  transition={{duration: 0.22, ease: 'easeOut'}}
+                >
+                  <form onSubmit={handleResetOrVerifySubmit} className="auth-actual-form" noValidate>
+                    <fieldset disabled={busy} className="auth-fieldset">
+                      {isReset && !token && (
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">Email tài khoản</label>
+                          <div className={`auth-input-shell ${getFieldError('email') ? 'error' : ''}`}>
+                            <Mail size={16} className="auth-input-prefix" />
+                            <input
+                              name="email"
+                              type="email"
+                              className="auth-input-control"
+                              placeholder="name@company.com"
+                              required
+                              onBlur={(e) => handleBlur('email', e.target.value)}
+                            />
+                          </div>
+                          {getFieldError('email') && (
+                            <span className="auth-field-error">
+                              <AlertCircle size={12} /> {getFieldError('email')}
+                            </span>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  )}
 
-                  {isReset && token && (
-                    <div className="auth-field-group">
-                      <label className="auth-field-label">Mật khẩu mới (tối thiểu 12 ký tự)</label>
-                      <div className={`auth-input-shell ${getFieldError('password') ? 'error' : ''}`}>
-                        <Lock size={16} className="auth-input-prefix" />
-                        <input
-                          name="password"
-                          type={showPassword ? 'text' : 'password'}
-                          className="auth-input-control"
-                          placeholder="••••••••••••"
-                          required
-                          minLength={12}
-                          onBlur={(e) => handleBlur('password', e.target.value)}
-                        />
-                      </div>
-                      {getFieldError('password') && (
-                        <span className="auth-field-error">
-                          <AlertCircle size={12} /> {getFieldError('password')}
-                        </span>
+                      {isReset && token && (
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">Mật khẩu mới (tối thiểu 12 ký tự)</label>
+                          <div className={`auth-input-shell ${getFieldError('password') ? 'error' : ''}`}>
+                            <Lock size={16} className="auth-input-prefix" />
+                            <input
+                              name="password"
+                              type={showPassword ? 'text' : 'password'}
+                              className="auth-input-control"
+                              placeholder="••••••••••••"
+                              required
+                              minLength={12}
+                              onBlur={(e) => handleBlur('password', e.target.value)}
+                            />
+                          </div>
+                          {getFieldError('password') && (
+                            <span className="auth-field-error">
+                              <AlertCircle size={12} /> {getFieldError('password')}
+                            </span>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  )}
 
-                  <button type="submit" className="auth-action-btn" disabled={busy}>
-                    {busy ? 'Đang gửi yêu cầu...' : 'Xác nhận khôi phục'}
-                  </button>
-                </fieldset>
-              </form>
-            ) : !isSignup ? (
-              /* ==================== LOGIN FORM ==================== */
-              <div className="auth-login-flow">
-                <form onSubmit={handleLoginSubmit} className="auth-actual-form" noValidate>
-                  <fieldset disabled={busy} className="auth-fieldset">
-                    {/* Email */}
-                    <div className="auth-field-group">
-                      <label className="auth-field-label">Email công việc</label>
-                      <div className={`auth-input-shell ${getFieldError('email') ? 'error' : ''}`}>
-                        <Mail size={16} className="auth-input-prefix" />
-                        <input
-                          id="login-email"
-                          name="email"
-                          type="email"
-                          className="auth-input-control"
-                          placeholder="name@company.com"
-                          required
-                          value={emailValue}
-                          onChange={(e) => handleInputChange('email', e.target.value)}
-                          onBlur={(e) => handleBlur('email', e.target.value)}
-                        />
+                      <button type="submit" className="auth-action-btn" disabled={busy}>
+                        {busy ? 'Đang gửi yêu cầu...' : 'Xác nhận khôi phục'}
+                      </button>
+                    </fieldset>
+                  </form>
+                </motion.div>
+              ) : !isSignup ? (
+                /* ==================== LOGIN FORM WITH SLIDE ANIMATION ==================== */
+                <motion.div
+                  key="login-form"
+                  initial={{opacity: 0, x: -35}}
+                  animate={{opacity: 1, x: 0}}
+                  exit={{opacity: 0, x: 35}}
+                  transition={{duration: 0.24, ease: [0.16, 1, 0.3, 1]}}
+                  className="auth-login-flow"
+                >
+                  <form onSubmit={handleLoginSubmit} className="auth-actual-form" noValidate>
+                    <fieldset disabled={busy} className="auth-fieldset">
+                      {/* Email */}
+                      <div className="auth-field-group">
+                        <label className="auth-field-label">Email công việc</label>
+                        <div className={`auth-input-shell ${getFieldError('email') ? 'error' : ''}`}>
+                          <Mail size={16} className="auth-input-prefix" />
+                          <input
+                            id="login-email"
+                            name="email"
+                            type="email"
+                            className="auth-input-control"
+                            placeholder="name@company.com"
+                            required
+                            value={emailValue}
+                            onChange={(e) => handleInputChange('email', e.target.value)}
+                            onBlur={(e) => handleBlur('email', e.target.value)}
+                          />
+                        </div>
+                        {getFieldError('email') && (
+                          <span className="auth-field-error">
+                            <AlertCircle size={12} /> {getFieldError('email')}
+                          </span>
+                        )}
                       </div>
-                      {getFieldError('email') && (
-                        <span className="auth-field-error">
-                          <AlertCircle size={12} /> {getFieldError('email')}
-                        </span>
-                      )}
-                    </div>
 
-                    {/* Password */}
-                    <div className="auth-field-group">
-                      <div className="auth-label-split">
-                        <label className="auth-field-label">Mật khẩu</label>
-                        <Link to="/app/auth/reset" className="auth-forgot-link">
-                          Quên mật khẩu?
-                        </Link>
+                      {/* Password */}
+                      <div className="auth-field-group">
+                        <div className="auth-label-split">
+                          <label className="auth-field-label">Mật khẩu</label>
+                          <Link to="/app/auth/reset" className="auth-forgot-link">
+                            Quên mật khẩu?
+                          </Link>
+                        </div>
+                        <div className={`auth-input-shell ${getFieldError('password') ? 'error' : ''}`}>
+                          <Lock size={16} className="auth-input-prefix" />
+                          <input
+                            id="login-password"
+                            name="password"
+                            type={showPassword ? 'text' : 'password'}
+                            className="auth-input-control"
+                            placeholder="••••••••••••"
+                            required
+                            value={passwordValue}
+                            onChange={(e) => handleInputChange('password', e.target.value)}
+                            onBlur={(e) => handleBlur('password', e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className="auth-password-toggle"
+                            onClick={() => setShowPassword(!showPassword)}
+                            aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                          >
+                            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                        {getFieldError('password') && (
+                          <span className="auth-field-error">
+                            <AlertCircle size={12} /> {getFieldError('password')}
+                          </span>
+                        )}
                       </div>
-                      <div className={`auth-input-shell ${getFieldError('password') ? 'error' : ''}`}>
-                        <Lock size={16} className="auth-input-prefix" />
-                        <input
-                          id="login-password"
-                          name="password"
-                          type={showPassword ? 'text' : 'password'}
-                          className="auth-input-control"
-                          placeholder="••••••••••••"
-                          required
-                          value={passwordValue}
-                          onChange={(e) => handleInputChange('password', e.target.value)}
-                          onBlur={(e) => handleBlur('password', e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          className="auth-password-toggle"
-                          onClick={() => setShowPassword(!showPassword)}
-                          aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                        >
-                          {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                        </button>
+
+                      {/* Remember me */}
+                      <div className="auth-remember-row">
+                        <label className="auth-checkbox-wrap">
+                          <input id="remember" name="remember" type="checkbox" defaultChecked />
+                          <span className="auth-checkbox-text">Ghi nhớ đăng nhập</span>
+                        </label>
                       </div>
-                      {getFieldError('password') && (
-                        <span className="auth-field-error">
-                          <AlertCircle size={12} /> {getFieldError('password')}
-                        </span>
-                      )}
-                    </div>
 
-                    {/* Remember me */}
-                    <div className="auth-remember-row">
-                      <label className="auth-checkbox-wrap">
-                        <input id="remember" name="remember" type="checkbox" defaultChecked />
-                        <span className="auth-checkbox-text">Ghi nhớ đăng nhập</span>
-                      </label>
-                    </div>
+                      {/* Submit Button */}
+                      <button type="submit" className="auth-action-btn" disabled={busy}>
+                        {busy ? (
+                          <span>Đang xử lý...</span>
+                        ) : (
+                          <>
+                            <span>Đăng nhập vào Workspace</span>
+                            <ArrowRight size={16} />
+                          </>
+                        )}
+                      </button>
+                    </fieldset>
+                  </form>
 
-                    {/* Submit Button */}
-                    <button type="submit" className="auth-action-btn" disabled={busy}>
-                      {busy ? (
-                        <span>Đang xử lý...</span>
-                      ) : (
-                        <>
-                          <span>Đăng nhập vào Workspace</span>
-                          <ArrowRight size={16} />
-                        </>
-                      )}
+                  {/* Divider Line */}
+                  <div className="auth-separator">
+                    <span>hoặc tiếp tục với</span>
+                  </div>
+
+                  {/* Social Login Buttons: Google & Facebook */}
+                  <div className="auth-social-grid">
+                    <button
+                      type="button"
+                      onClick={() => handleSocialLogin('Google')}
+                      className="auth-social-tile"
+                      title="Đăng nhập với Google Workspace"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" className="shrink-0">
+                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.15z"/>
+                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.33 24 12 24z"/>
+                        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.99 0 12s.45 3.85 1.24 5.42l4.04-3.15z"/>
+                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                      </svg>
+                      <span>Google</span>
                     </button>
-                  </fieldset>
-                </form>
 
-                {/* Divider Line */}
-                <div className="auth-separator">
-                  <span>hoặc tiếp tục với</span>
-                </div>
-
-                {/* Social Login Buttons: Google & Facebook Placed Elegantly at the Bottom */}
-                <div className="auth-social-grid">
-                  <button
-                    type="button"
-                    onClick={() => handleSocialLogin('Google')}
-                    className="auth-social-tile"
-                    title="Đăng nhập với Google Workspace"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" className="shrink-0">
-                      <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.15z"/>
-                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.33 24 12 24z"/>
-                      <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.99 0 12s.45 3.85 1.24 5.42l4.04-3.15z"/>
-                      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-                    </svg>
-                    <span>Google</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSocialLogin('Facebook')}
-                    className="auth-social-tile"
-                    title="Đăng nhập với Facebook Business"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2" className="shrink-0">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                    </svg>
-                    <span>Facebook</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* ==================== SIGNUP FORM ==================== */
-              <form onSubmit={handleSignupSubmit} className="auth-actual-form" noValidate>
-                <fieldset disabled={busy} className="auth-fieldset">
-                  <div className="auth-twin-row">
-                    <div className="auth-field-group">
-                      <label className="auth-field-label">Họ và tên</label>
-                      <div className={`auth-input-shell ${getFieldError('fullName') ? 'error' : ''}`}>
-                        <User size={16} className="auth-input-prefix" />
-                        <input
-                          name="fullName"
-                          className="auth-input-control"
-                          placeholder="Nguyễn Văn A"
-                          required
-                          maxLength={120}
-                          onBlur={(e) => handleBlur('fullName', e.target.value)}
-                        />
-                      </div>
-                      {getFieldError('fullName') && (
-                        <span className="auth-field-error">
-                          <AlertCircle size={12} /> {getFieldError('fullName')}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="auth-field-group">
-                      <label className="auth-field-label">Tên doanh nghiệp</label>
-                      <div className={`auth-input-shell ${getFieldError('business') ? 'error' : ''}`}>
-                        <Building2 size={16} className="auth-input-prefix" />
-                        <input
-                          name="business"
-                          className="auth-input-control"
-                          placeholder="Công ty CP..."
-                          required
-                          maxLength={160}
-                          onBlur={(e) => handleBlur('business', e.target.value)}
-                        />
-                      </div>
-                      {getFieldError('business') && (
-                        <span className="auth-field-error">
-                          <AlertCircle size={12} /> {getFieldError('business')}
-                        </span>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSocialLogin('Facebook')}
+                      className="auth-social-tile"
+                      title="Đăng nhập với Facebook Business"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2" className="shrink-0">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                      <span>Facebook</span>
+                    </button>
                   </div>
+                </motion.div>
+              ) : (
+                /* ==================== SIGNUP FORM WITH SLIDE ANIMATION ==================== */
+                <motion.div
+                  key="signup-form"
+                  initial={{opacity: 0, x: 35}}
+                  animate={{opacity: 1, x: 0}}
+                  exit={{opacity: 0, x: -35}}
+                  transition={{duration: 0.24, ease: [0.16, 1, 0.3, 1]}}
+                >
+                  <form onSubmit={handleSignupSubmit} className="auth-actual-form" noValidate>
+                    <fieldset disabled={busy} className="auth-fieldset">
+                      <div className="auth-twin-row">
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">Họ và tên</label>
+                          <div className={`auth-input-shell ${getFieldError('fullName') ? 'error' : ''}`}>
+                            <User size={16} className="auth-input-prefix" />
+                            <input
+                              name="fullName"
+                              className="auth-input-control"
+                              placeholder="Nguyễn Văn A"
+                              required
+                              maxLength={120}
+                              onBlur={(e) => handleBlur('fullName', e.target.value)}
+                            />
+                          </div>
+                          {getFieldError('fullName') && (
+                            <span className="auth-field-error">
+                              <AlertCircle size={12} /> {getFieldError('fullName')}
+                            </span>
+                          )}
+                        </div>
 
-                  <div className="auth-twin-row">
-                    <div className="auth-field-group">
-                      <label className="auth-field-label">Email công việc</label>
-                      <div className={`auth-input-shell ${getFieldError('email') ? 'error' : ''}`}>
-                        <Mail size={16} className="auth-input-prefix" />
-                        <input
-                          name="email"
-                          type="email"
-                          className="auth-input-control"
-                          placeholder="name@company.com"
-                          required
-                          maxLength={254}
-                          onBlur={(e) => handleBlur('email', e.target.value)}
-                        />
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">Tên doanh nghiệp</label>
+                          <div className={`auth-input-shell ${getFieldError('business') ? 'error' : ''}`}>
+                            <Building2 size={16} className="auth-input-prefix" />
+                            <input
+                              name="business"
+                              className="auth-input-control"
+                              placeholder="Công ty CP..."
+                              required
+                              maxLength={160}
+                              onBlur={(e) => handleBlur('business', e.target.value)}
+                            />
+                          </div>
+                          {getFieldError('business') && (
+                            <span className="auth-field-error">
+                              <AlertCircle size={12} /> {getFieldError('business')}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {getFieldError('email') && (
-                        <span className="auth-field-error">
-                          <AlertCircle size={12} /> {getFieldError('email')}
-                        </span>
-                      )}
-                    </div>
 
-                    <div className="auth-field-group">
-                      <label className="auth-field-label">Số điện thoại</label>
-                      <div className={`auth-input-shell ${getFieldError('phone') ? 'error' : ''}`}>
-                        <Phone size={16} className="auth-input-prefix" />
-                        <input
-                          name="phone"
-                          type="tel"
-                          className="auth-input-control"
-                          placeholder="0912 345 678"
-                          required
-                          maxLength={25}
-                          onBlur={(e) => handleBlur('phone', e.target.value)}
-                        />
+                      <div className="auth-twin-row">
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">Email công việc</label>
+                          <div className={`auth-input-shell ${getFieldError('email') ? 'error' : ''}`}>
+                            <Mail size={16} className="auth-input-prefix" />
+                            <input
+                              name="email"
+                              type="email"
+                              className="auth-input-control"
+                              placeholder="name@company.com"
+                              required
+                              maxLength={254}
+                              onBlur={(e) => handleBlur('email', e.target.value)}
+                            />
+                          </div>
+                          {getFieldError('email') && (
+                            <span className="auth-field-error">
+                              <AlertCircle size={12} /> {getFieldError('email')}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">Số điện thoại</label>
+                          <div className={`auth-input-shell ${getFieldError('phone') ? 'error' : ''}`}>
+                            <Phone size={16} className="auth-input-prefix" />
+                            <input
+                              name="phone"
+                              type="tel"
+                              className="auth-input-control"
+                              placeholder="0912 345 678"
+                              required
+                              maxLength={25}
+                              onBlur={(e) => handleBlur('phone', e.target.value)}
+                            />
+                          </div>
+                          {getFieldError('phone') && (
+                            <span className="auth-field-error">
+                              <AlertCircle size={12} /> {getFieldError('phone')}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {getFieldError('phone') && (
-                        <span className="auth-field-error">
-                          <AlertCircle size={12} /> {getFieldError('phone')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="auth-twin-row">
-                    <div className="auth-field-group">
-                      <label className="auth-field-label">Mã giới thiệu (tùy chọn)</label>
-                      <div className="auth-input-shell">
-                        <Sparkles size={16} className="auth-input-prefix" />
-                        <input
-                          name="referral"
-                          className="auth-input-control"
-                          placeholder="Mã đối tác..."
-                          maxLength={80}
-                        />
+                      <div className="auth-twin-row">
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">Mã giới thiệu (tùy chọn)</label>
+                          <div className="auth-input-shell">
+                            <Sparkles size={16} className="auth-input-prefix" />
+                            <input
+                              name="referral"
+                              className="auth-input-control"
+                              placeholder="Mã đối tác..."
+                              maxLength={80}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">Mật khẩu (tối thiểu 12 ký tự)</label>
+                          <div className={`auth-input-shell ${getFieldError('password') ? 'error' : ''}`}>
+                            <Lock size={16} className="auth-input-prefix" />
+                            <input
+                              name="password"
+                              type={showPassword ? 'text' : 'password'}
+                              className="auth-input-control"
+                              placeholder="••••••••••••"
+                              required
+                              minLength={12}
+                              maxLength={128}
+                              onBlur={(e) => handleBlur('password', e.target.value)}
+                            />
+                            <button
+                              type="button"
+                              className="auth-password-toggle"
+                              onClick={() => setShowPassword(!showPassword)}
+                              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                            >
+                              {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
+                          </div>
+                          {getFieldError('password') && (
+                            <span className="auth-field-error">
+                              <AlertCircle size={12} /> {getFieldError('password')}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="auth-field-group">
-                      <label className="auth-field-label">Mật khẩu (tối thiểu 12 ký tự)</label>
-                      <div className={`auth-input-shell ${getFieldError('password') ? 'error' : ''}`}>
-                        <Lock size={16} className="auth-input-prefix" />
-                        <input
-                          name="password"
-                          type={showPassword ? 'text' : 'password'}
-                          className="auth-input-control"
-                          placeholder="••••••••••••"
-                          required
-                          minLength={12}
-                          maxLength={128}
-                          onBlur={(e) => handleBlur('password', e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          className="auth-password-toggle"
-                          onClick={() => setShowPassword(!showPassword)}
-                          aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                        >
-                          {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                        </button>
-                      </div>
-                      {getFieldError('password') && (
-                        <span className="auth-field-error">
-                          <AlertCircle size={12} /> {getFieldError('password')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <button type="submit" className="auth-action-btn" disabled={busy}>
-                    {busy ? (
-                      <span>Đang tạo tài khoản...</span>
-                    ) : (
-                      <>
-                        <span>Khởi tạo tài khoản doanh nghiệp</span>
-                        <ArrowRight size={16} />
-                      </>
-                    )}
-                  </button>
-                </fieldset>
-              </form>
-            )}
+                      <button type="submit" className="auth-action-btn" disabled={busy}>
+                        {busy ? (
+                          <span>Đang tạo tài khoản...</span>
+                        ) : (
+                          <>
+                            <span>Khởi tạo tài khoản doanh nghiệp</span>
+                            <ArrowRight size={16} />
+                          </>
+                        )}
+                      </button>
+                    </fieldset>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Card Footer Policy */}
@@ -667,7 +703,8 @@ export function Auth({path, onLogin}: AuthProps) {
         </div>
 
         {/* ====================================================================
-            RIGHT PANEL: DRIBBBLE-STYLE LUXURY FEATURE SHOWCASE
+            RIGHT PANEL: GOTEK BRAND CYAN-BLUE LUXURY FEATURE SHOWCASE
+            Soft, luminous company blue gradient matching white left panel!
             ==================================================================== */}
         <div className="auth-card-right">
           {/* Subtle decorative inner ambient glow */}
@@ -676,7 +713,7 @@ export function Auth({path, onLogin}: AuthProps) {
           <div className="showcase-inner-container">
             {/* Tag badge */}
             <div className="showcase-badge">
-              <Sparkles size={13} className="text-cyan-400" />
+              <Sparkles size={13} className="text-white" />
               <span>Nền tảng CSKH Đa Kênh Thế Hệ Mới</span>
             </div>
 
@@ -718,7 +755,7 @@ export function Auth({path, onLogin}: AuthProps) {
                     Dạ anh/chị, GoTek đã đối soát biểu phí và quy trình thẩm định bảo lãnh Q4. Đã sẵn sàng hồ sơ tín dụng mẫu!
                   </p>
                   <div className="chat-citation-tag">
-                    <FileText size={12} className="text-blue-400" />
+                    <FileText size={12} className="text-blue-600" />
                     <span>Quy_trinh_tin_dung_2026.pdf (Mục 4.2)</span>
                   </div>
                 </div>
