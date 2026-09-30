@@ -170,3 +170,7 @@ Xem [TODO](TODO.md). Core acceptance và fresh setup là ưu tiên trước feat
 ## Unknowns
 
 HiChat internal architecture, production hosting, provider live receipts, toàn bộ browser parity, production SLA/RPO/RTO và full conversation tool history: **UNKNOWN / NEEDS VERIFICATION**. Không đủ bằng chứng gán platform nào đã production-ready.
+
+### 2026-10-01 browser remediation update
+
+Local DOCX upload → DRAFT → READY → INTERNAL publication → reload verified. Added direct internal publication action on READY documents; no public transition required. Inbox internal-note persistence and visitor exclusion verified. Build all and frontend 9/9 pass. PR #4 remains draft; public lifecycle and negative-role/failure browser gates remain pending. No production acceptance implied.

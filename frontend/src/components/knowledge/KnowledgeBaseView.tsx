@@ -164,7 +164,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
             <span className={`material-symbols-outlined text-[18px] ${isReindexing ? 'animate-spin text-[#4f46e5]' : ''}`}>
               cached
             </span>
-            <span>{isReindexing ? `Re-indexing (${reindexProgress}%)` : 'Re-index All Vectors'}</span>
+            <span>{isReindexing ? `Đang xử lý (${reindexProgress}%)` : 'Xử lý các bản nháp'}</span>
           </button>
 
           <button
@@ -578,6 +578,13 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
                               type="button"
                             >
                               Publish Public
+                            </button>
+                            <button
+                              onClick={() => onUpdateDocument(doc.id, {publicationStatus: 'internal'})}
+                              className="px-2 py-1 text-xs font-semibold text-[#131b2e] hover:bg-[#eaedff] rounded transition-colors"
+                              type="button"
+                            >
+                              Publish Internal
                             </button>
                             <button
                               onClick={() => setEditingId(doc.id)}

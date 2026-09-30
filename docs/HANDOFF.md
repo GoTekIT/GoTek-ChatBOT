@@ -187,3 +187,17 @@ Preparing draft PR only. Remaining gates: final browser Inbox send/reload/error/
 PR #4 draft created from codex/chatbot-delivery at 1fb2a30. First CI run36753523210: 175/176 backend pass; sole failure inbox-resume-ai fake DB called service without transaction, rejected by new afterCommit contract. Test now mocks pool connection and exercises transaction wrapper, preserving ownership/version assertions. Focused test and backend typecheck PASS; CI rerun required after push.
 
 Inbox browser verified on isolated preview: real visitor message loaded; takeover switched to human; staff reply sent through composer; reload preserved reply in main transcript. Visitor API readback confirms exactly one `Staff browser reply persisted`. Screenshot outside repo `/Users/ngxuanphu/Downloads/Gotek_AI_chatbot/inbox-browser-persist-20261001.png`. This is real local receipt/persistence, not customer delivery or production proof. Next browser checks: note privacy, upload/publish, negative role and error handling; CI must finish green before readiness.
+
+### Verified continuation — 2026-10-01
+
+CI run 36754158834 at commit 4ae3950 passed test-and-build (2m25s), verified through gh pr checks 4. PR #4 remains draft pending remaining browser gates. Prior pending-CI entries above are superseded.
+
+Browser local Inbox internal-note acceptance: saved INTERNAL_BROWSER_NOTE_ONLY via actual internal-note composer, reloaded page, confirmed staff transcript retained note and private label. Independent visitor /messages readback excludes that note and contains exactly one earlier public reply. Screenshot outside Git: /Users/ngxuanphu/Downloads/Gotek_AI_chatbot/inbox-note-private-20261001.png. Preview still healthy on port4329. Original tab expired; replacement IAB tab2 marked handoff. No customer or production messaging.
+
+Next required: actual file upload/publish browser flow, negative-role and failure handling acceptance, then reconcile remaining UI placeholders and readiness. No production/whole-product completion claim.
+
+### DOCX browser lifecycle — 2026-10-01
+
+Uploaded backend/tests/fixtures/enterprise-faq.docx through the real file chooser; imported row appeared DRAFT, explicit process changed it to READY. Found missing direct internal publication action: added Publish Internal beside Publish Public for READY so private documents never need public publication first. Verified direct INTERNAL publication and reload persistence in browser. Renamed misleading Re-index All Vectors button to Xử lý các bản nháp to match its operation. Screenshot outside Git: /Users/ngxuanphu/Downloads/Gotek_AI_chatbot/knowledge-internal-upload-20261001.png.
+
+Build all PASS and frontend 9/9 PASS. Remaining gates: public publication, negative role and failure UI checks, residual placeholder review. Existing CI pass applies to 4ae3950; this change needs its own CI run. Goal remains active.
