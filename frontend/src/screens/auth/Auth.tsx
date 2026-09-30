@@ -45,6 +45,59 @@ export function Auth({path, onLogin}: AuthProps) {
   const [eyeOffset, setEyeOffset] = useState({x: 0, y: 0});
   const showcaseRef = useRef<HTMLDivElement>(null);
 
+  // Interactive Bot Poking & Emotion state (Bấm chọc ghẹo quay đi / ngã xỉu)
+  const [pokeCount, setPokeCount] = useState(0);
+  const [botState, setBotState] = useState<'idle' | 'poked' | 'turned' | 'fainted'>('idle');
+  const pokeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleBotClick = () => {
+    if (botState === 'fainted') return;
+
+    if (pokeTimeoutRef.current) {
+      clearTimeout(pokeTimeoutRef.current);
+    }
+
+    const nextCount = pokeCount + 1;
+    setPokeCount(nextCount);
+
+    if (nextCount === 1) {
+      setBotState('poked');
+      pokeTimeoutRef.current = setTimeout(() => {
+        setBotState('idle');
+      }, 1600);
+    } else if (nextCount === 2) {
+      setBotState('turned');
+      pokeTimeoutRef.current = setTimeout(() => {
+        setBotState('idle');
+      }, 2200);
+    } else {
+      // nextCount >= 3: Ngã lăn ra xỉu!
+      setBotState('fainted');
+      pokeTimeoutRef.current = setTimeout(() => {
+        setBotState('idle');
+        setPokeCount(0);
+      }, 3600);
+    }
+  };
+
+  const getMascotSpeech = () => {
+    if (botState === 'fainted') {
+      return 'Bị chọc quá nhiều... GoTek Bot đã ngất xỉu rồi x_x';
+    }
+    if (botState === 'turned') {
+      return 'Huhu nhột quá, đừng chọc em nữa mà! Em quay lưng đi luôn đó! 🥺';
+    }
+    if (botState === 'poked') {
+      return 'Ái chao! Bạn vừa bấm vào tôi à? Nhột quá đi hihi! ⚡';
+    }
+    if (isBotHovered) {
+      return 'Bấm thử vào người em xem điều bất ngờ nhé! 😉';
+    }
+    return isSignup
+      ? 'Tạo tài khoản để mở khóa trợ lý AI thông minh ngay nhé! 🚀'
+      : 'Chào mừng trở lại! Hãy đăng nhập để bắt đầu phiên làm việc nhé 👋';
+  };
+
   // Route state
   const isSignup = path === '/app/auth/signup';
   const isReset = path === '/app/auth/reset';
@@ -751,6 +804,26 @@ export function Auth({path, onLogin}: AuthProps) {
           transition={{type: 'spring', stiffness: 220, damping: 26}}
           className="auth-card-right"
         >
+          {/* Ambient decorative tech concentric rings */}
+          <div className="tech-rings-ambient" aria-hidden="true">
+            <div className="tech-ring ring-outer" />
+            <div className="tech-ring ring-inner" />
+          </div>
+
+          {/* Floating Technology Feature Badges to make background rich & lively */}
+          <div className="floating-badge-chip chip-top-left" aria-hidden="true">
+            <Zap size={11} className="text-amber-300" />
+            <span>Phản hồi &lt;0.2s</span>
+          </div>
+          <div className="floating-badge-chip chip-top-right" aria-hidden="true">
+            <Sparkles size={11} className="text-sky-300" />
+            <span>Omni-Channel RAG</span>
+          </div>
+          <div className="floating-badge-chip chip-bottom-left" aria-hidden="true">
+            <ShieldCheck size={11} className="text-emerald-300" />
+            <span>RLS Multi-Tenant</span>
+          </div>
+
           {/* Subtle logo-inspired light orbs */}
           <div className="showcase-glow-light" />
 
@@ -760,25 +833,23 @@ export function Auth({path, onLogin}: AuthProps) {
             <motion.div
               initial={{scale: 0.9, opacity: 0}}
               animate={{scale: 1, opacity: 1}}
-              key={isBotHovered ? 'hover' : isSignup ? 'signup' : 'login'}
-              className="mascot-speech-bubble"
+              key={botState + (isBotHovered ? 'hover' : isSignup ? 'signup' : 'login')}
+              className={`mascot-speech-bubble ${botState === 'fainted' ? 'bubble-fainted' : ''}`}
             >
-              <span className="speech-avatar">✨</span>
-              <p>
-                {isBotHovered
-                  ? 'Em luôn sẵn sàng hỗ trợ anh yêu 24/7! 🤖'
-                  : isSignup
-                    ? 'Tạo tài khoản để mở khóa trợ lý AI thông minh ngay nhé! 🚀'
-                    : 'Chào mừng trở lại! Hãy đăng nhập để bắt đầu phiên làm việc nhé 👋'}
-              </p>
+              <span className="speech-avatar">
+                {botState === 'fainted' ? '😵' : botState === 'turned' ? '🥺' : botState === 'poked' ? '⚡' : '✨'}
+              </span>
+              <p>{getMascotSpeech()}</p>
               <div className="speech-arrow" />
             </motion.div>
 
-            {/* Interactive Vector 2D/3D Mascot */}
+            {/* Interactive Vector 2D/3D Mascot with Click Poking Reaction */}
             <div
-              className={`mascot-character ${isBotHovered ? 'hovered' : ''}`}
+              className={`mascot-character state-${botState} ${isBotHovered ? 'hovered' : ''}`}
               onMouseEnter={() => setIsBotHovered(true)}
               onMouseLeave={() => setIsBotHovered(false)}
+              onClick={handleBotClick}
+              title="Bấm vào để tương tác với bé bot nhé!"
             >
               {/* Antenna with pulsing star */}
               <div className="mascot-antenna">
@@ -789,22 +860,35 @@ export function Auth({path, onLogin}: AuthProps) {
               {/* Bot Head & Face */}
               <div className="mascot-head">
                 <div className="mascot-face-visor">
-                  {/* Digital Eyes with Eye Tracking */}
-                  <div
-                    className="mascot-eyes"
-                    style={{
-                      transform: `translate(${eyeOffset.x}px, ${eyeOffset.y}px)`
-                    }}
-                  >
-                    <div className="digital-eye left">
-                      <div className="eye-pupil" />
+                  {/* Digital Eyes with Eye Tracking & Expressions */}
+                  {botState === 'fainted' ? (
+                    <div className="mascot-eyes-fainted">
+                      <span className="eye-cross">✕</span>
+                      <span className="eye-cross">✕</span>
                     </div>
-                    <div className="digital-eye right">
-                      <div className="eye-pupil" />
+                  ) : botState === 'turned' ? (
+                    <div className="mascot-eyes-turned">
+                      <span className="eye-dint">&gt;</span>
+                      <span className="eye-dint">&lt;</span>
                     </div>
-                  </div>
-                  {/* Subtle cute smile */}
-                  <div className="mascot-smile" />
+                  ) : (
+                    <div
+                      className="mascot-eyes"
+                      style={{
+                        transform: `translate(${eyeOffset.x}px, ${eyeOffset.y}px)`
+                      }}
+                    >
+                      <div className="digital-eye left">
+                        <div className="eye-pupil" />
+                      </div>
+                      <div className="digital-eye right">
+                        <div className="eye-pupil" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subtle cute smile / expression mouth */}
+                  <div className={`mascot-smile state-${botState}`} />
                 </div>
               </div>
 

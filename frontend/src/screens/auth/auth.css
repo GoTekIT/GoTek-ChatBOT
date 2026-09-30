@@ -16,11 +16,17 @@
   position: relative;
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   box-sizing: border-box;
   background-color: #f1f5f9;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #0f172a;
   transition: background-color 0.3s ease;
+}
+
+.auth-outer-screen::-webkit-scrollbar {
+  display: none;
 }
 
 :is(.dark, .dark *) .auth-outer-screen {
@@ -147,10 +153,12 @@
   background: #ffffff;
   border-radius: 24px;
   overflow: hidden;
+  /* Multi-layered dramatic 3D ambient elevation shadow */
   box-shadow: 
-    0 25px 65px -12px rgba(2, 132, 199, 0.18),
-    0 10px 30px -4px rgba(15, 23, 42, 0.06),
-    0 0 0 1px rgba(226, 232, 240, 0.85);
+    0 12px 32px -4px rgba(2, 132, 199, 0.22),
+    0 28px 65px -12px rgba(15, 23, 42, 0.32),
+    0 50px 105px -18px rgba(2, 6, 23, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.85) inset;
   margin: auto;
   transition: box-shadow 0.3s ease;
 }
@@ -158,7 +166,8 @@
 :is(.dark, .dark *) .auth-card-wrapper {
   background: #0f172a;
   box-shadow: 
-    0 28px 70px -12px rgba(0, 0, 0, 0.65),
+    0 25px 60px -10px rgba(0, 0, 0, 0.8),
+    0 45px 110px -15px rgba(2, 132, 199, 0.18),
     0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
@@ -177,12 +186,18 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 28px 36px;
+  padding: 22px 34px;
   box-sizing: border-box;
   background: #ffffff;
   position: relative;
   z-index: 2;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.auth-card-left::-webkit-scrollbar {
+  display: none;
 }
 
 :is(.dark, .dark *) .auth-card-left {
@@ -811,6 +826,103 @@
 }
 
 /* ==========================================================================
+   TECH DECORATIVE CONCENTRIC RINGS & FLOATING BADGES (Enriching the Blue Background)
+   ========================================================================== */
+.tech-rings-ambient {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tech-ring {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.tech-ring.ring-outer {
+  width: 440px;
+  height: 440px;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  animation: rotateTechRing 60s linear infinite;
+}
+
+.tech-ring.ring-inner {
+  width: 310px;
+  height: 310px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  animation: rotateTechRingReverse 45s linear infinite;
+}
+
+@keyframes rotateTechRing {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rotateTechRingReverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+/* Floating Glass Feature Badges */
+.floating-badge-chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  z-index: 2;
+  transition: transform 0.3s ease;
+}
+
+.chip-top-left {
+  top: 36px;
+  left: 28px;
+  animation: floatBadge1 4.5s ease-in-out infinite alternate;
+}
+
+.chip-top-right {
+  top: 38px;
+  right: 28px;
+  animation: floatBadge2 5s ease-in-out infinite alternate;
+}
+
+.chip-bottom-left {
+  bottom: 45px;
+  left: 32px;
+  animation: floatBadge3 4.2s ease-in-out infinite alternate;
+}
+
+@keyframes floatBadge1 {
+  0% { transform: translateY(0px) rotate(-1deg); }
+  100% { transform: translateY(-7px) rotate(1deg); }
+}
+
+@keyframes floatBadge2 {
+  0% { transform: translateY(0px) rotate(1deg); }
+  100% { transform: translateY(-9px) rotate(-1.5deg); }
+}
+
+@keyframes floatBadge3 {
+  0% { transform: translateY(0px) rotate(-1deg); }
+  100% { transform: translateY(-6px) rotate(1.5deg); }
+}
+
+/* ==========================================================================
    INTERACTIVE 2D/3D AI COMPANION MASCOT
    ========================================================================== */
 .mascot-stage {
@@ -820,7 +932,7 @@
   width: 100%;
   position: relative;
   z-index: 2;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 /* Speech Bubble */
@@ -835,17 +947,24 @@
   max-width: 290px;
   font-size: 11.5px;
   line-height: 1.4;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
   gap: 7px;
   backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.mascot-speech-bubble.bubble-fainted {
+  background: rgba(254, 242, 242, 0.96);
+  border-color: #fecaca;
+  color: #991b1b;
 }
 
 .mascot-speech-bubble p {
   margin: 0;
   font-weight: 500;
-  color: #0f172a;
+  color: inherit;
 }
 
 .speech-avatar {
@@ -859,7 +978,7 @@
   transform: translateX(-50%) rotate(45deg);
   width: 12px;
   height: 12px;
-  background: rgba(255, 255, 255, 0.94);
+  background: inherit;
   border-right: 1px solid rgba(255, 255, 255, 0.9);
   border-bottom: 1px solid rgba(255, 255, 255, 0.9);
 }
@@ -875,6 +994,50 @@
   justify-content: center;
   cursor: pointer;
   animation: floatMascot 3.6s ease-in-out infinite;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  user-select: none;
+}
+
+.mascot-character:hover {
+  filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.4));
+}
+
+.mascot-character:active {
+  transform: scale(0.94);
+}
+
+/* Mascot Poke Reaction State 1: Poked (Bị chọc - nảy lên) */
+.mascot-character.state-poked {
+  animation: pokeBounce 0.45s ease-in-out infinite alternate;
+}
+
+@keyframes pokeBounce {
+  0% { transform: translateY(-4px) rotate(-4deg) scale(1.04); }
+  100% { transform: translateY(-12px) rotate(4deg) scale(0.98); }
+}
+
+/* Mascot Poke Reaction State 2: Turned (Quay lưng giận dỗi) */
+.mascot-character.state-turned {
+  transform: rotate(25deg) scaleX(-1);
+  animation: none;
+}
+
+/* Mascot Poke Reaction State 3: Fainted (Ngã lăn ra xỉu) */
+.mascot-character.state-fainted {
+  transform: rotate(-85deg) translate(-26px, 18px);
+  animation: faintPulse 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes faintPulse {
+  0% { transform: rotate(-85deg) translate(-26px, 18px); }
+  100% { transform: rotate(-88deg) translate(-26px, 20px); }
+}
+
+.mascot-character.state-fainted .mascot-antenna .antenna-star {
+  color: #94a3b8;
+  text-shadow: none;
+  animation: none;
+  transform: rotate(45deg);
 }
 
 @keyframes floatMascot {
@@ -983,6 +1146,45 @@
   box-shadow: 0 0 12px #38bdf8;
 }
 
+/* Fainted Eyes: Dizzy Spinning ✕ ✕ */
+.mascot-eyes-fainted {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.eye-cross {
+  font-size: 15px;
+  font-weight: 900;
+  color: #fde047;
+  text-shadow: 0 0 8px rgba(253, 224, 71, 0.9);
+  animation: eyeSpin 2.4s linear infinite;
+  display: inline-block;
+  line-height: 1;
+}
+
+@keyframes eyeSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Turned / Pouting Eyes: > < */
+.mascot-eyes-turned {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+.eye-dint {
+  font-size: 16px;
+  font-weight: 900;
+  color: #38bdf8;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+  line-height: 1;
+}
+
 .mascot-smile {
   width: 10px;
   height: 4px;
@@ -990,6 +1192,32 @@
   border-radius: 0 0 6px 6px;
   margin-top: 4px;
   opacity: 0.85;
+  transition: all 0.2s ease;
+}
+
+.mascot-smile.state-poked {
+  width: 6px;
+  height: 6px;
+  border: 2px solid #38bdf8;
+  border-radius: 50%;
+  margin-top: 2px;
+}
+
+.mascot-smile.state-turned {
+  width: 10px;
+  height: 4px;
+  border-bottom: none;
+  border-top: 2px solid #38bdf8;
+  border-radius: 6px 6px 0 0;
+  margin-top: 5px;
+}
+
+.mascot-smile.state-fainted {
+  width: 12px;
+  height: 3px;
+  border-bottom: 2px dashed #fde047;
+  border-radius: 2px;
+  margin-top: 3px;
 }
 
 /* Floating Hands */
