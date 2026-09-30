@@ -5,7 +5,7 @@ import pg from 'pg';
 // Dedicated disposable database; never accepts a caller-provided restore target.
 const target=`gotek_restore_${randomUUID().replaceAll('-','')}`;
 const source='gotek_chatbot';
-const options={host:'/tmp',port:55432,user:'gotek_migrator'};
+const options={host:'127.0.0.1',port:55432,user:'gotek_migrator'};
 const root=new pg.Client({...options,database:'postgres'});await root.connect();
 const live=new pg.Client({...options,database:source});await live.connect();
 mkdirSync('.local/backups',{recursive:true});chmodSync('.local/backups',0o700);

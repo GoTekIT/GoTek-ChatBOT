@@ -2,7 +2,7 @@ import request from 'supertest';
 import {createApp} from '../src/app';
 import {opaque,digest} from '../src/core/security';
 import test from 'node:test';import assert from 'node:assert/strict';import {aiReplyHandler,transactionalAiReplyHandler} from '../src/modules/ai/ai-reply-worker';import {runAiWorkerOnce,defaultWorkspaceProviderInvoke} from '../src/modules/jobs/worker';import pg from 'pg';import {randomUUID} from 'node:crypto';import {pool,scope,transaction} from '../src/core/db';import {appendMessage} from '../src/modules/chat/chat-store';import {enqueueJob} from '../src/modules/jobs/jobs';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 test.after(async()=>{await pool.end();await admin.end();});
 test('AI worker boundary refuses stale ownership and missing model before invocation',async()=>{let calls=0;const db:any={query:async(sql:string)=>({rows:sql.includes('SELECT c.reply_owner')?[{reply_owner:'HUMAN_ACTIVE',owner_version:2,body:'hello'}]:[]})};const h=aiReplyHandler(db,async()=>{calls++;return 'answer';});await assert.rejects(()=>h({workspace_id:'w',payload:{conversationId:'c',messageId:'m',ownerVersion:2}}),(e:any)=>e.code==='STALE_REPLY_OWNER');assert.equal(calls,0);});
 test('AI worker invokes an enabled workspace model and appends a public reply',async()=>{

@@ -7,6 +7,8 @@
     "dev": "tsx src/index.ts",
     "build": "tsc --noEmit",
     "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
+    "fixture:seed": "tsx scripts/workshop-fixture.ts --seed",
+    "fixture:reset": "tsx scripts/workshop-fixture.ts --reset",
     "db:setup": "tsx scripts/setup-db.ts",
     "db:seed": "tsx scripts/seed-data.ts",
     "db:restore-drill": "tsx scripts/restore-drill.ts",

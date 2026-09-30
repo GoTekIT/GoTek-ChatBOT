@@ -4,7 +4,7 @@ import pg from 'pg';
 import {randomUUID} from 'node:crypto';
 import {pool,scope,transaction} from '../src/core/db';
 import {createContact,listContacts,getContact} from '../src/modules/chat/contacts';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 
 test('H03 contact visibility: Agent cannot read CRM contacts and tenant owner cannot cross workspace',async()=>{

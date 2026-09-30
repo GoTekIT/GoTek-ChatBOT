@@ -150,3 +150,25 @@ Xem [TODO](TODO.md). Core acceptance và fresh setup là ưu tiên trước feat
 ## Unknowns
 
 HiChat internal architecture, production hosting, provider live receipts, toàn bộ browser parity, production SLA/RPO/RTO và full conversation tool history: **UNKNOWN / NEEDS VERIFICATION**. Không đủ bằng chứng gán platform nào đã production-ready.
+
+## 2026-09-30 implementation checkpoint
+
+UC-04 channel management is now wired into the new console shell: `/app/channels` reads the authenticated channel API instead of mock cards, supports channel creation, agent selection, enable/disable, settings, customer-link copy/open, and embed-code copy. Backend installation output includes a public customer URL only; provider secrets are not returned. Builds and focused tests pass, but browser acceptance and Supabase credential/origin verification remain open.
+
+The channel UI was refined into responsive three-column connection cards with centered modals for creation, settings, and installation details. This is a usability improvement only; it does not change the tenant or origin security rules.
+
+The UI now explicitly labels the business website origin separately from the customer chat link, reducing the risk of copying the wrong URL during installation.
+
+The channel settings form now uses grouped cards and responsive grids instead of a single long column; frontend build and tests remain green.
+
+Pre-chat configuration now starts with a four-step guide and quick templates. Email, name and phone fields are always shown when the pre-chat form is enabled; businesses only choose required versus optional and can customize labels/placeholders.
+
+The settings form is now a sequential four-step wizard: the business completes the current step before moving to the next one, with back navigation and final save on Step 4.
+
+The Step 1 member-save validation was corrected for deterministic UUID-shaped test fixtures; tenant and active-membership checks remain enforced.
+
+Channel actions now use a consistent top-right toast for success/error feedback, including enable/disable and configuration saves.
+
+Working-hours cards now have clearer day switches, active states and time controls; frontend build and tests remain green.
+
+Step 3 pre-chat fields now use a one-column editor. Businesses can add a custom field, edit its label and placeholder, mark it required/optional, or delete it; the last remaining field cannot be deleted. Settings validation accepts safe generated custom keys (up to ten fields), while tenant scoping and visitor-side allow-list validation remain enforced. Frontend build PASS, frontend tests 5/5 PASS, backend build PASS.

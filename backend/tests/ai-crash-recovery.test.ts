@@ -10,7 +10,7 @@ import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { digest, opaque } from '../src/core/security';
 
-const admin = new pg.Pool({ host: '/tmp', port: 55432, user: 'gotek_migrator', database: 'gotek_chatbot' });
+const admin = new pg.Pool({ host: '127.0.0.1', port: 55432, user: 'gotek_migrator', database: 'gotek_chatbot' });
 
 const fixture = fileURLToPath(new URL('./fixtures/ai-crash-worker.ts', import.meta.url));
 function child(workspace: string, mode: string) {

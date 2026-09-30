@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import pg from 'pg';import {randomUUID} from 'node:crypto';
 import {pool,scope,transaction} from '../src/core/db';import {setSchedule,enqueueDue} from '../src/modules/web-sources/web-source-schedule';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 test.after(async()=>{await admin.end();await pool.end();});
 test('schedule CAS, role and concurrent due claims preserve one tenant job',async()=>{
  const w=randomUUID(),u=randomUUID(),s=randomUUID();

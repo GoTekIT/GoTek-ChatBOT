@@ -1,0 +1,165 @@
+.prechat-fields {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 14px !important;
+}
+
+.prechat-fields-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid #dbe7f7;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.prechat-fields-toolbar .fields-helper {
+  margin: 0;
+}
+
+.add-field-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #1769e8;
+  border-radius: 10px;
+  background: #1769e8;
+  color: #fff;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.add-field-button:hover:not(:disabled) {
+  background: #0d55c5;
+  box-shadow: 0 8px 18px #1769e82e;
+  transform: translateY(-1px);
+}
+
+.add-field-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.prechat-field-card {
+  width: 100%;
+  padding: 18px;
+  border: 1px solid #b9d3ff;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f5f9ff 100%);
+  box-shadow: 0 6px 16px #163c7810;
+}
+
+.prechat-field-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.prechat-field-title,
+.prechat-field-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.prechat-field-title > span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #e9f2ff;
+  color: #1769e8;
+}
+
+.prechat-field-title strong {
+  color: #102b56;
+  font-size: 15px;
+}
+
+.field-delete-button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #f0bdc2;
+  border-radius: 9px;
+  background: #fff7f7;
+  color: #c43845;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+
+.field-delete-button:hover:not(:disabled) {
+  border-color: #d94d59;
+  background: #d94d59;
+  color: #fff;
+}
+
+.field-delete-button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.prechat-field-options {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto !important;
+  align-items: end;
+  gap: 12px !important;
+}
+
+.prechat-field-options .field {
+  display: grid;
+  gap: 7px;
+}
+
+.prechat-field-options .field > span {
+  color: #5c7191;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.prechat-field-options input:not([type='checkbox']) {
+  min-height: 42px;
+  border-color: #c5d5e9;
+  background: #fff;
+}
+
+.prechat-field-options .required-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 2px 1px;
+  white-space: nowrap;
+  color: #27466f;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .prechat-fields-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .add-field-button {
+    width: 100%;
+  }
+
+  .prechat-field-options {
+    grid-template-columns: 1fr !important;
+  }
+
+  .prechat-field-options .required-check {
+    min-height: 36px;
+  }
+}

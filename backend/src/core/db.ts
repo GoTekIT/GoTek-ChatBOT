@@ -1,13 +1,10 @@
 import pg, {type PoolClient} from 'pg';
 import {readFileSync, existsSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 
 // Auto-load .env file if available (Node 20+)
 try {
-  if (existsSync('.env')) {
-    process.loadEnvFile?.('.env');
-  } else if (existsSync('../.env')) {
-    process.loadEnvFile?.('../.env');
-  }
+  process.loadEnvFile?.(fileURLToPath(new URL('../../.env', import.meta.url)));
 } catch {
   // Ignore if .env is missing or invalid
 }

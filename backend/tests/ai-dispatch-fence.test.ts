@@ -8,7 +8,7 @@ import { runWorkerOnce } from '../src/modules/jobs/worker';
 
 // This is deliberately a scheduler-level fixture.  The AI handler is injected
 // by the worker, so this proves the durable claim fence without provider keys.
-const admin = new pg.Pool({ host: '/tmp', port: 55432, user: 'gotek_migrator', database: 'gotek_chatbot' });
+const admin = new pg.Pool({ host: '127.0.0.1', port: 55432, user: 'gotek_migrator', database: 'gotek_chatbot' });
 
 test('AI dispatch fence claims one queued source when workers race', async () => {
   const workspace = randomUUID();

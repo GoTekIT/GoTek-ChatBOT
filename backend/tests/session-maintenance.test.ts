@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {pool,scope,transaction} from '../src/core/db';
 import {purgeExpiredSessions} from '../src/core/session-maintenance';
 
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 
 test('H23 expired sessions are purged in bounded batches without touching live sessions',async()=>{

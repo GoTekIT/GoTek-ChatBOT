@@ -7,7 +7,7 @@ import { InboxView } from '../../components/inbox/InboxView';
 import { KnowledgeBaseView } from '../../components/knowledge/KnowledgeBaseView';
 import { StaffRolesView } from '../../components/settings/StaffRolesView';
 import { CustomerWidgetView } from '../../components/widget/CustomerWidgetView';
-import { ChannelsView } from '../../components/channels/ChannelsView';
+import { Channels } from '../channels/Channels';
 import { AnalyticsView } from '../../components/analytics/AnalyticsView';
 import { CommandPalette } from '../../components/modals/CommandPalette';
 import { AuditLogModal } from '../../components/modals/AuditLogModal';
@@ -325,7 +325,7 @@ export function ConsoleWorkspace({
               />
             )}
 
-            {activeModule === 'channels' && <ChannelsView />}
+            {activeModule === 'channels' && <Channels role={me?.role ?? 'Agent'} />}
             {activeModule === 'analytics' && <AnalyticsView />}
           </>
         ) : (

@@ -7,7 +7,7 @@ import {createApp} from '../src/app';
 import {takeover} from '../src/modules/chat/chat-store';
 import {transaction,scope,pool} from '../src/core/db';
 
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 
 test('H05 assignment capacity serializes concurrent widget sessions and takeover rejects stale owner',async()=>{
