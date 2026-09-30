@@ -68,6 +68,7 @@ export function App() {
   }
 
   async function handleLogout() {
+    setError(null);
     ++refreshSequence.current;
     try {
       await AuthService.logout();
@@ -124,6 +125,8 @@ export function App() {
   }
 
   return (
+    <>
+    {error && <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-white border border-red-300 rounded-lg p-4 shadow-lg"><Notice error={error} /><button onClick={() => setError(null)}>Đóng thông báo</button></div>}
     <ConsoleWorkspace
       key={`${me.user.id}:${me.workspaceId}:${me.role}`}
       me={me}
@@ -132,5 +135,6 @@ export function App() {
       onSwitchWorkspace={switchWorkspace}
       onLogout={handleLogout}
     />
+    </>
   );
 }

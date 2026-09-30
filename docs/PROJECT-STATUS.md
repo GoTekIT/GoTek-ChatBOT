@@ -180,3 +180,5 @@ Composer remediation: separated unsent text per conversation and public/internal
 Local browser acceptance: Agent denied direct Knowledge URL; disposable fixture restored. Real API outage shows connection error; restart restores unsent draft without page reload. CDP offline was ineffective on localhost and excluded from evidence. Across-reload pending identity remains outstanding.
 
 Reload follow-up: session-scoped composer drafts restore after reload with user/workspace and public/internal separation (browser verified). Retry clientId persists before sending and is reused until confirmed; local API double-send readback gives exactly one message. Frontend 11/11 and build pass. CI for these new changes still pending push. Residual fake controls and final acceptance audit remain.
+
+Final review fixes: authenticated logout failure now visibly rendered (browser verified on API outage); conversation SSE closes when its access is revoked (DB policy + hub tests pass). Unimplemented AI rephrase/attachments/tags/reactions disabled explicitly, remain backlog. Build and 11 frontend tests pass; exact-head CI still required.

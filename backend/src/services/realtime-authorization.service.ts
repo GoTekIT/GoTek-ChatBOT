@@ -6,7 +6,7 @@ import {identity} from '../middlewares/auth.middleware';
 import {access} from '../modules/chat/inbox';
 
 /** Check current session and channel access for every delivery, not just connect. */
-export function realtimeAuthorization(req: Request, workspaceId: string) {
+export function realtimeAuthorization(req: Request, workspaceId: string, closeOnConversationDenied = false) {
   return async (deliver: () => void, conversationId?: string): Promise<void> => {
     await transaction(async db => {
       const actor = await identity(db, req);
@@ -17,7 +17,7 @@ export function realtimeAuthorization(req: Request, workspaceId: string) {
           await access(db, actor, conversationId);
         } catch (error) {
           // An inaccessible conversation does not invalidate a workspace subscription.
-          if (error instanceof HttpError && error.status === 404) return;
+          if (error instanceof HttpError && error.status === 404 && !closeOnConversationDenied) return;
           throw error;
         }
       }

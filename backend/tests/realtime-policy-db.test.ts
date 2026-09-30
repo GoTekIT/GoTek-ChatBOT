@@ -35,6 +35,9 @@ test('SSE DB policy enforces channel scope, live roles, session expiry, revoke a
     await policy(send,conversations[1]); assert.equal(delivered,2);
     await admin.query('DELETE FROM channel_members WHERE user_id=$1',[user]);
     await policy(send,conversations[0]); assert.equal(delivered,2);
+    const conversationPolicy = realtimeAuthorization({cookies:{gotek_session:token},headers:{}} as any,ws,true);
+    await assert.rejects(conversationPolicy(send,conversations[0]), /NOT_FOUND/);
+    assert.equal(delivered,2);
     await admin.query('UPDATE sessions SET workspace_id=$1 WHERE token_hash=$2',[foreign,digest(token)]);
     await assert.rejects(policy(send), /SESSION_CHANGED/);
     await admin.query("UPDATE sessions SET workspace_id=$1,expires_at=now()-interval '1 second' WHERE token_hash=$2",[ws,digest(token)]);

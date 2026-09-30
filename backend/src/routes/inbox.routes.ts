@@ -63,7 +63,7 @@ inboxRouter.get('/conversations/:id/stream', async (req, res, next) => {
       actor = await identity(db, req);
       await access(db, actor, String(req.params.id));
     });
-    realtimeHub.register(uuid(), actor!.workspace_id, res, req, realtimeAuthorization(req, actor!.workspace_id), String(req.params.id));
+    realtimeHub.register(uuid(), actor!.workspace_id, res, req, realtimeAuthorization(req, actor!.workspace_id, true), String(req.params.id));
   } catch (e) {
     next(e);
   }

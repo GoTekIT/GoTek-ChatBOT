@@ -227,3 +227,11 @@ Added replyRetryStore backed by sessionStorage, scoped by user/workspace/convers
 This provides retry identity after reload if the same body is resubmitted; unsent composer text itself remains in memory and does not yet restore after full reload. Pending requirement: wire draft restoration or expose pending retry UI, then final audit. Changes local pending commit, no completion claim.
 
 Composer reload follow-through: InboxView now restores validated sessionStorage drafts per user/workspace/conversation/visibility and persists changes; logout clears composer and retry stores. Browser fresh build verified RELOAD_PRIVATE_DRAFT survives full reload, remains absent in public composer, appears only after choosing internal mode. Screenshot /Users/ngxuanphu/Downloads/Gotek_AI_chatbot/inbox-reload-private-draft-20261001.png. Build all PASS. This supersedes the missing-composer-restoration note immediately above. Session storage is tab-local, not a cross-device draft service.
+
+### Final review corrections — 2026-10-01
+
+Disabled unimplemented Inbox AI rephrase, attachments, CRM tag mutations and reactions with unavailable labels/titles. Removed fake AI rewrite/timer and success claims. These auxiliary features remain NOT IMPLEMENTED, not counted complete. Latest nguyen update b27b540→26e8517 changes three SDK copies only; earlier broader overlaps remain for independent review.
+
+Found logout error was stored but not rendered while authenticated: added dismissible Notice in console shell. Browser actual preview outage then Logout showed explicit connection error and retained authenticated shell; screenshot /Users/ngxuanphu/Downloads/Gotek_AI_chatbot/logout-failure-visible-20261001.png. Restored preview, now exec session36516.
+
+Conversation-specific SSE now closes on lost conversation access (policy throws; hub closes) rather than merely suppressing events. Workspace stream still skips individual inaccessible conversations. Regression DB test added, 2/2 SSE suites PASS; build all PASS; frontend 11/11 PASS. Changes require new CI run. Remaining external acceptance: live Google OAuth/email/provider receipts; no credential, deployment or full WBS acceptance claim. Next: push corrections, verify exact-head CI, consolidate PR evidence and scope audit.

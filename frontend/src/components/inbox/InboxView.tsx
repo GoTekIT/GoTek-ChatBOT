@@ -52,7 +52,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const [expandedCitations, setExpandedCitations] = useState<Record<string, boolean>>({});
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, string[]>>({});
-  const [isAiThinking, setIsAiThinking] = useState(false);
+  const isAiThinking = false;
 
   const [activeTags, setActiveTags] = useState<Record<string, string[]>>({
     'conv-1': ['Enterprise Deal', '🔥 Lead Hot', 'Yêu cầu NDA'],
@@ -216,52 +216,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
     showToast('Đã chèn câu trả lời mẫu');
   };
 
-  // Cinematic AI Rephrase Sparkle
-  const handleAiRephrase = () => {
-    setIsAiThinking(true);
-    setTimeout(() => {
-      setIsAiThinking(false);
-      if (!messageText.trim()) {
-        setMessageText('Kính gửi Quý khách, GoTek đã tiếp nhận yêu cầu và sẽ hỗ trợ giải đáp chi tiết ngay sau đây ạ.');
-        showToast('Đã chèn nội dung chào mừng tiêu chuẩn');
-        return;
-      }
-      setMessageText((prev) => `Dạ kính gửi đối tác, GoTek cam kết đáp ứng trọn vẹn yêu cầu kỹ thuật của bên mình: ${prev.trim()}`);
-      showToast('Đã trau chuốt câu từ bằng AI');
-      textareaRef.current?.focus();
-    }, 400);
-  };
-
-  const handleToggleReaction = (msgId: string, emoji: string) => {
-    setMessageReactions((prev) => {
-      const current = prev[msgId] || [];
-      const exists = current.includes(emoji);
-      const updated = exists ? current.filter((e) => e !== emoji) : [...current, emoji];
-      return { ...prev, [msgId]: updated };
-    });
-  };
-
-  const handleAddTag = () => {
-    if (!newTagInput.trim() || !activeConv) return;
-    const current = activeTags[activeConv.id] || activeConv.crmTags || [];
-    setActiveTags({
-      ...activeTags,
-      [activeConv.id]: [...current, newTagInput.trim()],
-    });
-    setNewTagInput('');
-    setShowAddTag(false);
-    showToast('Đã thêm nhãn CRM');
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    if (!activeConv) return;
-    const current = activeTags[activeConv.id] || activeConv.crmTags || [];
-    setActiveTags({
-      ...activeTags,
-      [activeConv.id]: current.filter((t) => t !== tagToRemove),
-    });
-    showToast('Đã gỡ nhãn CRM');
-  };
+  // These controls remain unavailable until their server contracts are integrated.
+  const handleAddTag = () => showToast('Quản lý nhãn CRM chưa khả dụng.');
+  const handleRemoveTag = (_tag: string) => showToast('Quản lý nhãn CRM chưa khả dụng.');
 
   const currentTags = activeTags[activeConv?.id] || activeConv?.crmTags || [];
 
@@ -838,9 +795,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
                             <span className="material-symbols-outlined text-[15px]">content_copy</span>
                           </button>
                           <button
-                            onClick={() => handleToggleReaction(msg.id, '👍')}
+                            disabled
                             className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                            title="Thích"
+                            title="Reaction chưa khả dụng"
                           >
                             <span className="material-symbols-outlined text-[15px]">thumb_up</span>
                           </button>
@@ -903,9 +860,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
                             <span className="material-symbols-outlined text-[15px]">content_copy</span>
                           </button>
                           <button
-                            onClick={() => handleToggleReaction(msg.id, '❤️')}
+                            disabled
                             className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                            title="Thả tim"
+                            title="Reaction chưa khả dụng"
                           >
                             <span className="material-symbols-outlined text-[15px]">favorite</span>
                           </button>
@@ -1111,16 +1068,15 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 type="button"
-                onClick={handleAiRephrase}
-                disabled={isAiThinking}
+                disabled
                 className="px-3 py-1 rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/60 dark:via-indigo-950/50 dark:to-purple-950/40 hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/60 text-[#1664ff] dark:text-blue-400 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-blue-200/80 dark:border-blue-800/60 shadow-2xs group"
-                title="Tự động trau chuốt và làm câu từ lịch sự bằng AI"
+                title="AI trau chuốt chưa khả dụng"
               >
                 <span className={`material-symbols-outlined text-[16px] text-[#722ed1] dark:text-purple-400 group-hover:scale-110 transition-transform ${isAiThinking ? 'animate-spin' : ''}`}>
                   {isAiThinking ? 'sync' : 'auto_awesome'}
                 </span>
                 <span className="bg-gradient-to-r from-[#1664ff] to-[#722ed1] dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
-                  {isAiThinking ? 'Đang phân tích...' : 'AI Trau chuốt'}
+                  {isAiThinking ? 'Đang phân tích...' : 'AI · Chưa khả dụng'}
                 </span>
               </motion.button>
             </div>
@@ -1151,9 +1107,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
               <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-[12px]">
                 <button
                   type="button"
-                  onClick={() => showToast('Tính năng đính kèm tệp sẵn sàng')}
+                  disabled
                   className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                  title="Đính kèm tệp tin"
+                  title="Đính kèm tệp chưa khả dụng"
                 >
                   <span className="material-symbols-outlined text-[18px]">attach_file</span>
                 </button>
@@ -1341,11 +1297,12 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 <h5 className="font-bold text-[11px] text-slate-400 dark:text-slate-400 uppercase tracking-wider">Nhãn CRM</h5>
                 <button
                   type="button"
-                  onClick={() => setShowAddTag(!showAddTag)}
+                  disabled
+                  title="Quản lý nhãn CRM chưa khả dụng"
                   className="text-[11.5px] font-bold text-[#1664ff] dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[15px]">add</span>
-                  <span>Thêm nhãn</span>
+                  <span>Chưa khả dụng</span>
                 </button>
               </div>
 
@@ -1386,9 +1343,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     <span>{tag}</span>
                     <button
                       type="button"
-                      onClick={() => handleRemoveTag(tag)}
+                      disabled
                       className="text-slate-400 hover:text-rose-500 font-bold ml-0.5 transition-colors cursor-pointer"
-                      title="Gỡ nhãn"
+                      title="Quản lý nhãn CRM chưa khả dụng"
                     >
                       ×
                     </button>
