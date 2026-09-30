@@ -2,6 +2,12 @@
 
 Áp dụng cho mọi thay đổi gửi vào `main`. Source of truth là repository này và commit Git đã được đẩy lên remote. Tài liệu WBS, bản demo và checkout cũ là nguồn tham khảo; chỉ đưa nội dung vào repository qua commit và pull request có người kiểm tra.
 
+## Bảo vệ đang bật trên GitHub
+
+- `main`: không xóa/force push; chỉ nhận thay đổi qua PR. PR cần `test-and-build` PASS trên nhánh đã cập nhật theo `main`, một người khác duyệt, giải quyết comment; review cũ bị hủy khi có commit mới và người push cuối không được tự duyệt.
+- Các nhánh làm việc: không xóa/force push. Vẫn được push commit mới theo chiều tiến của lịch sử. Quy tắc này giữ các commit chưa merge của đồng nghiệp có thể truy lại.
+- Quy tắc không giữ được file chỉ nằm trên máy cá nhân và chưa commit. Trước khi đổi nhánh hoặc đồng bộ, chạy `git status --short` và lưu công việc đang dở bằng commit trên nhánh của mình.
+
 ## Một người một nhánh và một checkout riêng
 
 - Mỗi task có mã UC/H/E, người phụ trách và danh sách file dự kiến. Nếu hai task cùng sửa một file, thống nhất người tích hợp trước khi coding.
@@ -22,6 +28,8 @@ git switch -c feature/UC-xxx-short-name
 2. Chạy `git merge origin/main`. Nếu Git báo conflict, mở từng file và đối chiếu cả hai thay đổi với yêu cầu nghiệp vụ. Không chọn hàng loạt `ours` hoặc `theirs`.
 3. Kiểm tra `git diff --check`, `git diff --name-status origin/main...HEAD` và các file bị xoá/đổi tên. Chạy build, test liên quan và luồng thủ công cần thiết trên DB test riêng.
 4. Push nhánh của mình, mở PR vào `main`. Nếu `main` đổi tiếp trước lúc merge, đồng bộ và kiểm tra lại. Người không tạo thay đổi phải review các file dùng chung, migration, auth/tenant, widget và CI.
+
+Nếu push bị từ chối vì remote của **chính nhánh đó** đã có commit mới, không force push. Dừng lại, xác nhận đúng nhánh và người đang dùng nó; `git fetch origin`, merge `origin/<ten-nhanh-cua-ban>` vào nhánh local, giải quyết conflict, chạy lại kiểm tra rồi push. Nếu đó là nhánh của đồng nghiệp, tạo nhánh cá nhân riêng và đưa thay đổi qua PR.
 
 Không dùng `git reset --hard`, `git clean -fd`, `git push --force`, hoặc xoá nhánh có việc chưa hợp nhất để “sửa nhanh” xung đột. Khi cần bỏ một thay đổi đã merge, tạo PR dùng `git revert` để giữ lịch sử.
 
