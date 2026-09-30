@@ -845,24 +845,6 @@ export function Auth({path, onLogin}: AuthProps) {
             <span className="sparkle-dot d3" />
           </div>
 
-          {/* Floating Technology Feature Badges to make background rich & lively */}
-          <div className="floating-badge-chip chip-top-left" aria-hidden="true">
-            <Zap size={11} className="text-amber-300" />
-            <span>Phản hồi &lt;0.2s</span>
-          </div>
-          <div className="floating-badge-chip chip-top-right" aria-hidden="true">
-            <Sparkles size={11} className="text-sky-300" />
-            <span>Omni-Channel RAG</span>
-          </div>
-          <div className="floating-badge-chip chip-bottom-left" aria-hidden="true">
-            <ShieldCheck size={11} className="text-emerald-300" />
-            <span>RLS Multi-Tenant</span>
-          </div>
-          <div className="floating-badge-chip chip-bottom-right" aria-hidden="true">
-            <span className="chip-mini-icon">💬</span>
-            <span>10,000+ Hội thoại</span>
-          </div>
-
           {/* Subtle logo-inspired light orbs */}
           <div className="showcase-glow-light" />
 
@@ -894,88 +876,126 @@ export function Auth({path, onLogin}: AuthProps) {
               <div className="speech-arrow" />
             </motion.div>
 
-            {/* Interactive Vector 2D/3D Mascot with Click Poking Reaction */}
-            <div
-              className={`mascot-character state-${botState} ${isBotHovered ? 'hovered' : ''}`}
-              onMouseEnter={() => setIsBotHovered(true)}
-              onMouseLeave={() => setIsBotHovered(false)}
-              onClick={handleBotClick}
-              title={botState === 'fainted' ? 'Bấm vào để hồi sinh bé bot!' : 'Bấm vào để tương tác với bé bot nhé!'}
-            >
-              {/* Antenna with pulsing star */}
-              <div className="mascot-antenna">
-                <div className="antenna-stem" />
-                <div className="antenna-star">★</div>
-              </div>
+            {/* Orbiting Satellite System Revolving Around The Mascot */}
+            <div className="mascot-orbit-wrapper">
+              {/* Elliptical Glowing Orbit Track */}
+              <div className="orbit-track-ring" aria-hidden="true" />
 
-              {/* Bot Head & Face */}
-              <div className="mascot-head">
-                <div className="mascot-face-visor">
-                  {/* Digital Eyes with Eye Tracking & Diverse Emotions */}
-                  {botState === 'fainted' ? (
-                    <div className="mascot-eyes-fainted">
-                      <span className="eye-cross">✕</span>
-                      <span className="eye-cross">✕</span>
-                    </div>
-                  ) : botState === 'turned' ? (
-                    <div className="mascot-eyes-turned">
-                      <span className="eye-dint">&gt;</span>
-                      <span className="eye-dint">&lt;</span>
-                    </div>
-                  ) : botState === 'love' ? (
-                    <div className="mascot-eyes-love">
-                      <span className="eye-heart">♥</span>
-                      <span className="eye-heart">♥</span>
-                    </div>
-                  ) : botState === 'charging' ? (
-                    <div className="mascot-eyes-charging">
-                      <span className="eye-bolt">⚡</span>
-                      <span className="eye-bolt">⚡</span>
-                    </div>
-                  ) : botState === 'dancing' ? (
-                    <div className="mascot-eyes-dancing">
-                      <span className="eye-arc">^</span>
-                      <span className="eye-arc">^</span>
-                    </div>
-                  ) : (
-                    <div
-                      className="mascot-eyes"
-                      style={{
-                        transform: `translate(${eyeOffset.x}px, ${eyeOffset.y}px)`
-                      }}
-                    >
-                      <div className="digital-eye left">
-                        <div className="eye-pupil" />
-                      </div>
-                      <div className="digital-eye right">
-                        <div className="eye-pupil" />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Subtle cute smile / expression mouth */}
-                  <div className={`mascot-smile state-${botState}`} />
+              {/* Satellite 1: Speed */}
+              <div className="orbit-satellite sat-1" aria-hidden="true">
+                <div className="satellite-capsule">
+                  <Zap size={11} className="text-amber-300" />
+                  <span>Phản hồi &lt;0.2s</span>
                 </div>
               </div>
 
-              {/* Floating Hands */}
-              <div className="mascot-hand left" />
-              <div className="mascot-hand right" />
-
-              {/* Pod Body with GoTek Star Emblem */}
-              <div className="mascot-body">
-                <div className="mascot-core-star">
-                  <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
-                    <polygon
-                      points="50,5 64,36 98,40 72,64 80,98 50,80 20,98 28,64 2,40 36,36"
-                      fill="#38bdf8"
-                    />
-                  </svg>
+              {/* Satellite 2: Accurate RAG */}
+              <div className="orbit-satellite sat-2" aria-hidden="true">
+                <div className="satellite-capsule">
+                  <Sparkles size={11} className="text-sky-300" />
+                  <span>Trích dẫn RAG</span>
                 </div>
               </div>
 
-              {/* Floating Shadow */}
-              <div className="mascot-shadow" />
+              {/* Satellite 3: Enterprise Security */}
+              <div className="orbit-satellite sat-3" aria-hidden="true">
+                <div className="satellite-capsule">
+                  <ShieldCheck size={11} className="text-emerald-300" />
+                  <span>Bảo mật RLS</span>
+                </div>
+              </div>
+
+              {/* Satellite 4: Omni-Channel */}
+              <div className="orbit-satellite sat-4" aria-hidden="true">
+                <div className="satellite-capsule">
+                  <span className="sat-icon">💬</span>
+                  <span>Đa kênh 24/7</span>
+                </div>
+              </div>
+
+              {/* Interactive Vector 2D/3D Mascot with Click Poking Reaction */}
+              <div
+                className={`mascot-character state-${botState} ${isBotHovered ? 'hovered' : ''}`}
+                onMouseEnter={() => setIsBotHovered(true)}
+                onMouseLeave={() => setIsBotHovered(false)}
+                onClick={handleBotClick}
+                title={botState === 'fainted' ? 'Bấm vào để hồi sinh bé bot!' : 'Bấm vào để tương tác với bé bot nhé!'}
+              >
+                {/* Antenna with pulsing star */}
+                <div className="mascot-antenna">
+                  <div className="antenna-stem" />
+                  <div className="antenna-star">★</div>
+                </div>
+
+                {/* Bot Head & Face */}
+                <div className="mascot-head">
+                  <div className="mascot-face-visor">
+                    {/* Digital Eyes with Eye Tracking & Diverse Emotions */}
+                    {botState === 'fainted' ? (
+                      <div className="mascot-eyes-fainted">
+                        <span className="eye-cross">✕</span>
+                        <span className="eye-cross">✕</span>
+                      </div>
+                    ) : botState === 'turned' ? (
+                      <div className="mascot-eyes-turned">
+                        <span className="eye-dint">&gt;</span>
+                        <span className="eye-dint">&lt;</span>
+                      </div>
+                    ) : botState === 'love' ? (
+                      <div className="mascot-eyes-love">
+                        <span className="eye-heart">♥</span>
+                        <span className="eye-heart">♥</span>
+                      </div>
+                    ) : botState === 'charging' ? (
+                      <div className="mascot-eyes-charging">
+                        <span className="eye-bolt">⚡</span>
+                        <span className="eye-bolt">⚡</span>
+                      </div>
+                    ) : botState === 'dancing' ? (
+                      <div className="mascot-eyes-dancing">
+                        <span className="eye-arc">^</span>
+                        <span className="eye-arc">^</span>
+                      </div>
+                    ) : (
+                      <div
+                        className="mascot-eyes"
+                        style={{
+                          transform: `translate(${eyeOffset.x}px, ${eyeOffset.y}px)`
+                        }}
+                      >
+                        <div className="digital-eye left">
+                          <div className="eye-pupil" />
+                        </div>
+                        <div className="digital-eye right">
+                          <div className="eye-pupil" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Subtle cute smile / expression mouth */}
+                    <div className={`mascot-smile state-${botState}`} />
+                  </div>
+                </div>
+
+                {/* Floating Hands */}
+                <div className="mascot-hand left" />
+                <div className="mascot-hand right" />
+
+                {/* Pod Body with GoTek Star Emblem */}
+                <div className="mascot-body">
+                  <div className="mascot-core-star">
+                    <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+                      <polygon
+                        points="50,5 64,36 98,40 72,64 80,98 50,80 20,98 28,64 2,40 36,36"
+                        fill="#38bdf8"
+                      />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Floating Shadow */}
+                <div className="mascot-shadow" />
+              </div>
             </div>
 
             {/* Mascot Interactive Action Bar: Expressive Quick Toggles */}
@@ -1017,19 +1037,25 @@ export function Auth({path, onLogin}: AuthProps) {
               Nền tảng CSKH Đa Kênh Tự Động & Handoff Chuyên Viên
             </p>
 
-            {/* 3 Clean Modern Feature Pills */}
-            <div className="mascot-pill-tags">
-              <span className="mascot-tag">
-                <Zap size={12} className="text-amber-300" />
-                <span>Phản hồi &lt;1.2s</span>
+            {/* Sleek Modern Inline Micro Metrics */}
+            <div className="mascot-inline-metrics">
+              <span className="metric-chip">
+                <Zap size={11} className="text-amber-300" />
+                <span>&lt;0.2s</span>
               </span>
-              <span className="mascot-tag">
-                <Sparkles size={12} className="text-cyan-200" />
-                <span>Trích dẫn RAG chuẩn xác</span>
+              <span className="metric-sep">•</span>
+              <span className="metric-chip">
+                <Sparkles size={11} className="text-sky-300" />
+                <span>RAG AI</span>
               </span>
-              <span className="mascot-tag">
-                <ShieldCheck size={12} className="text-emerald-300" />
-                <span>Bảo mật RLS 100%</span>
+              <span className="metric-sep">•</span>
+              <span className="metric-chip">
+                <ShieldCheck size={11} className="text-emerald-300" />
+                <span>RLS 100%</span>
+              </span>
+              <span className="metric-sep">•</span>
+              <span className="metric-chip">
+                <span>💬 10K+ Sessions</span>
               </span>
             </div>
 
