@@ -352,75 +352,6 @@
   font-weight: 500;
 }
 
-/* Demo Selector Bar (Compact Horizontal Pills) */
-.auth-demo-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 6px 10px;
-  margin-bottom: 14px;
-}
-
-:is(.dark, .dark *) .auth-demo-bar {
-  background: #111827;
-  border-color: #1f293d;
-}
-
-.auth-demo-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  white-space: nowrap;
-}
-
-:is(.dark, .dark *) .auth-demo-label {
-  color: #94a3b8;
-}
-
-.auth-demo-chips {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.auth-chip {
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  border-radius: 6px;
-  padding: 3px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #334155;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-:is(.dark, .dark *) .auth-chip {
-  background: #1a2336;
-  border-color: #2a3956;
-  color: #cbd5e1;
-}
-
-.auth-chip:hover {
-  border-color: #3b82f6;
-  color: #2563eb;
-}
-
-.auth-chip.active {
-  background: #eff6ff;
-  border-color: #3b82f6;
-  color: #1d4ed8;
-}
-
-:is(.dark, .dark *) .auth-chip.active {
-  background: rgba(37, 99, 235, 0.2);
-  border-color: #60a5fa;
-  color: #93c5fd;
-}
-
 /* Alert Boxes */
 .auth-msg-alert {
   display: flex;
@@ -576,10 +507,38 @@
   color: #cbd5e1;
 }
 
+.auth-input-shell.error .auth-input-control {
+  border-color: #ef4444 !important;
+  background-color: #fffbfa;
+}
+
+:is(.dark, .dark *) .auth-input-shell.error .auth-input-control {
+  border-color: #f87171 !important;
+  background-color: rgba(239, 68, 68, 0.08);
+}
+
+.auth-input-shell.error .auth-input-control:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18) !important;
+}
+
 .auth-field-error {
-  font-size: 11px;
-  color: #ef4444;
-  margin-top: 2px;
+  font-size: 11.5px;
+  color: #dc2626;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  animation: fadeInError 0.2s ease;
+}
+
+:is(.dark, .dark *) .auth-field-error {
+  color: #f87171;
+}
+
+@keyframes fadeInError {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Remember Row */
