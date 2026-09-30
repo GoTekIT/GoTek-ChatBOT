@@ -75,6 +75,7 @@ export interface Conversation {
   unreadCount?: number;
   channel: 'Widget' | 'Slack App' | 'Email' | 'API Chat';
   status: 'handoff' | 'ai_active' | 'in_review' | 'resolved';
+  assignedTo?: string;
   slaCountdown?: string;
   slaUrgent?: boolean;
   activeUrl: string;

@@ -81,9 +81,9 @@ export function ConsoleWorkspace({
   const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Sidebar resizer & collapse state
+  // Sidebar resizer & collapse state (Default: true for icon-only rail mode like Lark)
   const [sidebarWidth, setSidebarWidth] = useState<number>(256);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(true);
   const [isDraggingSidebar, setIsDraggingSidebar] = useState<boolean>(false);
 
   // Synchronize route when module changes according to Frontend Group Routes
@@ -249,10 +249,10 @@ export function ConsoleWorkspace({
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#faf8ff] text-[#131b2e] antialiased">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#f8f9fb] dark:bg-[#080c14] text-[#1f2329] dark:text-slate-100 antialiased transition-colors duration-300">
       {/* Global Toast */}
       {toastMessage && (
-        <div className="fixed top-4 right-4 z-50 bg-[#131b2e] text-white text-xs px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 border border-[#4f46e5] animate-in fade-in slide-in-from-top-2">
+        <div className="fixed top-4 right-4 z-50 bg-[#131b2e] dark:bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 border border-[#4f46e5] dark:border-blue-500/50 animate-in fade-in slide-in-from-top-2">
           <span className="material-symbols-outlined text-[16px] text-emerald-400">check_circle</span>
           <span className="font-medium">{toastMessage}</span>
         </div>
@@ -283,17 +283,15 @@ export function ConsoleWorkspace({
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             />
 
-            {/* Draggable Resizer between Sidebar & Content */}
+            {/* Subtle Draggable Resizer between Sidebar & Content */}
             {!isSidebarCollapsed && (
               <div
                 onMouseDown={() => setIsDraggingSidebar(true)}
-                className={`w-1.5 h-full cursor-col-resize hover:bg-[#4f46e5]/40 transition-colors z-20 flex items-center justify-center select-none group shrink-0 ${
-                  isDraggingSidebar ? 'bg-[#4f46e5]' : 'bg-transparent'
+                className={`w-1 h-full cursor-col-resize hover:bg-[#3370ff]/30 active:bg-[#3370ff] transition-colors z-20 select-none shrink-0 ${
+                  isDraggingSidebar ? 'bg-[#3370ff]' : 'bg-transparent'
                 }`}
                 title="Kéo sang trái / phải để thay đổi độ rộng Sidebar"
-              >
-                <div className="w-0.5 h-8 rounded-full bg-[#c7c4d8] group-hover:bg-[#4f46e5] group-hover:scale-y-125 transition-all"></div>
-              </div>
+              />
             )}
 
             {/* Content Viewport */}
@@ -360,61 +358,185 @@ export function ConsoleWorkspace({
         logs={INITIAL_AUDIT_LOGS}
       />
 
-      {/* Switch Workspace Modal */}
+      {/* Expansive Bento Workspace Hub Modal */}
       {workspaceModalOpen && (
         <div
           onClick={() => setWorkspaceModalOpen(false)}
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-100"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl border border-[#c7c4d8] shadow-2xl max-w-sm w-full p-4 space-y-3"
+            className="bg-white dark:bg-[#0d131f] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-[0_20px_60px_rgba(0,0,0,0.35)] max-w-xl w-full p-6 space-y-4 animate-in zoom-in-95 duration-200"
           >
-            <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
-              <h3 className="font-bold text-xs text-[#131b2e]">Chuyển đổi không gian làm việc</h3>
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-[#1664ff] dark:text-blue-400 shrink-0">
+                  <span className="material-symbols-outlined text-[24px]">domain</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
+                    Không gian làm việc & Tổ chức
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Chuyển đổi tenant, cluster dữ liệu và môi trường thử nghiệm độc lập
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setWorkspaceModalOpen(false)}
-                className="text-[#777587] hover:text-[#131b2e]"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                type="button"
               >
-                <span className="material-symbols-outlined text-[18px]">close</span>
+                <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
-            <div className="space-y-1 text-xs">
-              <button
+
+            {/* Current Organization Info */}
+            <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-slate-600 dark:text-slate-400 font-medium">
+                Tài khoản đăng nhập: <strong className="text-slate-900 dark:text-slate-200">{me?.user?.email || 'admin@gotek.vn'}</strong>
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-semibold border border-emerald-200/80 dark:border-emerald-800/50">
+                Tenant Admin
+              </span>
+            </div>
+
+            {/* Workspaces List */}
+            <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+              {/* WS 1: Active HQ */}
+              <div
                 onClick={() => {
-                  showGlobalToast('Đã chọn: Không gian chính (Enterprise Tier)');
+                  showGlobalToast('Đang ở không gian chính: GoTek Solutions HQ');
                   setWorkspaceModalOpen(false);
                 }}
-                className="w-full p-2.5 rounded-lg border border-[#3525cd] bg-[#eaedff]/30 text-left flex items-center justify-between"
+                className="w-full p-3.5 rounded-xl border-2 border-[#1664ff] dark:border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-left flex items-center justify-between cursor-pointer shadow-sm hover:shadow transition-all group"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded bg-white border border-[#c7c4d8]/70 flex items-center justify-center p-0.5 shadow-xs">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 flex items-center justify-center p-1 shadow-xs shrink-0 ring-2 ring-blue-500/20">
                     <img src="/gotek-logo.png" alt="GoTek" className="w-full h-full object-contain" />
                   </div>
-                  <div>
-                    <p className="font-bold text-[#131b2e]">GoTek Solutions HQ</p>
-                    <p className="text-[10px] text-[#3525cd]">Gói Doanh Nghiệp (Enterprise)</p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                        GoTek Solutions HQ
+                      </p>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      Cluster Chính · Enterprise Tier · pgvector 1536d · 24 Nhân sự
+                    </p>
                   </div>
                 </div>
-                <span className="text-[#3525cd] font-bold text-[11px]">Đang chọn</span>
-              </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="px-2.5 py-1 rounded-full bg-[#1664ff] text-white text-[11px] font-bold shadow-xs">
+                    Đang chọn
+                  </span>
+                </div>
+              </div>
 
-              <button
+              {/* WS 2: Techcombank Hub */}
+              <div
+                onClick={() => {
+                  showGlobalToast('Đã chuyển sang: Techcombank Corporate Banking Hub');
+                  setWorkspaceModalOpen(false);
+                }}
+                className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-left flex items-center justify-between cursor-pointer transition-all group"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                    TCB
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                      Techcombank Corporate Banking
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      Fintech Dedicated Cluster · RAG NDA Strict · SLA 2m Handoff
+                    </p>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 group-hover:text-[#1664ff] dark:group-hover:text-blue-400 text-[20px] transition-colors">
+                  arrow_forward
+                </span>
+              </div>
+
+              {/* WS 3: Vingroup Retail */}
+              <div
+                onClick={() => {
+                  showGlobalToast('Đã chuyển sang: Vingroup Retail CSKH 24/7');
+                  setWorkspaceModalOpen(false);
+                }}
+                className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-left flex items-center justify-between cursor-pointer transition-all group"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                    VIN
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                      Vingroup Retail CSKH 24/7
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      E-Commerce Omni-channel · 8 Kênh live chat · 48 Nhân sự
+                    </p>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 group-hover:text-[#1664ff] dark:group-hover:text-blue-400 text-[20px] transition-colors">
+                  arrow_forward
+                </span>
+              </div>
+
+              {/* WS 4: Sandbox Staging */}
+              <div
                 onClick={() => {
                   showGlobalToast('Chuyển sang môi trường thử nghiệm Sandbox');
                   setWorkspaceModalOpen(false);
                 }}
-                className="w-full p-2.5 rounded-lg border border-[#c7c4d8] hover:bg-[#f2f3ff] text-left flex items-center justify-between transition-colors"
+                className="w-full p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-400 bg-white dark:bg-slate-850/60 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 text-left flex items-center justify-between cursor-pointer transition-all group"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded bg-[#059669] text-white flex items-center justify-center font-bold text-xs">
-                    S
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                    <span className="material-symbols-outlined text-[20px]">science</span>
                   </div>
-                  <div>
-                    <p className="font-semibold text-[#131b2e]">GoTek Staging Sandbox</p>
-                    <p className="text-[10px] text-[#777587]">Cluster Kiểm Thử Riêng</p>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
+                      GoTek Staging & Sandbox
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      Môi trường QA & Kiểm thử tự động · Disposable DB Restore
+                    </p>
                   </div>
                 </div>
+                <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 text-[20px] transition-colors">
+                  arrow_forward
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+              <button
+                onClick={() => {
+                  showGlobalToast('Mở trình tạo không gian làm việc mới');
+                  setWorkspaceModalOpen(false);
+                }}
+                className="px-4 py-2 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-[#1664ff] dark:hover:border-blue-400 text-xs font-semibold text-[#1664ff] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 flex items-center gap-1.5 transition-colors"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[17px]">add_circle</span>
+                <span>Tạo không gian mới</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleSelectModule('settings');
+                  setWorkspaceModalOpen(false);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors"
+                type="button"
+              >
+                Quản lý tổ chức
               </button>
             </div>
           </div>

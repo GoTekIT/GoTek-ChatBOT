@@ -34,8 +34,19 @@ export function apiSecurityMiddleware(req: Request, res: Response, next: NextFun
   res.set('Cache-Control', 'no-store');
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     const origin = req.get('origin');
-    const allowed = process.env.APP_ORIGIN || 'http://127.0.0.1:4317';
-    if ((origin && origin !== allowed) || req.get('x-gotek-request') !== '1') {
+    const defaultAllowed = [
+      'http://127.0.0.1:4317',
+      'http://localhost:4317',
+      'http://127.0.0.1:3001',
+      'http://localhost:3001'
+    ];
+    const envOrigins = (process.env.APP_ORIGIN || '')
+      .split(',')
+      .map(o => o.trim())
+      .filter(Boolean);
+    const allowed = new Set([...defaultAllowed, ...envOrigins]);
+
+    if ((origin && !allowed.has(origin)) || req.get('x-gotek-request') !== '1') {
       return next(new HttpError(403, 'CSRF_REJECTED'));
     }
   }

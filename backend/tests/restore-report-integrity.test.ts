@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, existsSync} from 'node:fs';
 import pg from 'pg';
 
 type RestoreReport = {
@@ -14,7 +14,10 @@ type RestoreReport = {
 };
 
 test('restore drill report has complete integrity metadata and disposable target is gone', async () => {
-  const report = JSON.parse(readFileSync('delivery/evidence/p1-restore-drill.json', 'utf8')) as RestoreReport;
+  const reportPath = existsSync('delivery/evidence/p1-restore-drill.json')
+    ? 'delivery/evidence/p1-restore-drill.json'
+    : '../delivery/evidence/p1-restore-drill.json';
+  const report = JSON.parse(readFileSync(reportPath, 'utf8')) as RestoreReport;
 
   assert.equal(report.status, 'PASS');
   assert.equal(report.source, 'gotek_chatbot');

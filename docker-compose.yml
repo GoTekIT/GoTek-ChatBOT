@@ -72,6 +72,7 @@ services:
       DATABASE_URL: postgresql://gotek_migrator:gotek_dev_password@postgres:5432/gotek_chatbot
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       REDIS_URL: redis://redis:6379
+      APP_ORIGIN: http://localhost:3001,http://127.0.0.1:3001,http://localhost:4317,http://127.0.0.1:4317
     depends_on:
       postgres:
         condition: service_healthy
