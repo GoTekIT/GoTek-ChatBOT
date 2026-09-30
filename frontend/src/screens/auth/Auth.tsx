@@ -16,8 +16,7 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
-  Zap,
-  Bot
+  Zap
 } from 'lucide-react';
 import './auth.css';
 
@@ -32,7 +31,7 @@ export function Auth({path, onLogin}: AuthProps) {
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Form values - Start completely blank for genuine testing
+  // Form values - Start completely blank for genuine manual testing
   const [emailValue, setEmailValue] = useState('');
   const [passwordValue, setPasswordValue] = useState('');
 
@@ -40,7 +39,8 @@ export function Auth({path, onLogin}: AuthProps) {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
 
-  // Mascot interactive state
+  // Interactive mouse tracking state for overall background and mascot
+  const [screenMouse, setScreenMouse] = useState({x: 500, y: 300});
   const [isBotHovered, setIsBotHovered] = useState(false);
   const [eyeOffset, setEyeOffset] = useState({x: 0, y: 0});
   const showcaseRef = useRef<HTMLDivElement>(null);
@@ -63,18 +63,19 @@ export function Auth({path, onLogin}: AuthProps) {
     }
   };
 
-  // Mouse tracking for interactive mascot eyes
-  const handleShowcaseMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!showcaseRef.current) return;
-    const rect = showcaseRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 12;
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 10;
-    setEyeOffset({x, y});
-  };
+  // Full-screen mouse movement tracking for dynamic background glow and mascot eyes
+  const handleScreenMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    setScreenMouse({x: e.clientX, y: e.clientY});
 
-  const handleShowcaseMouseLeave = () => {
-    setEyeOffset({x: 0, y: 0});
-    setIsBotHovered(false);
+    if (showcaseRef.current) {
+      const rect = showcaseRef.current.getBoundingClientRect();
+      const relX = ((e.clientX - rect.left) / rect.width - 0.5) * 16;
+      const relY = ((e.clientY - rect.top) / rect.height - 0.5) * 12;
+      setEyeOffset({
+        x: Math.max(-8, Math.min(8, relX)),
+        y: Math.max(-6, Math.min(6, relY))
+      });
+    }
   };
 
   // Helper validation logic
@@ -262,29 +263,40 @@ export function Auth({path, onLogin}: AuthProps) {
   };
 
   return (
-    <div className="auth-outer-screen">
-      {/* Dynamic Animated Ambient Background */}
+    <div className="auth-outer-screen" onMouseMove={handleScreenMouseMove}>
+      {/* Dynamic Interactive Animated Background with Mouse Follower Light */}
       <div className="auth-ambient-canvas" aria-hidden="true">
+        {/* Interactive Cursor Spotlight Glow */}
+        <div
+          className="ambient-cursor-spotlight"
+          style={{
+            transform: `translate3d(${screenMouse.x - 250}px, ${screenMouse.y - 250}px, 0)`
+          }}
+        />
         <div className="ambient-orb orb-1" />
         <div className="ambient-orb orb-2" />
         <div className="ambient-orb orb-3" />
         <div className="ambient-pattern-grid" />
       </div>
 
-      {/* Main Centered Floating Card (Switches Left/Right smoothly via Framer Motion) */}
+      {/* Main Centered Floating Card (Expansive size ~85%, Switches Left/Right on Signup) */}
       <motion.div
         layout
         transition={{type: 'spring', stiffness: 220, damping: 26}}
         className={`auth-card-wrapper ${isSignup ? 'signup-layout' : 'login-layout'}`}
       >
         {/* ====================================================================
-            FORM PANEL: Slides from Left to Right when switching to Signup
+            FORM PANEL: Clean with subtle GoTek cyan/blue color bleed streaks!
             ==================================================================== */}
         <motion.div
           layout="position"
           transition={{type: 'spring', stiffness: 220, damping: 26}}
           className="auth-card-left"
         >
+          {/* Subtle Color Bleed Elements extending from the brand side */}
+          <div className="form-color-bleed-top" aria-hidden="true" />
+          <div className="form-color-bleed-bottom" aria-hidden="true" />
+
           {/* Brand & Tier Header */}
           <div className="auth-card-header">
             <Link to="/app/auth/login" className="auth-brand-badge">
@@ -730,16 +742,14 @@ export function Auth({path, onLogin}: AuthProps) {
         </motion.div>
 
         {/* ====================================================================
-            SHOWCASE PANEL: LUMINOUS GOTEK LOGO GRADIENT + INTERACTIVE 2D/3D MASCOT
-            Clean, delightful, un-cluttered, interactive AI Companion
+            SHOWCASE PANEL: BALANCED DEEPER SAPPHIRE GRADIENT + INTERACTIVE MASCOT
+            Calmed down slightly (Not glaring, not too dark, rich Royal Sapphire)
             ==================================================================== */}
         <motion.div
           ref={showcaseRef}
           layout="position"
           transition={{type: 'spring', stiffness: 220, damping: 26}}
           className="auth-card-right"
-          onMouseMove={handleShowcaseMouseMove}
-          onMouseLeave={handleShowcaseMouseLeave}
         >
           {/* Subtle logo-inspired light orbs */}
           <div className="showcase-glow-light" />
@@ -808,7 +818,7 @@ export function Auth({path, onLogin}: AuthProps) {
                   <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
                     <polygon
                       points="50,5 64,36 98,40 72,64 80,98 50,80 20,98 28,64 2,40 36,36"
-                      fill="#00c2ff"
+                      fill="#38bdf8"
                     />
                   </svg>
                 </div>
@@ -819,7 +829,7 @@ export function Auth({path, onLogin}: AuthProps) {
             </div>
           </div>
 
-          {/* Minimal, Punchy Information - Clean & Easy on the Eyes */}
+          {/* Minimal, Punchy Information */}
           <div className="mascot-info-block">
             <h2 className="mascot-title">GoTek Smart Chatbot</h2>
             <p className="mascot-subtitle">

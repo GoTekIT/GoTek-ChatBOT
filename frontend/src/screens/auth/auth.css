@@ -29,7 +29,7 @@
 }
 
 /* ==========================================================================
-   DYNAMIC AMBIENT BACKGROUND
+   DYNAMIC AMBIENT BACKGROUND WITH INTERACTIVE SPOTLIGHT
    ========================================================================== */
 .auth-ambient-canvas {
   position: absolute;
@@ -39,95 +39,117 @@
   z-index: 1;
 }
 
+/* Interactive Cursor Spotlight Glow (Follows mouse across the screen) */
+.ambient-cursor-spotlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.22) 0%, rgba(37, 99, 235, 0.12) 40%, transparent 70%);
+  filter: blur(65px);
+  pointer-events: none;
+  z-index: 1;
+  will-change: transform;
+  transition: opacity 0.3s ease;
+}
+
+:is(.dark, .dark *) .ambient-cursor-spotlight {
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, rgba(37, 99, 235, 0.15) 45%, transparent 70%);
+  filter: blur(75px);
+}
+
 .ambient-orb {
   position: absolute;
   border-radius: 50%;
   filter: blur(90px);
-  opacity: 0.35;
+  opacity: 0.38;
   will-change: transform;
 }
 
 :is(.dark, .dark *) .ambient-orb {
-  opacity: 0.22;
+  opacity: 0.24;
   filter: blur(110px);
 }
 
 .ambient-orb.orb-1 {
-  width: 480px;
-  height: 480px;
-  top: -8%;
-  left: 10%;
+  width: 520px;
+  height: 520px;
+  top: -10%;
+  left: 8%;
   background: radial-gradient(circle, #38bdf8 0%, #2563eb 60%, transparent 80%);
-  animation: floatOrb1 18s ease-in-out infinite alternate;
+  animation: floatOrb1 16s ease-in-out infinite alternate;
 }
 
 .ambient-orb.orb-2 {
-  width: 520px;
-  height: 520px;
-  bottom: -10%;
-  right: 8%;
-  background: radial-gradient(circle, #0284c7 0%, #00b4d8 60%, transparent 80%);
-  animation: floatOrb2 22s ease-in-out infinite alternate;
+  width: 560px;
+  height: 560px;
+  bottom: -12%;
+  right: 6%;
+  background: radial-gradient(circle, #0284c7 0%, #00b4d8 55%, transparent 80%);
+  animation: floatOrb2 20s ease-in-out infinite alternate;
 }
 
 .ambient-orb.orb-3 {
-  width: 380px;
-  height: 380px;
-  top: 35%;
-  right: 25%;
-  background: radial-gradient(circle, #60a5fa 0%, transparent 70%);
-  animation: floatOrb3 15s ease-in-out infinite alternate;
+  width: 420px;
+  height: 420px;
+  top: 32%;
+  right: 22%;
+  background: radial-gradient(circle, #60a5fa 0%, #1e40af 50%, transparent 70%);
+  animation: floatOrb3 14s ease-in-out infinite alternate;
 }
 
 @keyframes floatOrb1 {
   0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(50px, 30px) scale(1.06); }
-  100% { transform: translate(-25px, 50px) scale(0.95); }
+  50% { transform: translate(60px, 35px) scale(1.08); }
+  100% { transform: translate(-30px, 55px) scale(0.94); }
 }
 
 @keyframes floatOrb2 {
   0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-40px, -40px) scale(1.05); }
-  100% { transform: translate(30px, -20px) scale(0.93); }
+  50% { transform: translate(-50px, -45px) scale(1.07); }
+  100% { transform: translate(35px, -25px) scale(0.92); }
 }
 
 @keyframes floatOrb3 {
-  0% { transform: translate(0, 0) scale(0.95); }
-  50% { transform: translate(30px, -45px) scale(1.08); }
-  100% { transform: translate(-40px, 20px) scale(1); }
+  0% { transform: translate(0, 0) scale(0.94); }
+  50% { transform: translate(35px, -50px) scale(1.1); }
+  100% { transform: translate(-45px, 25px) scale(1); }
 }
 
 .ambient-pattern-grid {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(148, 163, 184, 0.22) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(148, 163, 184, 0.24) 1.2px, transparent 1.2px);
   background-size: 28px 28px;
-  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 0) 80%);
-  -webkit-mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 0) 80%);
+  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 1) 35%, rgba(0, 0, 0, 0) 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 1) 35%, rgba(0, 0, 0, 0) 80%);
 }
 
 :is(.dark, .dark *) .ambient-pattern-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 1.2px, transparent 1.2px);
 }
 
 /* ==========================================================================
-   FLOATING AUTH CARD CONTAINER (~75-80% viewport, Perfectly Centered)
+   FLOATING AUTH CARD CONTAINER (Expansive ~86-88% viewport, Perfectly Centered)
    ========================================================================== */
 .auth-card-wrapper {
   position: relative;
   z-index: 10;
-  width: 80%;
-  max-width: 1080px;
+  width: 86%;
+  max-width: 1180px;
+  min-height: 650px;
   min-width: 320px;
   max-height: 94vh;
   display: flex;
   flex-direction: row;
   background: #ffffff;
-  border-radius: 22px;
+  border-radius: 24px;
   overflow: hidden;
   box-shadow: 
-    0 20px 50px -10px rgba(2, 132, 199, 0.16),
-    0 8px 24px -4px rgba(15, 23, 42, 0.05),
+    0 25px 65px -12px rgba(2, 132, 199, 0.18),
+    0 10px 30px -4px rgba(15, 23, 42, 0.06),
     0 0 0 1px rgba(226, 232, 240, 0.85);
   margin: auto;
   transition: box-shadow 0.3s ease;
@@ -136,7 +158,7 @@
 :is(.dark, .dark *) .auth-card-wrapper {
   background: #0f172a;
   box-shadow: 
-    0 24px 60px -12px rgba(0, 0, 0, 0.6),
+    0 28px 70px -12px rgba(0, 0, 0, 0.65),
     0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
@@ -148,14 +170,14 @@
 }
 
 /* ==========================================================================
-   FORM PANEL: Clean White, High Contrast, Perfectly Usable
+   FORM PANEL: Clean White with Subtle Brand Color Bleed Streaks
    ========================================================================== */
 .auth-card-left {
   flex: 1 1 52%;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 24px 32px;
+  padding: 28px 36px;
   box-sizing: border-box;
   background: #ffffff;
   position: relative;
@@ -165,6 +187,70 @@
 
 :is(.dark, .dark *) .auth-card-left {
   background: #0f172a;
+}
+
+/* Subtle Color Bleed Streaks extending from the brand side into the Form background */
+.form-color-bleed-top {
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle at 100% 0%, rgba(2, 132, 199, 0.14) 0%, rgba(56, 189, 248, 0.07) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(28px);
+  transition: all 0.4s ease;
+}
+
+.form-color-bleed-bottom {
+  position: absolute;
+  bottom: -40px;
+  right: -40px;
+  width: 420px;
+  height: 360px;
+  background: radial-gradient(circle at 100% 100%, rgba(30, 58, 138, 0.12) 0%, rgba(2, 132, 199, 0.06) 50%, transparent 75%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(32px);
+  transition: all 0.4s ease;
+}
+
+/* When in Signup mode, bleed originates from left (adjacent to mascot) */
+.signup-layout .form-color-bleed-top {
+  right: auto;
+  left: -40px;
+  background: radial-gradient(circle at 0% 0%, rgba(2, 132, 199, 0.14) 0%, rgba(56, 189, 248, 0.07) 40%, transparent 70%);
+}
+
+.signup-layout .form-color-bleed-bottom {
+  right: auto;
+  left: -40px;
+  background: radial-gradient(circle at 0% 100%, rgba(30, 58, 138, 0.12) 0%, rgba(2, 132, 199, 0.06) 50%, transparent 75%);
+}
+
+:is(.dark, .dark *) .form-color-bleed-top {
+  background: radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.18) 0%, rgba(2, 132, 199, 0.08) 40%, transparent 75%);
+}
+
+:is(.dark, .dark *) .form-color-bleed-bottom {
+  background: radial-gradient(circle at 100% 100%, rgba(37, 99, 235, 0.15) 0%, rgba(30, 58, 138, 0.08) 50%, transparent 80%);
+}
+
+:is(.dark, .dark *) .signup-layout .form-color-bleed-top {
+  background: radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.18) 0%, rgba(2, 132, 199, 0.08) 40%, transparent 75%);
+}
+
+:is(.dark, .dark *) .signup-layout .form-color-bleed-bottom {
+  background: radial-gradient(circle at 0% 100%, rgba(37, 99, 235, 0.15) 0%, rgba(30, 58, 138, 0.08) 50%, transparent 80%);
+}
+
+/* Ensure Form content layers sit crisply on top of color bleeds */
+.auth-card-header,
+.auth-form-content,
+.auth-card-footer {
+  position: relative;
+  z-index: 1;
 }
 
 /* Brand Header */
@@ -678,23 +764,23 @@
    ========================================================================== */
 .auth-card-right {
   flex: 1 1 48%;
-  background: linear-gradient(140deg, #00b4d8 0%, #0284c7 35%, #2563eb 75%, #1d4ed8 100%);
+  background: linear-gradient(145deg, #0284c7 0%, #0369a1 20%, #1e40af 60%, #1e3a8a 85%, #131b4d 100%);
   color: #ffffff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px 28px;
+  padding: 30px 32px;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
   border-right: none;
 }
 
 @media (min-width: 1024px) {
   .auth-card-wrapper.signup-layout .auth-card-right {
-    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    border-right: 1px solid rgba(255, 255, 255, 0.16);
     border-left: none;
   }
 }
@@ -717,10 +803,10 @@
   position: absolute;
   top: -15%;
   right: -15%;
-  width: 340px;
-  height: 340px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(56, 189, 248, 0.2) 60%, transparent 80%);
-  filter: blur(50px);
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22) 0%, rgba(56, 189, 248, 0.16) 50%, transparent 80%);
+  filter: blur(60px);
   pointer-events: none;
 }
 
