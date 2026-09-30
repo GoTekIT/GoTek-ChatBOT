@@ -174,3 +174,5 @@ HiChat internal architecture, production hosting, provider live receipts, toàn 
 ### 2026-10-01 browser remediation update
 
 Local DOCX upload → DRAFT → READY → INTERNAL publication → reload verified. Added direct internal publication action on READY documents; no public transition required. Inbox internal-note persistence and visitor exclusion verified. Build all and frontend 9/9 pass. PR #4 remains draft; public lifecycle and negative-role/failure browser gates remain pending. No production acceptance implied.
+
+Composer remediation: separated unsent text per conversation and public/internal mode, resets across user/workspace; keyboard conversation selection added. Browser proved two-conversation separation and retained draft on TAKEOVER_REQUIRED rejection. No across-reload persistence claim yet.

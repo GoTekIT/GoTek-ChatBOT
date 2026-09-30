@@ -1,4 +1,6 @@
 const messages: Record<string, string> = {
+  TAKEOVER_REQUIRED: 'Bạn cần tiếp nhận hội thoại trước khi gửi trả lời khách.',
+  STALE_REPLY_OWNER: 'Người phụ trách hội thoại đã thay đổi. Tải lại trước khi tiếp tục.',
   VERSION_CONFLICT: 'Quy tắc đã được thay đổi ở phiên khác. Tải lại danh sách trước khi thử lại.',
   RESPONSE_TOO_LARGE: 'Nguồn vượt quá giới hạn dung lượng.',
   REDIRECT_LIMIT: 'Nguồn chuyển hướng quá số lần cho phép.',

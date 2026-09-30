@@ -28,7 +28,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const [filterTab, setFilterTab] = useState<'all' | 'queue' | 'bot' | 'mine'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [composerMode, setComposerMode] = useState<'public' | 'internal'>('public');
-  const [messageText, setMessageText] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [newTagInput, setNewTagInput] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
@@ -55,6 +55,13 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const activeConv = conversations.find((c) => c.id === selectedConvId) || conversations[0];
+  // Keep private/public drafts separate; async send completion clears only its own draft.
+  const draftKey = JSON.stringify([activeConv?.id || selectedConvId, composerMode]);
+  const messageText = drafts[draftKey] || '';
+  const setMessageText = (value: React.SetStateAction<string>) => {
+    setDrafts(current => ({...current, [draftKey]: typeof value === 'function' ? value(current[draftKey] || '') : value}));
+  };
+
 
   // =========================================================================
   // REALTIME CHAT HOOK (SSE Server-Sent Events Connection)
@@ -404,6 +411,16 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 return (
                   <article
                     key={conv.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Mở hội thoại ${conv.customerName}`}
+                    aria-pressed={isSelected}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedConvId(conv.id);
+                      }
+                    }}
                     onClick={() => setSelectedConvId(conv.id)}
                     className={`group p-3 rounded-xl cursor-pointer transition-all duration-200 relative border ${
                       isSelected

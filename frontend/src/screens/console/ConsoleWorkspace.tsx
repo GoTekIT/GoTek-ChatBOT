@@ -180,6 +180,7 @@ export function ConsoleWorkspace({
             {!canOpenModule(me, activeModule) && <main className="p-6" role="alert">Bạn không có quyền truy cập chức năng này. <button onClick={() => handleSelectModule('inbox')}>Về hộp thư</button></main>}
             {activeModule === 'inbox' && canOpenModule(me, 'inbox') && (
               <InboxView
+                key={JSON.stringify([me?.user?.id, me?.workspaceId])}
                 onRefresh={inbox.refresh}
                 error={inbox.error}
                 loading={inbox.loading}
