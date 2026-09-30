@@ -22,9 +22,9 @@ These describe code paths, not a claim that every browser/provider flow has been
 3. Visitor sends `{clientId,body}` to messages; `appendMessage` serializes sequence and deduplicates client ID. Reusing a conflicting request is not a new message.
 4. Workspace inbox accesses conversations through session and channel membership. Agent takeover uses current ownership version; public replies and internal notes are distinct.
 5. Widget polling returns only public messages after sequence cursor; receipts mark visible agent/AI messages as received. A stored message alone is not a visitor receipt.
-6. Visitor handoff can enter HANDOFF_PENDING; only authorized staff can resume AI with version checks.
+6. Visitor handoff chuyển `reply_owner` sang `HANDOFF_PENDING`: đây là yêu cầu chờ người xử lý, chưa phải agent takeover và không đồng nghĩa đã assign. `status` của conversation vẫn là trục vòng đời riêng (`open`, `resolved`, `snoozed`). Chỉ authorized staff mới được chuyển sang `HUMAN_ACTIVE` (takeover) hoặc `AI_ACTIVE` (resume AI), luôn kèm owner-version checks.
 
-**Files/tables:** `widget.ts`, `inbox.ts`, `chat-store.ts`, channels/channel_members/visitors/conversations/messages. **Success:** scoped public transcript and receipt. **Failures:** DOMAIN_DENIED, VISITOR_SESSION_EXPIRED, PRECHAT_REQUIRED, stale owner, channel membership denial. **Edge:** initial conversations default HANDOFF_PENDING; creating a widget session does not automatically enable AI.
+**Files/tables:** `widget.ts`, `inbox.ts`, `chat-store.ts`, channels/channel_members/visitors/conversations/messages. **Success:** scoped public transcript and receipt. Inbox phải hiển thị riêng `status` và `reply_owner` để không nhầm `HANDOFF_PENDING` với `HUMAN_ACTIVE`. **Failures:** DOMAIN_DENIED, VISITOR_SESSION_EXPIRED, PRECHAT_REQUIRED, stale owner, channel membership denial. **Edge:** initial conversations default HANDOFF_PENDING; creating a widget session does not automatically enable AI.
 
 ## Grounded AI response
 
@@ -88,3 +88,4 @@ sequenceDiagram
 Data collection configuration and contact lifecycle are implemented in `data-collection.ts`/`contacts.ts`: permission checks, revisioned updates, soft deletion, merge preview/history/undo and tags. Inspect their schemas before constructing requests; collection configuration alone is not proof that every desired visitor-to-contact automation is connected.
 
 Administrative changes write audit events. `audit-log.ts` uses bounded keyset listing; `audit-export.ts` creates a bounded NDJSON payload inside a JSON response, not a streaming export service. Restore drill is operator-driven and quarantines restored delivery/work credentials. Retention and workspace closure policy remains a decision gap, not a scheduled deletion workflow.
+

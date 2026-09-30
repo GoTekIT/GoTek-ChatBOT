@@ -1,0 +1,95 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, master, namnv ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: gotek_migrator
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: gotek_chatbot
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install System Dependencies & Setup Postgres Socket Bridge
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y socat postgresql-client
+          
+          # Bridge Unix domain socket /tmp/.s.PGSQL.55432 to PostgreSQL TCP port 127.0.0.1:55432
+          socat UNIX-LISTEN:/tmp/.s.PGSQL.55432,fork,reuseaddr,mode=777 TCP:127.0.0.1:55432 &
+          
+          # Wait for PostgreSQL Unix socket to be ready and accepting connections
+          for i in {1..30}; do
+            if pg_isready -h /tmp -p 55432 -U gotek_migrator; then
+              echo "PostgreSQL Unix socket is ready and accepting connections!"
+              break
+            fi
+            echo "Waiting for PostgreSQL Unix socket..."
+            sleep 1
+          done
+
+      - name: Install Monorepo Dependencies
+        run: npm run install:all
+
+      - name: Setup Database & Run Migrations
+        run: npm run db:setup
+        env:
+          PGHOST: /tmp
+          PGPORT: 55432
+          PGUSER: gotek_migrator
+          PGDATABASE: postgres
+
+      - name: Backend Typecheck & Tests
+        run: |
+          npm run --prefix backend build
+          npm run --prefix backend test
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 55432
+          DB_NAME: gotek_chatbot
+          DB_USER: gotek_app
+          PGHOST: /tmp
+          PGPORT: 55432
+          PGUSER: gotek_migrator
+          PGDATABASE: gotek_chatbot
+          GOTEK_DEFAULT_AI_RESPONSE_QUOTA: 1000
+
+      - name: Frontend Typecheck & Build
+        run: |
+          npm run --prefix frontend build
+          npm run --prefix frontend test

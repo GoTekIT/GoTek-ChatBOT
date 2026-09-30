@@ -1,0 +1,4 @@
+CREATE TABLE onboarding_sources(id uuid PRIMARY KEY,workspace_id uuid NOT NULL REFERENCES workspaces(id),name text NOT NULL CHECK(char_length(btrim(name)) BETWEEN 1 AND 160),source_type text NOT NULL CHECK(source_type IN ('DOCUMENT','WEB','FAQ')),audience text NOT NULL CHECK(audience IN ('INTERNAL','PUBLIC')),status text NOT NULL CHECK(status IN ('PENDING','READY','BLOCKED')),blocked_reason text,created_by uuid NOT NULL REFERENCES users(id),created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now());
+ALTER TABLE onboarding_sources ENABLE ROW LEVEL SECURITY; ALTER TABLE onboarding_sources FORCE ROW LEVEL SECURITY;
+CREATE POLICY onboarding_sources_scope ON onboarding_sources USING(workspace_id=nullif(current_setting('app.workspace_id',true),'')::uuid) WITH CHECK(workspace_id=nullif(current_setting('app.workspace_id',true),'')::uuid);
+GRANT SELECT,INSERT,UPDATE ON onboarding_sources TO gotek_app;

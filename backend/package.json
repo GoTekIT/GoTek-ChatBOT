@@ -1,0 +1,47 @@
+{
+  "name": "gotek-chatbot-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc --noEmit",
+    "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
+    "db:setup": "tsx scripts/setup-db.ts",
+    "db:seed": "tsx scripts/seed-data.ts",
+    "db:restore-drill": "tsx scripts/restore-drill.ts",
+    "worker:ai": "tsx scripts/ai-worker.ts",
+    "worker:embedding": "tsx scripts/embed-knowledge.ts",
+    "worker:web": "tsx scripts/web-refresh-worker.ts"
+  },
+  "dependencies": {
+    "@getbrevo/brevo": "^6.0.3",
+    "@types/multer": "^2.2.0",
+    "@types/nodemailer": "^8.0.2",
+    "amqplib": "^2.2.0",
+    "argon2": "^0.45.1",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "mammoth": "^1.12.3",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.0.13",
+    "pdf-parse": "^2.4.5",
+    "pg": "^8.23.0",
+    "saxes": "^6.0.0",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.2",
+    "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.0",
+    "typescript": "^7.0.2"
+  }
+}

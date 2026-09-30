@@ -1,0 +1,24 @@
+import {test,after} from 'node:test';
+import assert from 'node:assert/strict';
+import pg from 'pg';
+import {randomUUID} from 'node:crypto';
+import {pool,transaction,scope} from '../src/core/db';
+import {recordUsage} from '../src/modules/ai/usage-ledger';
+const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+after(async()=>{await pool.end();await admin.end();});
+test('usage ledger persists with insert-only permissions, concurrent replay and tenant isolation',async()=>{
+ const workspace=randomUUID(),other=randomUUID();
+ await admin.query('INSERT INTO workspaces(id,name) VALUES($1,$2),($3,$4)',[workspace,'Usage test',other,'Other usage']);
+ const run=<T>(fn:(db:pg.PoolClient)=>Promise<T>,tenant=workspace)=>transaction(async db=>{await scope(db,tenant);return fn(db);});
+ const event={workspaceId:workspace,operationKey:'inference-1',provider:'test',model:'model',usage:{promptTokens:10,completionTokens:5,totalTokens:15,estimated:false},costMicros:3n};
+ const receipts=await Promise.all([run(db=>recordUsage(db,event)),run(db=>recordUsage(db,event))]);
+ assert.equal(receipts[0].created_at.toISOString(),receipts[1].created_at.toISOString());
+ assert.equal((await run(db=>db.query('SELECT * FROM ai_usage_ledger'))).rowCount,1);
+ assert.equal((await run(db=>db.query('SELECT * FROM ai_usage_ledger'),other)).rowCount,0);
+ await assert.rejects(run(db=>recordUsage(db,{...event,costMicros:4n})),{code:'IDEMPOTENCY_CONFLICT'});
+ await assert.rejects(run(db=>recordUsage(db,{...event,operationKey:'foreign'}),other),{code:'42501'});
+ await assert.rejects(run(db=>db.query('UPDATE ai_usage_ledger SET cost_micros=0')),{code:'42501'});
+ await assert.rejects(run(db=>recordUsage(db,{...event,operationKey:'invalid',usage:{...event.usage,totalTokens:1}})),{code:'23514'});
+ const providerTotal={...event,operationKey:'provider-extra',usage:{...event.usage,totalTokens:20}};
+ const extra=await run(db=>recordUsage(db,providerTotal));assert.equal(Number(extra.total_tokens),20);
+});

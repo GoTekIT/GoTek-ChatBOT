@@ -1,0 +1,24 @@
+CREATE TABLE users(id uuid PRIMARY KEY, email text NOT NULL UNIQUE, full_name text NOT NULL, phone text NOT NULL, password_hash text NOT NULL, verified_at timestamptz, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE workspaces(id uuid PRIMARY KEY, name text NOT NULL, language text NOT NULL DEFAULT 'vi' CHECK(language IN ('vi','en')), status text NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled')), seat_limit int NOT NULL DEFAULT 5 CHECK(seat_limit>0), created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE memberships(workspace_id uuid REFERENCES workspaces(id), user_id uuid REFERENCES users(id), role text NOT NULL CHECK(role IN ('Owner','Admin','Agent')), active boolean NOT NULL DEFAULT true, PRIMARY KEY(workspace_id,user_id));
+CREATE TABLE sessions(token_hash text PRIMARY KEY, user_id uuid NOT NULL REFERENCES users(id), workspace_id uuid NOT NULL REFERENCES workspaces(id), expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE challenges(id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES users(id), token_hash text UNIQUE NOT NULL, kind text NOT NULL CHECK(kind IN ('verify','reset')), expires_at timestamptz NOT NULL, used_at timestamptz, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE local_delivery(id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES users(id), kind text NOT NULL, payload jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE audit_events(id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES workspaces(id), actor_id uuid REFERENCES users(id), action text NOT NULL, object_id text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE invitations(id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES workspaces(id), email text NOT NULL, role text NOT NULL CHECK(role IN ('Admin','Agent')), token_hash text UNIQUE NOT NULL, expires_at timestamptz NOT NULL, accepted_at timestamptz, revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX invitation_open ON invitations(workspace_id,email) WHERE accepted_at IS NULL AND revoked_at IS NULL;
+CREATE INDEX session_expiry ON sessions(expires_at);
+CREATE INDEX audit_workspace_time ON audit_events(workspace_id,created_at);
+ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
+CREATE POLICY workspace_scope ON workspaces USING (id = nullif(current_setting('app.workspace_id',true),'')::uuid) WITH CHECK (id = nullif(current_setting('app.workspace_id',true),'')::uuid);
+ALTER TABLE audit_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_events FORCE ROW LEVEL SECURITY;
+CREATE POLICY audit_scope ON audit_events USING (workspace_id = nullif(current_setting('app.workspace_id',true),'')::uuid) WITH CHECK (workspace_id = nullif(current_setting('app.workspace_id',true),'')::uuid);
+ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invitations FORCE ROW LEVEL SECURITY;
+CREATE POLICY invitation_scope ON invitations USING (workspace_id = nullif(current_setting('app.workspace_id',true),'')::uuid) WITH CHECK (workspace_id = nullif(current_setting('app.workspace_id',true),'')::uuid);
+-- Membership/session/challenge tables form the trusted identity boundary. No arbitrary query endpoint.
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO gotek_app;
+REVOKE UPDATE,DELETE ON audit_events FROM gotek_app;
+REVOKE SELECT,UPDATE,DELETE ON local_delivery FROM gotek_app;

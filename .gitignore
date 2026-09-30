@@ -1,11 +1,12 @@
-node_modules/
-dist/
+**/node_modules/
+**/dist/
 .local/
-.env
-.env.*
-!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 .DS_Store
 __pycache__/
+*.log
 
 # Regenerated document previews; preserve locally, omit from source handoff.
 research/handoff-render/
@@ -16,6 +17,7 @@ research/rendered/
 research/rendered-final/
 research/rendered-v2/
 research/handoff-v2-render/
+
 # Private credential material
 *.pem
 *.key

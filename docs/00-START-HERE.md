@@ -1,3 +1,7 @@
+## Product requirements
+
+- [Software Requirements Specification](SRS.md)
+
 # Start here
 
 GoTek Chatbot giúp doanh nghiệp tiếp nhận chat từ widget, dùng tri thức đã duyệt để AI trả lời và chuyển cho nhân viên khi cần. Người dùng gồm khách truy cập, nhân viên, Workspace Admin/Owner và Platform Admin.
@@ -23,3 +27,4 @@ Repo đang **MVP In Progress** và hiện ở **documentation pause** sau parall
 - [ ] Đối chiếu task IN PROGRESS với file, test và bước tiếp theo trong HANDOFF.
 
 Không cần tài khoản provider để xem UI/auth local; gọi AI thật cần cấu hình registry, quyền model và secret trên server. Không có default production admin credential trong repo. Backend không tự load `.env`; team phải export profile theo [ENVIRONMENT](ENVIRONMENT.md). Bắt đầu sửa từ task cụ thể ở HANDOFF, không xây lại kiến trúc từ bản đề xuất cũ.
+
