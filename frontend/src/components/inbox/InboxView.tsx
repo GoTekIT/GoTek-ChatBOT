@@ -336,7 +336,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm hội thoại, khách hàng..."
-                className="w-full pl-8 pr-7 py-1.5 bg-slate-100/70 dark:bg-slate-800/80 hover:bg-slate-100/90 dark:hover:bg-slate-800 focus:bg-white dark:focus:bg-slate-850 border border-transparent dark:border-slate-700/60 focus:border-[#1664ff]/60 dark:focus:border-blue-500/70 rounded-xl text-[13px] text-[#1f2329] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#1664ff]/15 dark:focus:ring-blue-500/20 transition-all shadow-inner"
+                className="w-full pl-8 pr-7 py-1.5 bg-slate-100/70 dark:bg-slate-800/80 hover:bg-slate-100/90 dark:hover:bg-slate-800 focus:bg-white dark:focus:bg-[#0e1626] border border-transparent dark:border-slate-700/60 focus:border-[#1664ff]/60 dark:focus:border-blue-500/70 rounded-xl text-[13px] text-[#1f2329] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#1664ff]/15 dark:focus:ring-blue-500/20 transition-all shadow-inner"
               />
               {searchQuery && (
                 <button
@@ -438,8 +438,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     onClick={() => setSelectedConvId(conv.id)}
                     className={`group p-3 rounded-xl cursor-pointer transition-all duration-200 relative border ${
                       isSelected
-                        ? 'bg-gradient-to-r from-blue-50/95 via-indigo-50/80 to-white dark:from-blue-950/70 dark:via-indigo-950/50 dark:to-slate-900/80 border-blue-400/70 dark:border-blue-500/70 shadow-[0_4px_16px_rgba(22,100,255,0.08)] dark:shadow-[0_0_20px_rgba(22,100,255,0.15)]'
-                        : 'bg-white/60 dark:bg-slate-850/50 hover:bg-white dark:hover:bg-slate-800/70 border-slate-200/60 dark:border-slate-800/70 hover:border-slate-300/80 dark:hover:border-slate-700 hover:shadow-xs text-slate-600 dark:text-slate-300'
+                        ? 'bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-white dark:from-blue-950/70 dark:via-slate-900 dark:to-slate-900 border-blue-400/80 dark:border-blue-500/80 shadow-sm dark:shadow-[0_0_18px_rgba(22,100,255,0.18)] ring-1 ring-blue-400/30 dark:ring-blue-500/30'
+                        : 'bg-white dark:bg-slate-900/90 hover:bg-slate-50 dark:hover:bg-slate-800/80 border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xs'
                     }`}
                   >
                     {/* Active Left Indicator Bar with Neon Glow */}
@@ -475,18 +475,20 @@ export const InboxView: React.FC<InboxViewProps> = ({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1 mb-0.5">
                           <h4
-                            className={`text-[13.5px] truncate ${
-                              isSelected ? 'font-bold text-[#1f2329] dark:text-white' : 'font-semibold text-[#1f2329] dark:text-slate-200'
+                            className={`text-[13.5px] truncate transition-colors ${
+                              isSelected
+                                ? 'font-bold text-[#1f2329] dark:text-white'
+                                : 'font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400'
                             }`}
                           >
                             {conv.customerName}
                           </h4>
-                          <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 font-normal">
+                          <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 font-medium">
                             {conv.lastMessageTime}
                           </span>
                         </div>
 
-                        <p className="text-[11.5px] text-slate-500 dark:text-slate-400 truncate mb-1">
+                        <p className="text-[11.5px] text-slate-500 dark:text-slate-400 truncate mb-1 font-medium">
                           {conv.customerCompany}
                         </p>
 
@@ -497,26 +499,26 @@ export const InboxView: React.FC<InboxViewProps> = ({
                         {/* Status Badges Row */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {isHandoff && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-[10.5px] font-semibold border border-rose-200/80 dark:border-rose-800/60 shadow-2xs">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 text-[10.5px] font-semibold border border-rose-200/80 dark:border-rose-800/60 shadow-2xs">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                               Cần Handoff
                             </span>
                           )}
 
                           {isAi && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[10.5px] font-semibold border border-purple-200/80 dark:border-purple-800/60 shadow-2xs">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-[10.5px] font-semibold border border-purple-200/80 dark:border-purple-800/60 shadow-2xs">
                               <span className="material-symbols-outlined text-[12px]">smart_toy</span>
                               AI Phục vụ
                             </span>
                           )}
 
                           {conv.status === 'in_review' && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-semibold border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-semibold border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs">
                               Nhân viên xử lý
                             </span>
                           )}
 
-                          <span className="px-1.5 py-0.2 rounded text-[10.5px] text-slate-400 dark:text-slate-500 font-medium ml-auto">
+                          <span className="px-2 py-0.5 rounded-md text-[10.5px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50 font-medium ml-auto">
                             {conv.channel}
                           </span>
                         </div>
@@ -792,7 +794,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                                 {msg.citations.map((c, i) => (
                                   <div
                                     key={i}
-                                    className="p-2 rounded-xl bg-white/90 dark:bg-slate-850/90 border border-blue-100/90 dark:border-blue-900/50 flex items-center justify-between text-[12px] shadow-2xs hover:shadow-xs hover:border-blue-300 dark:hover:border-blue-500/50 transition-all"
+                                    className="p-2 rounded-xl bg-white/90 dark:bg-slate-800/90 border border-blue-100/90 dark:border-blue-900/50 flex items-center justify-between text-[12px] shadow-2xs hover:shadow-xs hover:border-blue-300 dark:hover:border-blue-500/50 transition-all"
                                   >
                                     <div className="flex items-center gap-2 truncate">
                                       <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-[15px]">

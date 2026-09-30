@@ -13,6 +13,10 @@ try {
 }
 
 function resolveDbConfig(): pg.PoolConfig {
+  if (process.env.DB_RUNTIME_FILE) {
+    // An explicit runtime file must exist; never fall back to privileged credentials.
+    return JSON.parse(readFileSync(process.env.DB_RUNTIME_FILE, 'utf8'));
+  }
   if (process.env.DATABASE_URL) {
     return {connectionString: process.env.DATABASE_URL};
   }

@@ -1,9 +1,16 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath, URL } from 'node:url';
 
-export default defineConfig({
+export default defineConfig(({mode}) => {
+  const rootEnv = loadEnv(mode, fileURLToPath(new URL('../', import.meta.url)), ['GOOGLE_CLIENT_ID', 'VITE_GOOGLE_CLIENT_ID']);
+  const frontendEnv = loadEnv(mode, fileURLToPath(new URL('./', import.meta.url)), 'VITE_GOOGLE_CLIENT_ID');
+  // Expose only the public client ID, never backend secrets. Preserve frontend/.env.
+  const googleClientId = process.env.VITE_GOOGLE_CLIENT_ID || frontendEnv.VITE_GOOGLE_CLIENT_ID
+    || rootEnv.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || rootEnv.GOOGLE_CLIENT_ID || '';
+  return {
+  define: {'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(googleClientId)},
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -46,4 +53,5 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
   },
+  };
 });

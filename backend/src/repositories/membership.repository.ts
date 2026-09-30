@@ -95,6 +95,10 @@ export class MembershipRepository {
       workspaceId,
       userId
     ]);
+    if (!data.active) {
+      // Reactivating a membership must not resurrect its revoked sessions.
+      await db.query('DELETE FROM sessions WHERE workspace_id = $1 AND user_id = $2', [workspaceId, userId]);
+    }
   }
 
   static async isPlatformAdmin(db: PoolClient, userId: string): Promise<boolean> {

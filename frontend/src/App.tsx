@@ -1,5 +1,6 @@
-import React, {useState, useEffect} from 'react';
-import {api, ApiError} from './api/api';
+import React, {useState, useEffect, useRef} from 'react';
+import {ApiError} from './api/api';
+import {AuthService} from './services/auth.service';
 import {usePath, navigate} from './hooks/usePath';
 import {Notice} from './components/common/Notice';
 import {Auth} from './screens/auth/Auth';
@@ -12,24 +13,33 @@ export function App() {
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const refreshSequence = useRef(0);
 
   async function refresh() {
+    const sequence = ++refreshSequence.current;
     try {
-      setMe(await api('/me'));
+      const data = await AuthService.getMe();
+      if (sequence !== refreshSequence.current) return;
+      setMe(data);
       setError(null);
     } catch (e) {
+      if (sequence !== refreshSequence.current) return;
+      setMe(null);
       if (e instanceof ApiError && e.code === 'UNAUTHENTICATED') {
         setMe(null);
       } else {
         setError(e as Error);
       }
     } finally {
-      setLoading(false);
+      if (sequence === refreshSequence.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     void refresh();
+    const onFocus = () => { void refresh(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   // Auto-redirect to /app/inbox when authenticated and entering root or alias paths
@@ -48,7 +58,7 @@ export function App() {
 
   async function switchWorkspace(workspaceId: string) {
     try {
-      await api('/workspace/switch', 'POST', {workspaceId});
+      await AuthService.switchWorkspace(workspaceId);
       setMe(null);
       await refresh();
       navigate('/app/inbox');
@@ -58,8 +68,9 @@ export function App() {
   }
 
   async function handleLogout() {
+    ++refreshSequence.current;
     try {
-      await api('/auth/logout', 'POST', {});
+      await AuthService.logout();
       setMe(null);
       navigate('/app/auth/login');
     } catch (e) {
@@ -68,7 +79,12 @@ export function App() {
   }
 
   // 1. Platform Admin Group Routes (/platform/*)
-  if (path.startsWith('/platform')) return <Platform />;
+  if (path.startsWith('/platform') && loading) return <p role="status">Đang kiểm tra quyền…</p>;
+  if (path.startsWith('/platform') && me) {
+    return me.platformAdmin === true ? <Platform /> : <div className="boot" role="alert">
+      Bạn không có quyền Platform Admin. <button onClick={() => navigate('/app/inbox')}>Về hộp thư</button>
+    </div>;
+  }
 
   // 2. Invitation Route (/app/invitation)
   if (path === '/app/invitation') {
@@ -90,26 +106,7 @@ export function App() {
   // 3. Auth Group Routes (/app/auth/*)
   if (path.startsWith('/app/auth/') || path === '/app/login' || (!me && !loading)) {
     return (
-      <div style={{position: 'relative', width: '100%', height: '100vh', overflow: 'hidden'}}>
-        <div
-          className="local-label"
-          style={{
-            position: 'absolute',
-            top: 12,
-            right: 16,
-            zIndex: 50,
-            pointerEvents: 'none',
-            background: 'rgba(255, 255, 255, 0.7)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(226, 232, 240, 0.8)',
-            borderRadius: 9999,
-            padding: '4px 12px',
-            fontSize: 11,
-            color: '#64748b'
-          }}
-        >
-          Môi trường local/test
-        </div>
+      <div style={{position: 'relative', width: '100%', minHeight: '100vh'}}>
         <Auth path={path} onLogin={refresh} />
       </div>
     );
@@ -128,6 +125,7 @@ export function App() {
 
   return (
     <ConsoleWorkspace
+      key={`${me.user.id}:${me.workspaceId}:${me.role}`}
       me={me}
       currentPath={path}
       onRefresh={refresh}

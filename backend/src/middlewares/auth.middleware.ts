@@ -2,6 +2,7 @@ import type {Request, Response} from 'express';
 import type {PoolClient} from 'pg';
 import {transaction, scope} from '../core/db';
 import {digest, HttpError} from '../core/security';
+import {isWorkspaceRole, requirePermission, type WorkspacePermission} from '../core/authorization';
 
 export interface Identity {
   user_id: string;
@@ -17,8 +18,19 @@ export const cookieOptions = {
   path: '/'
 };
 
+export function extractToken(req: Request): string | undefined {
+  if (req.cookies?.gotek_session) {
+    return req.cookies.gotek_session;
+  }
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7).trim();
+  }
+  return undefined;
+}
+
 export async function identity(db: PoolClient, req: Request): Promise<Identity> {
-  const raw = req.cookies?.gotek_session;
+  const raw = extractToken(req);
   if (!raw) {
     throw new HttpError(401, 'UNAUTHENTICATED');
   }
@@ -37,6 +49,7 @@ export async function identity(db: PoolClient, req: Request): Promise<Identity> 
   }
 
   const i = found.rows[0] as Identity;
+  if (!isWorkspaceRole(i.role)) throw new HttpError(403, 'FORBIDDEN');
   await scope(db, i.workspace_id);
 
   const activeWorkspace = await db.query(
@@ -50,10 +63,11 @@ export async function identity(db: PoolClient, req: Request): Promise<Identity> 
   return i;
 }
 
-export const authed = (fn: (db: PoolClient, i: Identity, req: Request) => Promise<unknown>) => {
+export const authed = (fn: (db: PoolClient, i: Identity, req: Request) => Promise<unknown>, permission?: WorkspacePermission) => {
   return async (req: Request, res: Response) => {
     const result = await transaction(async db => {
       const id = await identity(db, req);
+      if (permission) requirePermission(id.role, permission);
       return fn(db, id, req);
     });
     res.json(result);
