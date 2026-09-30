@@ -463,7 +463,7 @@
     window[window.GoTekObject] = dispatcher;
   }
 
-  // Execute queued commands
+  // 1. Execute queued commands if any
   if (priorQueue.length) {
     priorQueue.forEach(rawArgs => {
       const args = Array.isArray(rawArgs) ? rawArgs : (rawArgs && typeof rawArgs === 'object' ? Array.from(rawArgs) : []);
@@ -474,4 +474,32 @@
       }
     });
   }
+
+  // 2. Auto-initialize if data attributes are present on script tag (Zero-Config for Next.js / HTML)
+  const findScriptAndInit = () => {
+    const script = document.currentScript || document.querySelector('script[data-website-token]');
+    if (script) {
+      const token = script.getAttribute('data-website-token');
+      if (token) {
+        let base = script.getAttribute('data-base-url');
+        if (!base && script.src) {
+          try {
+            const parsed = new URL(script.src);
+            base = parsed.origin;
+          } catch {}
+        }
+        const autoOpen = script.getAttribute('data-auto-open') === 'true';
+        createInstance({
+          websiteToken: token,
+          baseUrl: base || window.location.origin,
+          autoOpen
+        });
+      }
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', findScriptAndInit);
+  }
+  findScriptAndInit();
 })();
