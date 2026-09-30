@@ -244,7 +244,7 @@ export function Auth({path, onLogin}: AuthProps) {
 
   return (
     <div className="auth-outer-screen">
-      {/* Dynamic Animated Ambient Background */}
+      {/* Dynamic Animated Ambient Background with subtle GoTek star cyan */}
       <div className="auth-ambient-canvas" aria-hidden="true">
         <div className="ambient-orb orb-1" />
         <div className="ambient-orb orb-2" />
@@ -252,12 +252,20 @@ export function Auth({path, onLogin}: AuthProps) {
         <div className="ambient-pattern-grid" />
       </div>
 
-      {/* Main Centered Floating Card (Occupies ~75-80% viewport) */}
-      <div className="auth-card-wrapper">
+      {/* Main Centered Floating Card (Fluidly Switches Left/Right Columns on Signup) */}
+      <motion.div
+        layout
+        transition={{type: 'spring', stiffness: 220, damping: 26}}
+        className={`auth-card-wrapper ${isSignup ? 'signup-layout' : 'login-layout'}`}
+      >
         {/* ====================================================================
-            LEFT PANEL: COMPACT & ELEGANT AUTH FORM
+            FORM PANEL: Slides from Left to Right when switching to Signup
             ==================================================================== */}
-        <div className="auth-card-left">
+        <motion.div
+          layout="position"
+          transition={{type: 'spring', stiffness: 220, damping: 26}}
+          className="auth-card-left"
+        >
           {/* Brand & Tier Header */}
           <div className="auth-card-header">
             <Link to="/app/auth/login" className="auth-brand-badge">
@@ -265,7 +273,7 @@ export function Auth({path, onLogin}: AuthProps) {
               <span className="auth-brand-title">GoTek Solutions</span>
             </Link>
             <div className="auth-status-pill">
-              <ShieldCheck size={13} className="text-blue-600" />
+              <ShieldCheck size={13} className="text-[#131b4d]" />
               <span>Enterprise Tier</span>
             </div>
           </div>
@@ -293,7 +301,7 @@ export function Auth({path, onLogin}: AuthProps) {
               </p>
             </div>
 
-            {/* Segmented Tab Switcher with Smooth Slide Indicator */}
+            {/* Segmented Tab Switcher with Fluid Motion Indicator */}
             {!isReset && !isVerify && (
               <div className="auth-tab-group">
                 <button
@@ -342,15 +350,15 @@ export function Auth({path, onLogin}: AuthProps) {
               </div>
             )}
 
-            {/* Animated Form Transitions (Slide between Login and Signup) */}
+            {/* Animated Form Content */}
             <AnimatePresence mode="wait" initial={false}>
               {isReset || isVerify ? (
                 <motion.div
                   key="reset-verify"
-                  initial={{opacity: 0, x: 25}}
-                  animate={{opacity: 1, x: 0}}
-                  exit={{opacity: 0, x: -25}}
-                  transition={{duration: 0.22, ease: 'easeOut'}}
+                  initial={{opacity: 0}}
+                  animate={{opacity: 1}}
+                  exit={{opacity: 0}}
+                  transition={{duration: 0.18}}
                 >
                   <form onSubmit={handleResetOrVerifySubmit} className="auth-actual-form" noValidate>
                     <fieldset disabled={busy} className="auth-fieldset">
@@ -406,13 +414,13 @@ export function Auth({path, onLogin}: AuthProps) {
                   </form>
                 </motion.div>
               ) : !isSignup ? (
-                /* ==================== LOGIN FORM WITH SLIDE ANIMATION ==================== */
+                /* ==================== LOGIN FORM ==================== */
                 <motion.div
                   key="login-form"
-                  initial={{opacity: 0, x: -35}}
-                  animate={{opacity: 1, x: 0}}
-                  exit={{opacity: 0, x: 35}}
-                  transition={{duration: 0.24, ease: [0.16, 1, 0.3, 1]}}
+                  initial={{opacity: 0}}
+                  animate={{opacity: 1}}
+                  exit={{opacity: 0}}
+                  transition={{duration: 0.18}}
                   className="auth-login-flow"
                 >
                   <form onSubmit={handleLoginSubmit} className="auth-actual-form" noValidate>
@@ -536,13 +544,13 @@ export function Auth({path, onLogin}: AuthProps) {
                   </div>
                 </motion.div>
               ) : (
-                /* ==================== SIGNUP FORM WITH SLIDE ANIMATION ==================== */
+                /* ==================== SIGNUP FORM ==================== */
                 <motion.div
                   key="signup-form"
-                  initial={{opacity: 0, x: 35}}
-                  animate={{opacity: 1, x: 0}}
-                  exit={{opacity: 0, x: -35}}
-                  transition={{duration: 0.24, ease: [0.16, 1, 0.3, 1]}}
+                  initial={{opacity: 0}}
+                  animate={{opacity: 1}}
+                  exit={{opacity: 0}}
+                  transition={{duration: 0.18}}
                 >
                   <form onSubmit={handleSignupSubmit} className="auth-actual-form" noValidate>
                     <fieldset disabled={busy} className="auth-fieldset">
@@ -700,20 +708,24 @@ export function Auth({path, onLogin}: AuthProps) {
             <a href="#" onClick={(e) => e.preventDefault()}>Điều khoản</a> và{' '}
             <a href="#" onClick={(e) => e.preventDefault()}>Chính sách bảo mật</a> của GoTek.
           </div>
-        </div>
+        </motion.div>
 
         {/* ====================================================================
-            RIGHT PANEL: GOTEK BRAND CYAN-BLUE LUXURY FEATURE SHOWCASE
-            Soft, luminous company blue gradient matching white left panel!
+            SHOWCASE PANEL: Slides from Right to Left when switching to Signup
+            Sophisticated GoTek Midnight Navy & Star Cyan Palette
             ==================================================================== */}
-        <div className="auth-card-right">
-          {/* Subtle decorative inner ambient glow */}
+        <motion.div
+          layout="position"
+          transition={{type: 'spring', stiffness: 220, damping: 26}}
+          className="auth-card-right"
+        >
+          {/* Decorative Star Cyan inner ambient glow */}
           <div className="showcase-glow" />
 
           <div className="showcase-inner-container">
             {/* Tag badge */}
             <div className="showcase-badge">
-              <Sparkles size={13} className="text-white" />
+              <Sparkles size={13} className="text-[#38bdf8]" />
               <span>Nền tảng CSKH Đa Kênh Thế Hệ Mới</span>
             </div>
 
@@ -755,7 +767,7 @@ export function Auth({path, onLogin}: AuthProps) {
                     Dạ anh/chị, GoTek đã đối soát biểu phí và quy trình thẩm định bảo lãnh Q4. Đã sẵn sàng hồ sơ tín dụng mẫu!
                   </p>
                   <div className="chat-citation-tag">
-                    <FileText size={12} className="text-blue-600" />
+                    <FileText size={12} className="text-[#0284c7]" />
                     <span>Quy_trinh_tin_dung_2026.pdf (Mục 4.2)</span>
                   </div>
                 </div>
@@ -805,8 +817,8 @@ export function Auth({path, onLogin}: AuthProps) {
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
