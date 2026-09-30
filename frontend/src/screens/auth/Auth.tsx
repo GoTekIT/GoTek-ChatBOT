@@ -1,4 +1,4 @@
-import React, {useState, type FormEvent} from 'react';
+import React, {useState, type FormEvent, useRef} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import {api, ApiError} from '@/api/api';
 import {navigate} from '../../hooks/usePath';
@@ -16,8 +16,8 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
-  Star,
-  FileText
+  Zap,
+  Bot
 } from 'lucide-react';
 import './auth.css';
 
@@ -32,13 +32,18 @@ export function Auth({path, onLogin}: AuthProps) {
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Form values - Start completely blank for genuine manual testing
+  // Form values - Start completely blank for genuine testing
   const [emailValue, setEmailValue] = useState('');
   const [passwordValue, setPasswordValue] = useState('');
 
   // Client-side validation state
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
+
+  // Mascot interactive state
+  const [isBotHovered, setIsBotHovered] = useState(false);
+  const [eyeOffset, setEyeOffset] = useState({x: 0, y: 0});
+  const showcaseRef = useRef<HTMLDivElement>(null);
 
   // Route state
   const isSignup = path === '/app/auth/signup';
@@ -56,6 +61,20 @@ export function Auth({path, onLogin}: AuthProps) {
     } else {
       navigate('/app/auth/login');
     }
+  };
+
+  // Mouse tracking for interactive mascot eyes
+  const handleShowcaseMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!showcaseRef.current) return;
+    const rect = showcaseRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 12;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 10;
+    setEyeOffset({x, y});
+  };
+
+  const handleShowcaseMouseLeave = () => {
+    setEyeOffset({x: 0, y: 0});
+    setIsBotHovered(false);
   };
 
   // Helper validation logic
@@ -244,7 +263,7 @@ export function Auth({path, onLogin}: AuthProps) {
 
   return (
     <div className="auth-outer-screen">
-      {/* Dynamic Animated Ambient Background with subtle GoTek star cyan */}
+      {/* Dynamic Animated Ambient Background */}
       <div className="auth-ambient-canvas" aria-hidden="true">
         <div className="ambient-orb orb-1" />
         <div className="ambient-orb orb-2" />
@@ -252,7 +271,7 @@ export function Auth({path, onLogin}: AuthProps) {
         <div className="ambient-pattern-grid" />
       </div>
 
-      {/* Main Centered Floating Card (Fluidly Switches Left/Right Columns on Signup) */}
+      {/* Main Centered Floating Card (Switches Left/Right smoothly via Framer Motion) */}
       <motion.div
         layout
         transition={{type: 'spring', stiffness: 220, damping: 26}}
@@ -273,7 +292,7 @@ export function Auth({path, onLogin}: AuthProps) {
               <span className="auth-brand-title">GoTek Solutions</span>
             </Link>
             <div className="auth-status-pill">
-              <ShieldCheck size={13} className="text-[#131b4d]" />
+              <ShieldCheck size={13} className="text-[#0284c7]" />
               <span>Enterprise Tier</span>
             </div>
           </div>
@@ -711,110 +730,116 @@ export function Auth({path, onLogin}: AuthProps) {
         </motion.div>
 
         {/* ====================================================================
-            SHOWCASE PANEL: Slides from Right to Left when switching to Signup
-            Sophisticated GoTek Midnight Navy & Star Cyan Palette
+            SHOWCASE PANEL: LUMINOUS GOTEK LOGO GRADIENT + INTERACTIVE 2D/3D MASCOT
+            Clean, delightful, un-cluttered, interactive AI Companion
             ==================================================================== */}
         <motion.div
+          ref={showcaseRef}
           layout="position"
           transition={{type: 'spring', stiffness: 220, damping: 26}}
           className="auth-card-right"
+          onMouseMove={handleShowcaseMouseMove}
+          onMouseLeave={handleShowcaseMouseLeave}
         >
-          {/* Decorative Star Cyan inner ambient glow */}
-          <div className="showcase-glow" />
+          {/* Subtle logo-inspired light orbs */}
+          <div className="showcase-glow-light" />
 
-          <div className="showcase-inner-container">
-            {/* Tag badge */}
-            <div className="showcase-badge">
-              <Sparkles size={13} className="text-[#38bdf8]" />
-              <span>Nền tảng CSKH Đa Kênh Thế Hệ Mới</span>
+          {/* Interactive Assistant Mascot Stage */}
+          <div className="mascot-stage">
+            {/* Dynamic Interactive Speech Bubble */}
+            <motion.div
+              initial={{scale: 0.9, opacity: 0}}
+              animate={{scale: 1, opacity: 1}}
+              key={isBotHovered ? 'hover' : isSignup ? 'signup' : 'login'}
+              className="mascot-speech-bubble"
+            >
+              <span className="speech-avatar">✨</span>
+              <p>
+                {isBotHovered
+                  ? 'Em luôn sẵn sàng hỗ trợ anh yêu 24/7! 🤖'
+                  : isSignup
+                    ? 'Tạo tài khoản để mở khóa trợ lý AI thông minh ngay nhé! 🚀'
+                    : 'Chào mừng trở lại! Hãy đăng nhập để bắt đầu phiên làm việc nhé 👋'}
+              </p>
+              <div className="speech-arrow" />
+            </motion.div>
+
+            {/* Interactive Vector 2D/3D Mascot */}
+            <div
+              className={`mascot-character ${isBotHovered ? 'hovered' : ''}`}
+              onMouseEnter={() => setIsBotHovered(true)}
+              onMouseLeave={() => setIsBotHovered(false)}
+            >
+              {/* Antenna with pulsing star */}
+              <div className="mascot-antenna">
+                <div className="antenna-stem" />
+                <div className="antenna-star">★</div>
+              </div>
+
+              {/* Bot Head & Face */}
+              <div className="mascot-head">
+                <div className="mascot-face-visor">
+                  {/* Digital Eyes with Eye Tracking */}
+                  <div
+                    className="mascot-eyes"
+                    style={{
+                      transform: `translate(${eyeOffset.x}px, ${eyeOffset.y}px)`
+                    }}
+                  >
+                    <div className="digital-eye left">
+                      <div className="eye-pupil" />
+                    </div>
+                    <div className="digital-eye right">
+                      <div className="eye-pupil" />
+                    </div>
+                  </div>
+                  {/* Subtle cute smile */}
+                  <div className="mascot-smile" />
+                </div>
+              </div>
+
+              {/* Floating Hands */}
+              <div className="mascot-hand left" />
+              <div className="mascot-hand right" />
+
+              {/* Pod Body with GoTek Star Emblem */}
+              <div className="mascot-body">
+                <div className="mascot-core-star">
+                  <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+                    <polygon
+                      points="50,5 64,36 98,40 72,64 80,98 50,80 20,98 28,64 2,40 36,36"
+                      fill="#00c2ff"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Floating Shadow */}
+              <div className="mascot-shadow" />
             </div>
+          </div>
 
-            {/* Headline */}
-            <h2 className="showcase-title">
-              Tự động hóa thông minh. Trải nghiệm chạm cảm xúc.
-            </h2>
-            <p className="showcase-desc">
-              Hợp nhất AI trợ lý tra cứu tài liệu với đội ngũ tư vấn viên, nâng cao chất lượng phục vụ và tối ưu chi phí vận hành.
+          {/* Minimal, Punchy Information - Clean & Easy on the Eyes */}
+          <div className="mascot-info-block">
+            <h2 className="mascot-title">GoTek Smart Chatbot</h2>
+            <p className="mascot-subtitle">
+              Nền tảng CSKH Đa Kênh Tự Động & Handoff Chuyên Viên
             </p>
 
-            {/* Simulated Live Chat Interactive Bubble */}
-            <div className="showcase-chat-card">
-              <div className="chat-card-top">
-                <div className="chat-client-info">
-                  <div className="chat-client-avatar">TC</div>
-                  <div>
-                    <div className="chat-client-name">Techcombank Corporate</div>
-                    <div className="chat-client-sub">Khách hàng Doanh nghiệp VIP</div>
-                  </div>
-                </div>
-                <div className="chat-live-badge">
-                  <span className="live-dot" />
-                  <span>Trực tuyến</span>
-                </div>
-              </div>
-
-              <div className="chat-convo-stream">
-                <div className="chat-bubble user">
-                  Bên mình muốn thẩm định hạn mức bảo lãnh và gói vay trước Quý 4.
-                </div>
-
-                <div className="chat-bubble bot">
-                  <div className="bot-tag">
-                    <Sparkles size={11} />
-                    <span>GoTek AI Assistant</span>
-                  </div>
-                  <p>
-                    Dạ anh/chị, GoTek đã đối soát biểu phí và quy trình thẩm định bảo lãnh Q4. Đã sẵn sàng hồ sơ tín dụng mẫu!
-                  </p>
-                  <div className="chat-citation-tag">
-                    <FileText size={12} className="text-[#0284c7]" />
-                    <span>Quy_trinh_tin_dung_2026.pdf (Mục 4.2)</span>
-                  </div>
-                </div>
-
-                <div className="chat-handoff-pill">
-                  <div className="handoff-dot" />
-                  <span>Chuyên viên Tuấn Anh đã tiếp nhận hội thoại</span>
-                  <span className="handoff-sla">1.2s SLA</span>
-                </div>
-              </div>
-
-              {/* 3 Metric Pills Bento */}
-              <div className="showcase-bento-grid">
-                <div className="bento-box">
-                  <div className="bento-val">99.8%</div>
-                  <div className="bento-lbl">Độ chính xác RAG</div>
-                </div>
-                <div className="bento-box">
-                  <div className="bento-val">&lt; 1.2s</div>
-                  <div className="bento-lbl">Tốc độ phản hồi</div>
-                </div>
-                <div className="bento-box">
-                  <div className="bento-val">Zero-Leak</div>
-                  <div className="bento-lbl">Bảo mật Tenant RLS</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Testimonial Quote */}
-            <div className="showcase-quote-box">
-              <p className="quote-text">
-                “GoTek Chatbot giúp giải phóng 75% khối lượng công việc lặp lại, khách hàng được giải đáp trong tích tắc mà vẫn đảm bảo độ bảo mật dữ liệu tuyệt đối.”
-              </p>
-              <div className="quote-footer">
-                <div className="quote-author-meta">
-                  <div className="quote-avatar">DH</div>
-                  <div>
-                    <span className="author-name">Đỗ Hoàng Nam</span>
-                    <span className="author-role">Giám đốc Vận hành CSKH, FPT Software</span>
-                  </div>
-                </div>
-                <div className="quote-rating">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={13} fill="#fbbf24" strokeWidth={0} />
-                  ))}
-                </div>
-              </div>
+            {/* 3 Clean Modern Feature Pills */}
+            <div className="mascot-pill-tags">
+              <span className="mascot-tag">
+                <Zap size={12} className="text-amber-300" />
+                <span>Phản hồi &lt;1.2s</span>
+              </span>
+              <span className="mascot-tag">
+                <Sparkles size={12} className="text-cyan-200" />
+                <span>Trích dẫn RAG chuẩn xác</span>
+              </span>
+              <span className="mascot-tag">
+                <ShieldCheck size={12} className="text-emerald-300" />
+                <span>Bảo mật RLS 100%</span>
+              </span>
             </div>
           </div>
         </motion.div>

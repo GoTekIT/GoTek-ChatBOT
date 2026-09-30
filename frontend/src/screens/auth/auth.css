@@ -1,9 +1,7 @@
 /* ==========================================================================
    GoTek Chatbot - Enterprise SaaS Floating Modal Auth
-   Color Palette Extracted Directly from GoTek Logo:
-   - Primary Corporate Navy: #131b4d -> #19235d (From 'gotek' wordmark)
-   - Accent Cyan/Teal: #00a8d6 -> #38bdf8 (From GoTek Star emblem)
-   - Balanced White Form with Smooth Sliding Split-Screen (Left <-> Right)
+   Bright GoTek Logo Star Gradient (#00b4d8 -> #0284c7 -> #2563eb)
+   Interactive 2D/3D AI Companion Mascot (Clean, Minimal, Delightful)
    ========================================================================== */
 
 /* Outer screen wrapper - Centers the floating card & hosts ambient background */
@@ -19,19 +17,19 @@
   overflow-x: hidden;
   overflow-y: auto;
   box-sizing: border-box;
-  background-color: #f3f6fa;
+  background-color: #f1f5f9;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #0f172a;
   transition: background-color 0.3s ease;
 }
 
 :is(.dark, .dark *) .auth-outer-screen {
-  background-color: #0b1020;
+  background-color: #080f1e;
   color: #f8fafc;
 }
 
 /* ==========================================================================
-   DYNAMIC AMBIENT BACKGROUND (Gentle, Not Glaring)
+   DYNAMIC AMBIENT BACKGROUND
    ========================================================================== */
 .auth-ambient-canvas {
   position: absolute;
@@ -45,7 +43,7 @@
   position: absolute;
   border-radius: 50%;
   filter: blur(90px);
-  opacity: 0.32;
+  opacity: 0.35;
   will-change: transform;
 }
 
@@ -55,20 +53,20 @@
 }
 
 .ambient-orb.orb-1 {
-  width: 500px;
-  height: 500px;
+  width: 480px;
+  height: 480px;
   top: -8%;
   left: 10%;
-  background: radial-gradient(circle, #00a8d6 0%, #19235d 60%, transparent 80%);
+  background: radial-gradient(circle, #38bdf8 0%, #2563eb 60%, transparent 80%);
   animation: floatOrb1 18s ease-in-out infinite alternate;
 }
 
 .ambient-orb.orb-2 {
-  width: 540px;
-  height: 540px;
+  width: 520px;
+  height: 520px;
   bottom: -10%;
   right: 8%;
-  background: radial-gradient(circle, #131b4d 0%, #20317e 60%, transparent 80%);
+  background: radial-gradient(circle, #0284c7 0%, #00b4d8 60%, transparent 80%);
   animation: floatOrb2 22s ease-in-out infinite alternate;
 }
 
@@ -77,7 +75,7 @@
   height: 380px;
   top: 35%;
   right: 25%;
-  background: radial-gradient(circle, #0284c7 0%, transparent 70%);
+  background: radial-gradient(circle, #60a5fa 0%, transparent 70%);
   animation: floatOrb3 15s ease-in-out infinite alternate;
 }
 
@@ -128,7 +126,7 @@
   border-radius: 22px;
   overflow: hidden;
   box-shadow: 
-    0 20px 50px -10px rgba(19, 27, 77, 0.14),
+    0 20px 50px -10px rgba(2, 132, 199, 0.16),
     0 8px 24px -4px rgba(15, 23, 42, 0.05),
     0 0 0 1px rgba(226, 232, 240, 0.85);
   margin: auto;
@@ -142,7 +140,7 @@
     0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
-/* Desktop Split Switch: When in Signup mode, Form flips to Right and Showcase to Left! */
+/* Desktop Split Switch: When in Signup mode, Form flips to Right and Mascot to Left! */
 @media (min-width: 1024px) {
   .auth-card-wrapper.signup-layout {
     flex-direction: row-reverse;
@@ -182,7 +180,7 @@
   align-items: center;
   gap: 10px;
   text-decoration: none;
-  color: #131b4d;
+  color: #0f172a;
 }
 
 :is(.dark, .dark *) .auth-brand-badge {
@@ -206,9 +204,9 @@
   align-items: center;
   gap: 5px;
   padding: 3px 9px;
-  background: #eef2ff;
-  border: 1px solid #e0e7ff;
-  color: #131b4d;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  color: #0284c7;
   font-size: 11px;
   font-weight: 600;
   border-radius: 9999px;
@@ -216,9 +214,9 @@
 }
 
 :is(.dark, .dark *) .auth-status-pill {
-  background: rgba(30, 41, 98, 0.25);
+  background: rgba(2, 132, 199, 0.15);
   border-color: rgba(56, 189, 248, 0.25);
-  color: #93c5fd;
+  color: #38bdf8;
 }
 
 /* Form Content Container */
@@ -236,7 +234,7 @@
 .auth-main-heading {
   font-size: 21px;
   font-weight: 700;
-  color: #131b4d;
+  color: #0f172a;
   letter-spacing: -0.025em;
   margin: 0 0 4px 0;
   line-height: 1.25;
@@ -288,7 +286,7 @@
 }
 
 .auth-tab-item.active {
-  color: #131b4d;
+  color: #0284c7;
 }
 
 :is(.dark, .dark *) .auth-tab-item.active {
@@ -300,7 +298,7 @@
   inset: 0;
   background: #ffffff;
   border-radius: 7px;
-  box-shadow: 0 2px 6px rgba(19, 27, 77, 0.08);
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.1);
   z-index: 1;
 }
 
@@ -389,14 +387,14 @@
 .auth-forgot-link {
   font-size: 11.5px;
   font-weight: 500;
-  color: #19235d;
+  color: #0284c7;
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
 .auth-forgot-link:hover {
   text-decoration: underline;
-  color: #00a8d6;
+  color: #0369a1;
 }
 
 :is(.dark, .dark *) .auth-forgot-link {
@@ -438,8 +436,8 @@
 }
 
 .auth-input-control:focus {
-  border-color: #19235d;
-  box-shadow: 0 0 0 3px rgba(25, 35, 93, 0.12);
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
 }
 
 :is(.dark, .dark *) .auth-input-control:focus {
@@ -523,7 +521,7 @@
 .auth-checkbox-wrap input[type="checkbox"] {
   width: 14px;
   height: 14px;
-  accent-color: #19235d;
+  accent-color: #0284c7;
   cursor: pointer;
 }
 
@@ -536,11 +534,11 @@
   color: #94a3b8;
 }
 
-/* Primary Action CTA Button (GoTek Brand Navy) */
+/* Primary Action CTA Button (GoTek Blue) */
 .auth-action-btn {
   width: 100%;
   height: 40px;
-  background: linear-gradient(135deg, #131b4d 0%, #19235d 100%);
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
   color: #ffffff;
   border: none;
   border-radius: 9px;
@@ -552,14 +550,14 @@
   gap: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(19, 27, 77, 0.25);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
   margin-top: 3px;
 }
 
 .auth-action-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #19235d 0%, #20317e 100%);
+  background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(19, 27, 77, 0.35);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.35);
 }
 
 .auth-action-btn:disabled {
@@ -675,27 +673,28 @@
 }
 
 /* ==========================================================================
-   SHOWCASE PANEL: GOTEK BRAND MIDNIGHT NAVY & STAR CYAN (Direct from Logo)
-   Not glaring, elegant, highly readable, luxurious
+   SHOWCASE PANEL: LUMINOUS GOTEK LOGO GRADIENT + INTERACTIVE 2D/3D MASCOT
+   Fresh, Bright, Radiant Cyan & Azure Gradient (Direct from Logo Star)
    ========================================================================== */
 .auth-card-right {
   flex: 1 1 48%;
-  background: linear-gradient(155deg, #131b4d 0%, #192462 50%, #10173e 100%);
+  background: linear-gradient(140deg, #00b4d8 0%, #0284c7 35%, #2563eb 75%, #1d4ed8 100%);
   color: #ffffff;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 26px 30px;
+  padding: 24px 28px;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
   border-right: none;
 }
 
 @media (min-width: 1024px) {
   .auth-card-wrapper.signup-layout .auth-card-right {
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
     border-left: none;
   }
 }
@@ -714,322 +713,324 @@
   }
 }
 
-.showcase-glow {
+.showcase-glow-light {
   position: absolute;
   top: -15%;
   right: -15%;
-  width: 320px;
-  height: 320px;
-  background: radial-gradient(circle, rgba(0, 168, 214, 0.22) 0%, rgba(25, 36, 98, 0.15) 55%, transparent 75%);
-  filter: blur(55px);
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(56, 189, 248, 0.2) 60%, transparent 80%);
+  filter: blur(50px);
   pointer-events: none;
 }
 
-.showcase-inner-container {
+/* ==========================================================================
+   INTERACTIVE 2D/3D AI COMPANION MASCOT
+   ========================================================================== */
+.mascot-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 12px;
+}
+
+/* Speech Bubble */
+.mascot-speech-bubble {
+  position: relative;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  padding: 8px 14px;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.2);
+  max-width: 290px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  backdrop-filter: blur(10px);
+}
+
+.mascot-speech-bubble p {
+  margin: 0;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.speech-avatar {
+  font-size: 14px;
+}
+
+.speech-arrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 12px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  border-right: 1px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+/* Mascot Character Body */
+.mascot-character {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  animation: floatMascot 3.6s ease-in-out infinite;
+}
+
+@keyframes floatMascot {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+/* Antenna with GoTek star */
+.mascot-antenna {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  top: -16px;
+  z-index: 3;
+}
+
+.antenna-stem {
+  width: 3px;
+  height: 10px;
+  background: #ffffff;
+  border-radius: 2px;
+}
+
+.antenna-star {
+  font-size: 13px;
+  color: #fef08a;
+  text-shadow: 0 0 8px #fde047;
+  animation: pulseStar 1.8s ease-in-out infinite;
+  line-height: 1;
+}
+
+@keyframes pulseStar {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.2); opacity: 1; filter: drop-shadow(0 0 6px #fde047); }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+/* Mascot Head */
+.mascot-head {
+  width: 90px;
+  height: 68px;
+  background: linear-gradient(135deg, #ffffff 0%, #e0f2fe 100%);
+  border-radius: 26px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 
+    0 10px 25px rgba(2, 132, 199, 0.25),
+    inset 0 2px 4px rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+}
+
+/* Visor Screen */
+.mascot-face-visor {
+  width: 72px;
+  height: 48px;
+  background: #091328;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+/* Digital Eyes */
+.mascot-eyes {
+  display: flex;
+  gap: 14px;
+  transition: transform 0.1s ease-out;
+}
+
+.digital-eye {
+  width: 14px;
+  height: 14px;
+  background: #38bdf8;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #38bdf8, 0 0 16px rgba(56, 189, 248, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: eyeBlink 4.5s infinite;
+}
+
+.eye-pupil {
+  width: 5px;
+  height: 5px;
+  background: #ffffff;
+  border-radius: 50%;
+}
+
+@keyframes eyeBlink {
+  0%, 96%, 100% { transform: scaleY(1); }
+  98% { transform: scaleY(0.1); }
+}
+
+.mascot-character:hover .digital-eye {
+  height: 8px;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 0 12px #38bdf8;
+}
+
+.mascot-smile {
+  width: 10px;
+  height: 4px;
+  border-bottom: 2px solid #38bdf8;
+  border-radius: 0 0 6px 6px;
+  margin-top: 4px;
+  opacity: 0.85;
+}
+
+/* Floating Hands */
+.mascot-hand {
+  position: absolute;
+  width: 18px;
+  height: 22px;
+  background: linear-gradient(135deg, #ffffff 0%, #bae6fd 100%);
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  top: 42px;
+  z-index: 1;
+}
+
+.mascot-hand.left {
+  left: 2px;
+  animation: waveHandLeft 3s ease-in-out infinite;
+}
+
+.mascot-hand.right {
+  right: 2px;
+  animation: waveHandRight 3s ease-in-out infinite;
+}
+
+@keyframes waveHandLeft {
+  0%, 100% { transform: rotate(-10deg) translateY(0); }
+  50% { transform: rotate(-25deg) translateY(-4px); }
+}
+
+@keyframes waveHandRight {
+  0%, 100% { transform: rotate(10deg) translateY(0); }
+  50% { transform: rotate(25deg) translateY(-4px); }
+}
+
+/* Pod Body */
+.mascot-body {
+  width: 44px;
+  height: 28px;
+  background: linear-gradient(135deg, #ffffff 0%, #e0f2fe 100%);
+  border-radius: 0 0 18px 18px;
+  margin-top: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 14px rgba(2, 132, 199, 0.25);
+  z-index: 1;
+}
+
+.mascot-core-star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Floating Shadow */
+.mascot-shadow {
+  position: absolute;
+  bottom: -16px;
+  width: 70px;
+  height: 10px;
+  background: rgba(0, 0, 0, 0.14);
+  border-radius: 50%;
+  filter: blur(4px);
+  animation: shadowScale 3.6s ease-in-out infinite;
+}
+
+@keyframes shadowScale {
+  0%, 100% { transform: scale(1); opacity: 0.25; }
+  50% { transform: scale(0.7); opacity: 0.12; }
+}
+
+/* Mascot Info Block */
+.mascot-info-block {
+  text-align: center;
   position: relative;
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-/* Tag Badge */
-.showcase-badge {
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3.5px 11px;
-  background: rgba(0, 168, 214, 0.14);
-  border: 1px solid rgba(0, 168, 214, 0.32);
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #38bdf8;
-  width: fit-content;
-  backdrop-filter: blur(8px);
+  gap: 8px;
 }
 
-/* Headline */
-.showcase-title {
-  font-size: 19.5px;
-  font-weight: 700;
-  line-height: 1.35;
-  margin: 0;
+.mascot-title {
+  font-size: 19px;
+  font-weight: 800;
   color: #ffffff;
+  margin: 0;
   letter-spacing: -0.02em;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
-.showcase-desc {
+.mascot-subtitle {
   font-size: 12px;
-  color: #cbd5e1;
-  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.92);
   margin: 0;
+  max-width: 280px;
+  line-height: 1.4;
 }
 
-/* Simulated Live Chat Interactive Card (Luminous Frosted Glass on Deep Navy) */
-.showcase-chat-card {
-  background: rgba(19, 27, 77, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 15px;
-  padding: 13px 15px;
-  backdrop-filter: blur(16px);
-  box-shadow: 0 16px 36px rgba(10, 15, 45, 0.35);
+/* Mascot Feature Tags */
+.mascot-pill-tags {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
+  margin-top: 6px;
+  width: 100%;
+  max-width: 260px;
 }
 
-.chat-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.chat-client-info {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.chat-client-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #00a8d6 0%, #19235d 100%);
-  color: #ffffff;
+.mascot-tag {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
-  font-weight: 800;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.chat-client-name {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.chat-client-sub {
-  font-size: 9.5px;
-  color: #94a3b8;
-}
-
-.chat-live-badge {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 600;
-  color: #34d399;
-  background: rgba(16, 185, 129, 0.18);
-  padding: 2.5px 8px;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
   border-radius: 9999px;
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #34d399;
-  box-shadow: 0 0 6px #34d399;
-  animation: pulseDot 2s infinite;
-}
-
-@keyframes pulseDot {
-  0% { transform: scale(0.9); opacity: 0.8; }
-  50% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.8; }
-}
-
-/* Chat Convo Stream */
-.chat-convo-stream {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.chat-bubble {
-  max-width: 92%;
-  padding: 8px 11px;
-  border-radius: 11px;
   font-size: 11px;
-  line-height: 1.4;
-}
-
-.chat-bubble.user {
-  align-self: flex-start;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #e2e8f0;
-  border-top-left-radius: 3px;
-}
-
-.chat-bubble.bot {
-  align-self: flex-end;
-  background: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  color: #0f172a;
-  border-top-right-radius: 3px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.chat-bubble.bot p {
-  margin: 0;
-  color: #1e293b;
-}
-
-.bot-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #19235d;
-}
-
-.chat-citation-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2.5px 7px;
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
-  border-radius: 5px;
-  font-size: 9.5px;
-  color: #19235d;
-  font-weight: 500;
-  width: fit-content;
-  margin-top: 1px;
-}
-
-/* Handoff Pill */
-.chat-handoff-pill {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 9px;
-  background: rgba(0, 168, 214, 0.12);
-  border: 1px dashed rgba(0, 168, 214, 0.35);
-  border-radius: 7px;
-  font-size: 10.5px;
-  color: #7dd3fc;
-}
-
-.handoff-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #38bdf8;
-  display: inline-block;
-  margin-right: 5px;
-}
-
-.handoff-sla {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  color: #38bdf8;
-  font-weight: 700;
-}
-
-/* Bento Metrics Grid */
-.showcase-bento-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 7px;
-  margin-top: 2px;
-}
-
-.bento-box {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 9px;
-  padding: 6px;
-  text-align: center;
-  transition: transform 0.2s ease;
-}
-
-.bento-box:hover {
-  transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.09);
-}
-
-.bento-val {
-  font-size: 13px;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: -0.01em;
-}
-
-.bento-lbl {
-  font-size: 9px;
-  color: #94a3b8;
-  margin-top: 1px;
-}
-
-/* Quote Box */
-.showcase-quote-box {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 11px;
-  padding: 9px 12px;
-}
-
-.quote-text {
-  font-size: 10.5px;
-  font-style: italic;
-  color: #cbd5e1;
-  line-height: 1.4;
-  margin: 0 0 6px 0;
-}
-
-.quote-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.quote-author-meta {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.quote-avatar {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #00a8d6 0%, #19235d 100%);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.author-name {
-  font-size: 10.5px;
   font-weight: 600;
   color: #ffffff;
-  display: block;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
 }
 
-.author-role {
-  font-size: 9px;
-  color: #94a3b8;
-  display: block;
-}
-
-.quote-rating {
-  display: flex;
-  gap: 2px;
+.mascot-tag:hover {
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
 }
