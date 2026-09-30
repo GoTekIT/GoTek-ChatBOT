@@ -1,25 +1,470 @@
-(()=>{'use strict';if(window.gotekSDK)return;let instance;
-window.gotekSDK={run(config){
- if(instance)return instance;
- const base=new URL(config.baseUrl);if(!['http:','https:'].includes(base.protocol))throw Error('Invalid base URL');
- const key=String(config.websiteToken);if(!/^[A-Za-z0-9_-]{40,80}$/.test(key))throw Error('Invalid website token');
- const endpoint=base.origin+'/widget-api/'+key,storage='gotek.visitor.'+base.origin+'.'+key;
- const host=document.createElement('div');host.id='gotek-widget';const root=host.attachShadow({mode:'open'});
- root.innerHTML=`<style>
- :host{all:initial;color:#0a1a4f;font:14px Inter,system-ui,-apple-system,"Segoe UI",sans-serif}*{box-sizing:border-box}button,textarea,input{font:inherit}button{cursor:pointer}button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #7bc7ff;outline-offset:2px}.launcher{position:fixed;right:22px;bottom:22px;z-index:2147483000;display:flex;align-items:center;gap:9px;min-height:48px;padding:0 18px;border:0;border-radius:999px;background:linear-gradient(135deg,#0057e1,#0878d9);box-shadow:0 12px 28px #052d7d3d;color:#fff;font-weight:700;transition:.18s}.launcher:hover{transform:translateY(-2px);box-shadow:0 15px 32px #052d7d52}.mark{display:grid;place-items:center;width:25px;height:25px;border-radius:8px;background:#ffffff2b;font-weight:800}.panel{position:fixed;right:22px;bottom:82px;z-index:2147483000;display:flex;flex-direction:column;width:min(390px,calc(100vw - 24px));height:min(620px,calc(100dvh - 104px));min-height:430px;overflow:hidden;border:1px solid #dce5f1;border-radius:20px;background:#fff;box-shadow:0 22px 60px #1020502b}.panel[hidden],.handoff[hidden],.reconnect[hidden]{display:none}.header{display:flex;align-items:center;justify-content:space-between;padding:17px 18px;background:linear-gradient(135deg,#063a9f,#0057e1);color:#fff}.brand{display:flex;align-items:center;gap:10px}.brand small{display:block;margin-top:2px;color:#dbeaff;font-size:11px}.close{width:32px;height:32px;border:1px solid #ffffff52;border-radius:9px;background:#ffffff18;color:#fff;font-size:20px}.meta{padding:14px 18px 0}.statusrow{display:flex;align-items:center;justify-content:space-between;gap:10px}.status{margin:0;color:#405474;font-size:12px;font-weight:700}.status:before{content:'';display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:#1bb978}.handoff{border:1px solid #b9d6ff;border-radius:999px;padding:7px 10px;background:#f3f8ff;color:#0057e1;font-size:11px;font-weight:700}.handoff:disabled{cursor:wait;opacity:.65}.greeting{margin:8px 0 0;color:#647693;font-size:12px;line-height:1.45}.prechat{padding:0 18px}.prechat[hidden]{display:none}.prechat form{display:grid;gap:8px;margin-top:12px;padding:12px;border:1px solid #dce5f1;border-radius:12px;background:#f8fbff}.prechat label{display:grid;gap:5px;color:#405474;font-size:12px;font-weight:600}.prechat input{width:100%;border:1px solid #cbd7e8;border-radius:8px;padding:9px 10px}.prechat button{border:0;border-radius:8px;padding:10px;background:#0057e1;color:#fff;font-weight:700}.messages{flex:1;overflow:auto;padding:14px 18px;background:#fbfdff}.empty{margin:24px 0;color:#8290a8;text-align:center;font-size:12px;line-height:1.5}.bubble{width:fit-content;max-width:88%;margin:8px 0;padding:10px 12px;border-radius:14px 14px 14px 4px;background:#edf2f8;color:#253957;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}.bubble.visitor{margin-left:auto;border-radius:14px 14px 4px 14px;background:#e5f0ff;color:#073e9e}.composer{display:grid;gap:8px;padding:12px 18px 16px;border-top:1px solid #e8eef6;background:#fff}.composer textarea{width:100%;min-height:54px;max-height:120px;resize:vertical;border:1px solid #cbd7e8;border-radius:11px;padding:10px 11px;color:#0a1a4f}.footer{display:flex;align-items:center;justify-content:space-between;gap:10px}.privacy{color:#8996aa;font-size:10px}.send,.reconnect{border:0;border-radius:9px;padding:10px 14px;background:#0057e1;color:#fff;font-weight:700}.reconnect{margin:0 18px 10px;background:#fff1f2;color:#a62a3b}.error{min-height:17px;margin:0 18px;color:#a62a3b;font-size:12px;line-height:1.35}@media(max-width:520px){.launcher{right:12px;bottom:12px}.panel{right:12px;bottom:70px;width:calc(100vw - 24px);height:calc(100dvh - 82px);min-height:390px;border-radius:16px}}
- </style><button class="launcher" type="button" aria-expanded="false" aria-controls="gotek-chat"><span class="mark" aria-hidden="true">G</span><span class="launcher-label">Trò chuyện</span></button><section id="gotek-chat" class="panel" aria-label="Trò chuyện với GoTek" hidden><header class="header"><div class="brand"><span class="mark" aria-hidden="true">G</span><div><strong class="name">GoTek</strong><small>Hỗ trợ khách hàng</small></div></div><button class="close" type="button" aria-label="Đóng trò chuyện">×</button></header><div class="meta"><div class="statusrow"><p class="status" role="status" aria-live="polite"></p><button class="handoff" type="button" hidden>Yêu cầu gặp nhân viên</button></div><p class="greeting"></p></div><div class="prechat"></div><div class="messages" role="log" aria-live="polite"><p class="empty">Bạn đang trò chuyện với đội ngũ hỗ trợ của doanh nghiệp.</p></div><p class="error" role="alert" aria-live="assertive"></p><button class="reconnect" type="button" hidden>Kết nối lại</button><form class="composer"><label for="gotek-message" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">Nội dung tin nhắn</label><textarea id="gotek-message" required maxlength="10000" placeholder="Nhập tin nhắn của bạn…"></textarea><div class="footer"><small class="privacy">Thông tin chỉ dùng cho phiên hỗ trợ này.</small><button class="send" type="submit">Gửi</button></div></form></section>`;
- document.body.append(host);const $=s=>root.querySelector(s),panel=$('.panel'),launcher=$('.launcher'),close=$('.close'),messages=$('.messages'),empty=$('.empty'),error=$('.error'),textarea=$('#gotek-message'),send=$('.send'),reconnect=$('.reconnect'),handoff=$('.handoff'),status=$('.status'),prechat=$('.prechat');
- let token='',cursor=0,pending=null,profileReady=true,seen=new Set,receipts=new Set,timer,busy=false,handoffBusy=false,replyOwner='AI_ACTIVE',ownerVersion=0;
- function updateHandoff(){const visible=Boolean(token&&profileReady&&replyOwner==='AI_ACTIVE');handoff.hidden=!visible;handoff.disabled=handoffBusy||!visible;handoff.textContent=handoffBusy?'Đang kết nối…':'Yêu cầu gặp nhân viên';}
- function setOwner(owner,version){if(!Number.isInteger(version)||version<ownerVersion)return;replyOwner=owner;ownerVersion=version;status.textContent=owner==='HUMAN_ACTIVE'?'Nhân viên đang hỗ trợ':owner==='HANDOFF_PENDING'?'Đang kết nối nhân viên':owner==='AI_ACTIVE'?'Trợ lý AI đang hỗ trợ':'Đang kết nối hỗ trợ';updateHandoff();}
- async function api(path,method='GET',body){const r=await fetch(endpoint+path,{method,credentials:'omit',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();if(!r.ok){const e=Error(data.error==='DOMAIN_DENIED'?'Website chưa được phép sử dụng kênh này.':data.error==='VISITOR_SESSION_EXPIRED'?'Phiên trò chuyện đã hết hạn.':'Chưa kết nối được. Vui lòng thử lại.');e.code=data.error;throw e}return data;}
- function render(message){if(seen.has(message.id))return;seen.add(message.id);empty.hidden=true;const node=document.createElement('div');node.className='bubble '+(message.author_type==='visitor'?'visitor':'');node.textContent=message.body;messages.append(node);messages.scrollTop=messages.scrollHeight;}
- async function poll(){if(!token||panel.hidden||busy)return;busy=true;try{const state=await api('/state');setOwner(state.replyOwner,state.ownerVersion);const rows=await api('/messages?after='+cursor);for(const message of rows){render(message);cursor=Math.max(cursor,message.sequence);if(message.author_type!=='visitor')receipts.add(message.id)}if(receipts.size){const ids=[...receipts].slice(0,100);await api('/receipts','POST',{messageIds:ids});ids.forEach(id=>receipts.delete(id))}error.textContent='';}catch(e){error.textContent=e.message;reconnect.hidden=false;}finally{busy=false}}
- async function requestHuman(){if(!token||handoffBusy||replyOwner!=='AI_ACTIVE')return;handoffBusy=true;updateHandoff();status.textContent='Đang kết nối nhân viên…';try{const state=await api('/handoff','POST',{});setOwner(state.replyOwner,state.ownerVersion);error.textContent='';}catch(e){error.textContent=e.message;}finally{handoffBusy=false;updateHandoff();}}
- async function connect(){send.disabled=true;error.textContent='';let resume;try{resume=localStorage.getItem(storage)||undefined}catch{}try{const session=await api('/session','POST',resume?{resumeToken:resume}:(config.profile?{profile:config.profile}:{}));token=session.token;setOwner(session.replyOwner,session.ownerVersion);try{localStorage.setItem(storage,token)}catch{}$('.name').textContent=session.name;$('.greeting').textContent=session.available?session.greeting:session.greeting+' (Hiện đang ngoài giờ hỗ trợ)';$('.launcher-label').textContent=session.widgetTitle||'Trò chuyện';launcher.style.backgroundColor=session.color;reconnect.hidden=true;const fields=session.prechat?.enabled?(session.prechat.fields||[]).filter(f=>f.enabled):[];profileReady=!fields.some(f=>f.required&&!String(session.profile?.[f.key]||'').trim());prechat.replaceChildren();prechat.hidden=profileReady;if(!profileReady){const form=document.createElement('form');const intro=document.createElement('p');intro.textContent=session.prechat.message||'Vui lòng để lại thông tin để chúng tôi hỗ trợ bạn tốt hơn.';form.append(intro);for(const f of fields){const label=document.createElement('label');label.textContent=f.label||f.key;const input=document.createElement('input');input.name=f.key;input.placeholder=f.placeholder||'';input.required=Boolean(f.required);input.maxLength=500;input.type=f.key==='emailAddress'?'email':f.key==='phoneNumber'?'tel':'text';input.value=session.profile?.[f.key]||'';label.append(input);form.append(label)}const button=document.createElement('button');button.type='submit';button.textContent='Bắt đầu trò chuyện';form.append(button);prechat.append(form);form.onsubmit=async event=>{event.preventDefault();button.disabled=true;try{await api('/profile','POST',{profile:Object.fromEntries(new FormData(form).entries())});profileReady=true;prechat.hidden=true;send.disabled=false;textarea.disabled=false;updateHandoff();textarea.focus()}catch(e){error.textContent=e.message}finally{button.disabled=false}}}send.disabled=!profileReady;textarea.disabled=!profileReady;updateHandoff();await poll();clearInterval(timer);timer=setInterval(poll,2000)}catch(e){if(resume&&e.code==='VISITOR_SESSION_EXPIRED'){try{localStorage.removeItem(storage)}catch{}token='';cursor=0;ownerVersion=0;replyOwner='AI_ACTIVE';seen.clear();receipts.clear();pending=null;messages.replaceChildren(empty);empty.hidden=false;prechat.replaceChildren();prechat.hidden=true;profileReady=true;updateHandoff();send.disabled=false;textarea.disabled=false;return connect()}error.textContent=e.message;reconnect.hidden=false}}
- launcher.onclick=()=>{panel.hidden=!panel.hidden;launcher.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden){if(!token)void connect();else void poll();textarea.focus()}};close.onclick=()=>{panel.hidden=true;launcher.setAttribute('aria-expanded','false');launcher.focus()};reconnect.onclick=connect;handoff.onclick=requestHuman;
- $('.composer').onsubmit=async event=>{event.preventDefault();if(!token||!profileReady)return;pending=pending||{clientId:crypto.randomUUID(),body:textarea.value.trim()};if(!pending.body)return;send.disabled=true;textarea.disabled=true;try{const message=await api('/messages','POST',pending);setOwner(message.replyOwner,message.ownerVersion);render(message);pending=null;textarea.value='';error.textContent=''}catch(e){error.textContent=e.message;send.textContent='Thử gửi lại'}finally{send.disabled=false;textarea.disabled=Boolean(pending)}};
- if(config.autoOpen)setTimeout(()=>launcher.click(),0);
- instance={destroy(){clearInterval(timer);host.remove();instance=null}};return instance;
- }};
+(()=>{
+  'use strict';
+
+  // Preserve any queue pushed before this script loaded
+  const priorQueue = (window.gotekSDK && Array.isArray(window.gotekSDK.q)) ? window.gotekSDK.q : [];
+  let instance = null;
+
+  function createInstance(config) {
+    if (instance) return instance;
+
+    const base = new URL(config.baseUrl);
+    if (!['http:', 'https:'].includes(base.protocol)) throw Error('Invalid base URL');
+    const key = String(config.websiteToken);
+    if (!/^[A-Za-z0-9_-]{40,80}$/.test(key)) throw Error('Invalid website token');
+
+    const endpoint = base.origin + '/widget-api/' + key;
+    const storageKey = 'gotek.visitor.' + base.origin + '.' + key;
+
+    // Safe storage wrapper
+    const storage = {
+      get(k) { try { return localStorage.getItem(k) || undefined; } catch { return undefined; } },
+      set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+      remove(k) { try { localStorage.removeItem(k); } catch {} }
+    };
+
+    const host = document.createElement('div');
+    host.id = 'gotek-widget';
+    const root = host.attachShadow({mode: 'open'});
+
+    root.innerHTML = `<style>
+    :host{all:initial;color:#0a1a4f;font:14px Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}
+    button,textarea,input{font:inherit}
+    button{cursor:pointer}
+    button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #7bc7ff;outline-offset:2px}
+    .launcher{position:fixed;right:22px;bottom:22px;z-index:2147483000;display:flex;align-items:center;gap:9px;min-height:48px;padding:0 18px;border:0;border-radius:999px;background:linear-gradient(135deg,#0057e1,#0878d9);box-shadow:0 12px 28px #052d7d3d;color:#fff;font-weight:700;transition:transform .18s ease,box-shadow .18s ease}
+    .launcher:hover{transform:translateY(-2px);box-shadow:0 15px 32px #052d7d52}
+    .mark{display:grid;place-items:center;width:25px;height:25px;border-radius:8px;background:#ffffff2b;font-weight:800}
+    .panel{position:fixed;right:22px;bottom:82px;z-index:2147483000;display:flex;flex-direction:column;width:min(390px,calc(100vw - 24px));height:min(620px,calc(100dvh - 104px));min-height:430px;overflow:hidden;border:1px solid #dce5f1;border-radius:20px;background:#fff;box-shadow:0 22px 60px #1020502b;transition:height .15s ease}
+    .panel[hidden],.handoff[hidden],.reconnect[hidden]{display:none}
+    .header{display:flex;align-items:center;justify-content:space-between;padding:17px 18px;background:linear-gradient(135deg,#063a9f,#0057e1);color:#fff}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand small{display:block;margin-top:2px;color:#dbeaff;font-size:11px}
+    .close{width:32px;height:32px;border:1px solid #ffffff52;border-radius:9px;background:#ffffff18;color:#fff;font-size:20px}
+    .meta{padding:14px 18px 0}
+    .statusrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .status{margin:0;color:#405474;font-size:12px;font-weight:700}
+    .status:before{content:'';display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:#1bb978}
+    .handoff{border:1px solid #b9d6ff;border-radius:999px;padding:7px 10px;background:#f3f8ff;color:#0057e1;font-size:11px;font-weight:700}
+    .handoff:disabled{cursor:wait;opacity:.65}
+    .greeting{margin:8px 0 0;color:#647693;font-size:12px;line-height:1.45}
+    .prechat{padding:0 18px}
+    .prechat[hidden]{display:none}
+    .prechat form{display:grid;gap:8px;margin-top:12px;padding:12px;border:1px solid #dce5f1;border-radius:12px;background:#f8fbff}
+    .prechat label{display:grid;gap:5px;color:#405474;font-size:12px;font-weight:600}
+    .prechat input{width:100%;border:1px solid #cbd7e8;border-radius:8px;padding:9px 10px}
+    .prechat button{border:0;border-radius:8px;padding:10px;background:#0057e1;color:#fff;font-weight:700}
+    .messages{flex:1;overflow:auto;padding:14px 18px;background:#fbfdff}
+    .empty{margin:24px 0;color:#8290a8;text-align:center;font-size:12px;line-height:1.5}
+    .bubble{width:fit-content;max-width:88%;margin:8px 0;padding:10px 12px;border-radius:14px 14px 14px 4px;background:#edf2f8;color:#253957;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+    .bubble.visitor{margin-left:auto;border-radius:14px 14px 4px 14px;background:#e5f0ff;color:#073e9e}
+    .composer{display:grid;gap:8px;padding:12px 18px 16px;border-top:1px solid #e8eef6;background:#fff}
+    .composer textarea{width:100%;min-height:54px;max-height:120px;resize:vertical;border:1px solid #cbd7e8;border-radius:11px;padding:10px 11px;color:#0a1a4f}
+    .footer{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .privacy{color:#8996aa;font-size:10px}
+    .send,.reconnect{border:0;border-radius:9px;padding:10px 14px;background:#0057e1;color:#fff;font-weight:700}
+    .reconnect{margin:0 18px 10px;background:#fff1f2;color:#a62a3b}
+    .error{min-height:17px;margin:0 18px;color:#a62a3b;font-size:12px;line-height:1.35}
+    @media(max-width:520px){
+      .launcher{right:12px;bottom:12px}
+      .panel{right:12px;bottom:70px;width:calc(100vw - 24px);height:calc(100dvh - 82px);min-height:390px;border-radius:16px}
+    }
+    </style>
+    <button class="launcher" type="button" aria-expanded="false" aria-controls="gotek-chat">
+      <span class="mark" aria-hidden="true">G</span>
+      <span class="launcher-label">Trò chuyện</span>
+    </button>
+    <section id="gotek-chat" class="panel" aria-label="Trò chuyện với GoTek" hidden>
+      <header class="header">
+        <div class="brand">
+          <span class="mark" aria-hidden="true">G</span>
+          <div><strong class="name">GoTek</strong><small>Hỗ trợ khách hàng</small></div>
+        </div>
+        <button class="close" type="button" aria-label="Đóng trò chuyện">×</button>
+      </header>
+      <div class="meta">
+        <div class="statusrow">
+          <p class="status" role="status" aria-live="polite"></p>
+          <button class="handoff" type="button" hidden>Yêu cầu gặp nhân viên</button>
+        </div>
+        <p class="greeting"></p>
+      </div>
+      <div class="prechat"></div>
+      <div class="messages" role="log" aria-live="polite">
+        <p class="empty">Bạn đang trò chuyện với đội ngũ hỗ trợ của doanh nghiệp.</p>
+      </div>
+      <p class="error" role="alert" aria-live="assertive"></p>
+      <button class="reconnect" type="button" hidden>Kết nối lại</button>
+      <form class="composer">
+        <label for="gotek-message" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">Nội dung tin nhắn</label>
+        <textarea id="gotek-message" required maxlength="10000" placeholder="Nhập tin nhắn của bạn…"></textarea>
+        <div class="footer">
+          <small class="privacy">Thông tin chỉ dùng cho phiên hỗ trợ này.</small>
+          <button class="send" type="submit">Gửi</button>
+        </div>
+      </form>
+    </section>`;
+
+    document.body.append(host);
+    const $ = s => root.querySelector(s);
+    const panel = $('.panel'), launcher = $('.launcher'), close = $('.close');
+    const messages = $('.messages'), empty = $('.empty'), error = $('.error');
+    const textarea = $('#gotek-message'), send = $('.send'), reconnect = $('.reconnect');
+    const handoff = $('.handoff'), status = $('.status'), prechat = $('.prechat');
+
+    let token = '', cursor = 0, pending = null, profileReady = true;
+    let seen = new Set(), receipts = new Set();
+    let pollTimer = null, busy = false, handoffBusy = false;
+    let replyOwner = 'AI_ACTIVE', ownerVersion = 0;
+
+    // Adaptive polling & visibility state
+    let idleCount = 0;
+    let pollDelay = 2000;
+    let tabHidden = false;
+
+    function schedulePoll(delay) {
+      if (pollTimer) clearTimeout(pollTimer);
+      if (panel.hidden || !token) return;
+      if (tabHidden) {
+        pollTimer = setTimeout(poll, 30000); // 30s when tab is hidden
+        return;
+      }
+      pollTimer = setTimeout(poll, delay || pollDelay);
+    }
+
+    function resetActivePoll() {
+      idleCount = 0;
+      pollDelay = 2000;
+      if (!panel.hidden && token) schedulePoll(2000);
+    }
+
+    function updateHandoff() {
+      const visible = Boolean(token && profileReady && replyOwner === 'AI_ACTIVE');
+      handoff.hidden = !visible;
+      handoff.disabled = handoffBusy || !visible;
+      handoff.textContent = handoffBusy ? 'Đang kết nối…' : 'Yêu cầu gặp nhân viên';
+    }
+
+    function setOwner(owner, version) {
+      if (!Number.isInteger(version) || version < ownerVersion) return;
+      replyOwner = owner;
+      ownerVersion = version;
+      status.textContent = owner === 'HUMAN_ACTIVE'
+        ? 'Nhân viên đang hỗ trợ'
+        : owner === 'HANDOFF_PENDING'
+          ? 'Đang kết nối nhân viên'
+          : owner === 'AI_ACTIVE'
+            ? 'Trợ lý AI đang hỗ trợ'
+            : 'Đang kết nối hỗ trợ';
+      updateHandoff();
+    }
+
+    async function api(path, method = 'GET', body) {
+      const r = await fetch(endpoint + path, {
+        method,
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? {Authorization: 'Bearer ' + token} : {})
+        },
+        body: body === undefined ? undefined : JSON.stringify(body)
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        const e = Error(
+          data.error === 'DOMAIN_DENIED'
+            ? 'Website chưa được phép sử dụng kênh này.'
+            : data.error === 'VISITOR_SESSION_EXPIRED'
+              ? 'Phiên trò chuyện đã hết hạn.'
+              : 'Chưa kết nối được. Vui lòng thử lại.'
+        );
+        e.code = data.error;
+        throw e;
+      }
+      return data;
+    }
+
+    function render(message) {
+      if (seen.has(message.id)) return;
+      seen.add(message.id);
+      empty.hidden = true;
+      const node = document.createElement('div');
+      node.className = 'bubble ' + (message.author_type === 'visitor' ? 'visitor' : '');
+      node.textContent = message.body;
+      messages.append(node);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function poll() {
+      if (!token || panel.hidden || busy) return;
+      busy = true;
+      try {
+        const state = await api('/state');
+        setOwner(state.replyOwner, state.ownerVersion);
+        const rows = await api('/messages?after=' + cursor);
+        let newMessages = 0;
+        for (const message of rows) {
+          render(message);
+          cursor = Math.max(cursor, message.sequence);
+          if (message.author_type !== 'visitor') receipts.add(message.id);
+          newMessages++;
+        }
+        if (receipts.size) {
+          const ids = [...receipts].slice(0, 100);
+          await api('/receipts', 'POST', {messageIds: ids});
+          ids.forEach(id => receipts.delete(id));
+        }
+        error.textContent = '';
+
+        // Adaptive polling intervals
+        if (newMessages > 0) {
+          idleCount = 0;
+          pollDelay = 2000;
+        } else {
+          idleCount++;
+          if (idleCount > 10) pollDelay = 4000;
+          if (idleCount > 25) pollDelay = 8000;
+        }
+      } catch (e) {
+        error.textContent = e.message;
+        reconnect.hidden = false;
+      } finally {
+        busy = false;
+        schedulePoll(pollDelay);
+      }
+    }
+
+    async function requestHuman() {
+      if (!token || handoffBusy || replyOwner !== 'AI_ACTIVE') return;
+      handoffBusy = true;
+      updateHandoff();
+      status.textContent = 'Đang kết nối nhân viên…';
+      try {
+        const state = await api('/handoff', 'POST', {});
+        setOwner(state.replyOwner, state.ownerVersion);
+        error.textContent = '';
+      } catch (e) {
+        error.textContent = e.message;
+      } finally {
+        handoffBusy = false;
+        updateHandoff();
+      }
+    }
+
+    async function connect() {
+      send.disabled = true;
+      error.textContent = '';
+      const resume = storage.get(storageKey);
+      try {
+        const session = await api('/session', 'POST', resume ? {resumeToken: resume} : (config.profile ? {profile: config.profile} : {}));
+        token = session.token;
+        setOwner(session.replyOwner, session.ownerVersion);
+        storage.set(storageKey, token);
+
+        $('.name').textContent = session.name;
+        $('.greeting').textContent = session.available ? session.greeting : session.greeting + ' (Hiện đang ngoài giờ hỗ trợ)';
+        $('.launcher-label').textContent = session.widgetTitle || 'Trò chuyện';
+        launcher.style.backgroundColor = session.color;
+        reconnect.hidden = true;
+
+        const fields = session.prechat?.enabled ? (session.prechat.fields || []).filter(f => f.enabled) : [];
+        profileReady = !fields.some(f => f.required && !String(session.profile?.[f.key] || '').trim());
+        prechat.replaceChildren();
+        prechat.hidden = profileReady;
+
+        if (!profileReady) {
+          const form = document.createElement('form');
+          const intro = document.createElement('p');
+          intro.textContent = session.prechat.message || 'Vui lòng để lại thông tin để chúng tôi hỗ trợ bạn tốt hơn.';
+          form.append(intro);
+          for (const f of fields) {
+            const label = document.createElement('label');
+            label.textContent = f.label || f.key;
+            const input = document.createElement('input');
+            input.name = f.key;
+            input.placeholder = f.placeholder || '';
+            input.required = Boolean(f.required);
+            input.maxLength = 500;
+            input.type = f.key === 'emailAddress' ? 'email' : f.key === 'phoneNumber' ? 'tel' : 'text';
+            input.value = session.profile?.[f.key] || '';
+            label.append(input);
+            form.append(label);
+          }
+          const button = document.createElement('button');
+          button.type = 'submit';
+          button.textContent = 'Bắt đầu trò chuyện';
+          form.append(button);
+          prechat.append(form);
+
+          form.onsubmit = async event => {
+            event.preventDefault();
+            button.disabled = true;
+            try {
+              await api('/profile', 'POST', {profile: Object.fromEntries(new FormData(form).entries())});
+              profileReady = true;
+              prechat.hidden = true;
+              send.disabled = false;
+              textarea.disabled = false;
+              updateHandoff();
+              textarea.focus();
+            } catch (e) {
+              error.textContent = e.message;
+            } finally {
+              button.disabled = false;
+            }
+          };
+        }
+
+        send.disabled = !profileReady;
+        textarea.disabled = !profileReady;
+        updateHandoff();
+
+        await poll();
+        resetActivePoll();
+      } catch (e) {
+        if (resume && e.code === 'VISITOR_SESSION_EXPIRED') {
+          storage.remove(storageKey);
+          token = '';
+          cursor = 0;
+          ownerVersion = 0;
+          replyOwner = 'AI_ACTIVE';
+          seen.clear();
+          receipts.clear();
+          pending = null;
+          messages.replaceChildren(empty);
+          empty.hidden = false;
+          prechat.replaceChildren();
+          prechat.hidden = true;
+          profileReady = true;
+          updateHandoff();
+          send.disabled = false;
+          textarea.disabled = false;
+          return connect();
+        }
+        error.textContent = e.message;
+        reconnect.hidden = false;
+      }
+    }
+
+    launcher.onclick = () => {
+      panel.hidden = !panel.hidden;
+      launcher.setAttribute('aria-expanded', String(!panel.hidden));
+      if (!panel.hidden) {
+        if (!token) void connect();
+        else {
+          resetActivePoll();
+          void poll();
+        }
+        textarea.focus();
+      } else {
+        if (pollTimer) clearTimeout(pollTimer);
+      }
+    };
+
+    close.onclick = () => {
+      panel.hidden = true;
+      launcher.setAttribute('aria-expanded', 'false');
+      if (pollTimer) clearTimeout(pollTimer);
+      launcher.focus();
+    };
+
+    reconnect.onclick = connect;
+    handoff.onclick = requestHuman;
+
+    // Reset backoff on user typing
+    textarea.addEventListener('input', () => { idleCount = 0; });
+
+    $('.composer').onsubmit = async event => {
+      event.preventDefault();
+      if (!token || !profileReady) return;
+      pending = pending || {clientId: crypto.randomUUID(), body: textarea.value.trim()};
+      if (!pending.body) return;
+      send.disabled = true;
+      textarea.disabled = true;
+      try {
+        const message = await api('/messages', 'POST', pending);
+        setOwner(message.replyOwner, message.ownerVersion);
+        render(message);
+        pending = null;
+        textarea.value = '';
+        error.textContent = '';
+        resetActivePoll();
+      } catch (e) {
+        error.textContent = e.message;
+        send.textContent = 'Thử gửi lại';
+      } finally {
+        send.disabled = false;
+        textarea.disabled = Boolean(pending);
+      }
+    };
+
+    // Page Visibility API listener
+    const onVisibilityChange = () => {
+      tabHidden = document.hidden;
+      if (!tabHidden && !panel.hidden && token) {
+        resetActivePoll();
+        void poll();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Mobile Virtual Keyboard Viewport Handler
+    let onVpResize = null;
+    if (window.visualViewport) {
+      onVpResize = () => {
+        if (panel.hidden) return;
+        const vp = window.visualViewport;
+        if (window.innerHeight - vp.height > 120) {
+          panel.style.height = (vp.height - 16) + 'px';
+          panel.style.bottom = (window.innerHeight - vp.height - vp.offsetTop + 8) + 'px';
+          messages.scrollTop = messages.scrollHeight;
+        } else {
+          panel.style.height = '';
+          panel.style.bottom = '';
+        }
+      };
+      window.visualViewport.addEventListener('resize', onVpResize);
+    }
+
+    if (config.autoOpen) setTimeout(() => launcher.click(), 0);
+
+    instance = {
+      destroy() {
+        if (pollTimer) clearTimeout(pollTimer);
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        if (onVpResize && window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', onVpResize);
+        }
+        host.remove();
+        instance = null;
+      }
+    };
+
+    return instance;
+  }
+
+  // Unified dispatcher supporting both async queue gotekSDK('run', {...}) and gotekSDK.run({...})
+  const dispatcher = function(cmd, ...args) {
+    if (typeof cmd === 'string' && cmd === 'run') return createInstance(args[0]);
+    if (typeof cmd === 'object' && cmd !== null) return createInstance(cmd);
+  };
+  dispatcher.run = createInstance;
+  dispatcher.init = createInstance;
+
+  window.gotekSDK = dispatcher;
+  if (window.GoTekObject && window[window.GoTekObject]) {
+    window[window.GoTekObject] = dispatcher;
+  }
+
+  // Execute queued commands
+  if (priorQueue.length) {
+    priorQueue.forEach(args => {
+      if (Array.isArray(args)) {
+        const [fn, ...params] = args;
+        if (fn === 'run' || fn === 'init') createInstance(params[0]);
+        else if (typeof fn === 'object') createInstance(fn);
+      }
+    });
+  }
 })();
