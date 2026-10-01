@@ -1,4 +1,4 @@
-import {inboxList,inboxMessages,inboxTakeover,inboxSend,inboxSetStatus} from '../src/modules/chat/inbox';
+import {inboxDetail,inboxList,inboxMessages,inboxTakeover,inboxSend,inboxSetStatus} from '../src/modules/chat/inbox';
 import {test,after} from 'node:test';import assert from 'node:assert/strict';import pg from 'pg';import {randomUUID} from 'node:crypto';import {pool,scope,transaction} from '../src/core/db';import {appendMessage,takeover} from '../src/modules/chat/chat-store';
 const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
 test('H03 message ordering/idempotency, takeover fencing, note boundary and tenant isolation',async()=>{
@@ -39,6 +39,20 @@ test('H03 message ordering/idempotency, takeover fencing, note boundary and tena
  const reopened=await run(db=>appendMessage(db,{...input,clientId:randomUUID(),body:'Khách nhắn lại'}));
  assert.equal(reopened.author_type,'visitor');
  assert.equal((await run(db=>db.query('SELECT status FROM conversations WHERE id=$1',[c]))).rows[0].status,'open');
+ // Historic source must survive disconnect/re-auth in both inbox surfaces.
+ const connection=randomUUID();
+ await run(db=>db.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Test Page','META_TEST_ONLY')",[connection,w,ch,randomUUID()]));
+ for(const [kind,label] of [['facebook_messenger','Facebook Messenger'],['instagram_messaging','Instagram'],['whatsapp_business','WhatsApp']]){
+  for(const status of ['connected','disconnected','reauth_required']){
+   await run(db=>db.query('UPDATE meta_connections SET channel_kind=$1,status=$2 WHERE id=$3',[kind,status,connection]));
+   const list=await run(db=>inboxList(db,actor));
+   const detail=await run(db=>inboxDetail(db,actor,c));
+   for(const item of [list[0],detail]){
+    assert.equal(item.channel,label,`${kind}/${status} source`);
+    assert.equal(item.websiteUrl,'',`${kind}/${status} must not expose placeholder website`);
+   }
+  }
+ }
  await admin.query('DELETE FROM channel_members WHERE workspace_id=$1 AND user_id=$2',[w,agent]);
  await assert.rejects(run(db=>inboxTakeover(db,actor,c,{version:2})),{code:'NOT_FOUND'});
  await assert.rejects(run(db=>inboxSend(db,actor,c,retry)),{code:'NOT_FOUND'});

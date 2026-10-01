@@ -1,3 +1,9 @@
+## Meta source preservation and setup checkpoint
+- Database regression passed on isolated pilot port 55433: list/detail labels and empty placeholder website for Facebook, Instagram and WhatsApp across connected/disconnected/reauth_required states (9 combinations). Existing ordering, dedupe, ownership and tenant isolation assertions also passed.
+
+- Source lookup now retains the original Meta connection kind when disconnected or reauthorization is required; list/detail no longer fall back to Widget solely because connection status changed. Social channels do not display the placeholder widget origin as a customer website.
+- Meta Developer Console now confirms all four use cases are present: Messenger, Instagram, WhatsApp and Threads. WhatsApp basic setup / Step 1 testing opened; test credentials and roundtrip remain unverified. Instagram/WhatsApp normalization and routing are still not integrated into the live webhook or outbound worker. Credentials alone will not complete implementation.
+
 ## Multi-surface normalization checkpoint
 
 - Implemented typed standalone inbound normalization for Messenger/Instagram and WhatsApp. WhatsApp routing uses metadata.phone_number_id; media references retain IDs for authenticated resolution, never invented public URLs. Unknown products, echoes, wrong recipients and malformed arrays are ignored.
