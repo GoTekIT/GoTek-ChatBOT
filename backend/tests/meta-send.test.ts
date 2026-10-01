@@ -29,3 +29,5 @@ test('unsupported channels and missing WhatsApp account cannot dispatch to Messe
  }
  assert.equal(calls,0);
 });
+
+test('Threads publishing uses public post API and returns container receipt',async()=>{process.env.THREADS_FIXTURE_TOKEN='secret';let url='';const result=await (await import('../src/modules/meta/threads')).publishThreadsText({text:'hello Threads',tokenRef:'THREADS_FIXTURE_TOKEN',replyToId:'post-1',fetchImpl:async(u,init)=>{url=String(u);assert.equal(new Headers(init?.headers).get('authorization'),'Bearer secret');return new Response(JSON.stringify({id:'threads-post-1'}),{status:200});}});assert.equal(result.status,'accepted');assert.equal(result.providerPostId,'threads-post-1');assert.match(url,/reply_to_id=post-1/);delete process.env.THREADS_FIXTURE_TOKEN;});

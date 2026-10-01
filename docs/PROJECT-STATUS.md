@@ -1,3 +1,8 @@
+## Threads public API slice
+
+- Added a server-side Threads text publisher using the official `graph.threads.net` create-text endpoint with optional `reply_to_id`, token-reference lookup, length validation, and accepted/failed/unknown receipts. This is public posting/reply functionality only; Threads DM remains unsupported and is not routed into inbox.
+- Backend build and Threads transport test passed.
+
 ## Multichannel pilot DB verification
 
 - Pilot database test now proves Instagram and WhatsApp envelopes can persist independently, dedupe concurrent redelivery, preserve source profile labels, enqueue AI jobs, and remain tenant-isolated. This is internal webhook verification only; it does not prove Meta accepted the webhook or delivered an outbound message.
