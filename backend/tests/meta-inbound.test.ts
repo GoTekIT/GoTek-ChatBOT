@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeMetaInbound} from '../src/modules/meta/inbound';
+import {normalizeMetaInbound,normalizeMetaStatuses} from '../src/modules/meta/inbound';
 const messaging={sender:{id:'user'},recipient:{id:'account'},message:{mid:'message',text:' hello '}};
 test('routes page and Instagram messages without accepting echoes or wrong recipient',()=>{
  for(const [object,surface] of [['page','facebook_messenger'],['instagram','instagram_messaging']]){
@@ -22,4 +22,9 @@ test('WhatsApp profile name belongs only to an unambiguous matching sender',()=>
  assert.equal(normalize([{wa_id:'other',profile:{name:'Wrong'}}]).displayName,undefined);
  assert.equal(normalize([{wa_id:'sender',profile:{name:'A'}},{wa_id:'sender',profile:{name:'B'}}]).displayName,undefined);
  assert.equal(normalize([{wa_id:'sender',profile:{name:42}}]).displayName,undefined);
+});
+
+test('WhatsApp status callbacks normalize into receipt events',()=>{
+ const statuses=normalizeMetaStatuses({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'1386169614577563'},statuses:[{id:'wamid.1',status:'delivered',recipient_id:'84935846075'},{id:'wamid.2',status:'failed',recipient_id:'84935846075',errors:[{title:'Undeliverable'}]}]}}]}]});
+ assert.deepEqual(statuses.map(({eventId,status,error})=>({eventId,status,error})),[{eventId:'wamid.1',status:'delivered',error:undefined},{eventId:'wamid.2',status:'failed',error:'Undeliverable'}]);
 });

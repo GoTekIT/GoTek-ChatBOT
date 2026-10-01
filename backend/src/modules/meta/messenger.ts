@@ -8,7 +8,7 @@ import {createHash} from 'node:crypto';
 import {appendMessage} from '../chat/chat-store';
 import {enqueueJob} from '../jobs/jobs';
 import {realtimeHub} from '../chat/realtime';
-import {normalizeMetaInbound} from './inbound';
+import {normalizeMetaInbound,normalizeMetaStatuses} from './inbound';
 
 /** Ingest Messenger, Instagram messaging, and WhatsApp Cloud webhook envelopes.
  * Routing is always resolved from operator configuration in meta_connections; no
@@ -16,11 +16,18 @@ import {normalizeMetaInbound} from './inbound';
 export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:string|undefined,afterCommit:Array<()=>void>=[]) {
  if(!signatureValid(raw,signature)) throw new HttpError(403,'META_SIGNATURE_INVALID');
  const body=z.unknown().parse(JSON.parse(raw.toString('utf8')));
- const normalized=normalizeMetaInbound(body);
- if(!normalized.length) return {accepted:true,processed:0};
+ const statuses=normalizeMetaStatuses(body);
  const configuredWorkspace=process.env.META_WORKSPACE_ID;
  if(!configuredWorkspace) throw new HttpError(503,'META_ROUTING_NOT_CONFIGURED');
  await scope(db,z.string().uuid().parse(configuredWorkspace));
+ for(const status of statuses){
+  const c=(await db.query(`SELECT id,workspace_id FROM meta_connections WHERE workspace_id=$1 AND external_page_id=$2 AND channel_kind=$3 AND status='connected' FOR UPDATE`,[configuredWorkspace,status.externalAccountId,status.surface])).rows[0];
+  if(!c) continue;
+  const inserted=(await db.query('INSERT INTO meta_events(id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.id,status.eventId,'status',body])).rowCount;
+  if(inserted) afterCommit.push(()=>realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:message_receipt',status));
+ }
+ const normalized=normalizeMetaInbound(body);
+ if(!normalized.length) return {accepted:true,processed:0};
  let processed=0;
  for(const event of normalized){
   const c=(await db.query(`SELECT * FROM meta_connections WHERE workspace_id=$1 AND external_page_id=$2 AND channel_kind=$3 AND status='connected' FOR UPDATE`,[configuredWorkspace,event.externalAccountId,event.surface])).rows[0];

@@ -12,6 +12,7 @@ export type NormalizedMetaInbound = {
   attachments: MetaAttachment[];
   mediaReferences: Array<{type:'image'|'video'|'audio'|'file';id:string}>;
 };
+export type NormalizedMetaStatus = {surface:'whatsapp_business';externalAccountId:string;eventId:string;providerMessageId:string;status:'sent'|'delivered'|'read'|'failed';recipientId:string;error?:string};
 const record=z.record(z.string(),z.unknown());
 const object=(value:unknown):Record<string,unknown>=>record.safeParse(value).data||{};
 const list=(value:unknown):unknown[]=>Array.isArray(value)?value:[];
@@ -56,6 +57,22 @@ export function normalizeMetaInbound(input:unknown):NormalizedMetaInbound[]{
     if(!text&&!attachments.length)continue;
     out.push({surface,externalAccountId:account,senderId,eventId,text,attachments,mediaReferences:[]});
    }
+  }
+ }
+ return out;
+}
+
+export function normalizeMetaStatuses(input:unknown):NormalizedMetaStatus[]{
+ const body=object(input),out:NormalizedMetaStatus[]=[];
+ if(body.object!=='whatsapp_business_account')return out;
+ for(const item of list(body.entry)) for(const change of list(object(item).changes)){
+  const value=object(object(change).value),account=str(object(value.metadata).phone_number_id);
+  if(object(change).field!=='messages'||value.messaging_product!=='whatsapp'||!account)continue;
+  for(const raw of list(value.statuses)){
+   const s=object(raw),status=str(s.status),id=str(s.id);
+   if(!id||!['sent','delivered','read','failed'].includes(status))continue;
+   const errors=list(s.errors).map(object).map(e=>str(e.title)||str(e.message)).filter(Boolean).join('; ');
+   out.push({surface:'whatsapp_business',externalAccountId:account,eventId:id,providerMessageId:id,status:status as NormalizedMetaStatus['status'],recipientId:str(s.recipient_id),...(errors?{error:errors}:{})});
   }
  }
  return out;
