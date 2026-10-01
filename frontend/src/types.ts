@@ -53,6 +53,7 @@ export interface ChatMessage {
   senderRole?: string;
   timestamp: string;
   content: string;
+  attachments?: Array<{type: 'image'|'video'|'audio'|'file'; url: string}>;
   citations?: Array<{
     title: string;
     pageOrSection?: string;

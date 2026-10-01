@@ -1024,6 +1024,13 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
                   <div className="p-3.5 rounded-2xl rounded-tl-sm bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-slate-700/70 shadow-xs dark:shadow-md text-[13.5px] leading-relaxed whitespace-pre-wrap">
                     {msg.content}
+                    {msg.attachments?.map((attachment) => attachment.type === 'image' ? (
+                      <img key={attachment.url} src={attachment.url} alt="Tệp ảnh từ khách hàng" className="mt-2 max-w-full max-h-72 rounded-lg object-contain" />
+                    ) : attachment.type === 'video' ? (
+                      <video key={attachment.url} src={attachment.url} controls className="mt-2 max-w-full max-h-72 rounded-lg" />
+                    ) : (
+                      <a key={attachment.url} href={attachment.url} target="_blank" rel="noreferrer" className="mt-2 block text-blue-600 underline">Mở tệp đính kèm</a>
+                    ))}
                   </div>
 
                   {/* Natural Hover Action Bar */}

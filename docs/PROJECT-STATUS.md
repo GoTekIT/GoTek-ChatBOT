@@ -1,3 +1,9 @@
+## Messenger attachments — parser only, integration pending
+
+- Added `backend/src/modules/meta/attachments.ts` to normalize bounded HTTPS image/video/audio/file references and reject malformed, executable or credential-bearing URLs. No media is downloaded by this parser.
+- Three parser tests pass; backend typecheck passes. This is NOT inbox media support: ingestion, durable attachment storage, API mapping, realtime and UI rendering are still pending.
+- Next: add ordered attachment migration and message contract, preserve idempotency and tenant scope, integrate webhook ingestion (including media-only messages), API and realtime rendering; test a real image/video roundtrip. Do not feed media-only placeholder text to AI as if the media had been understood.
+
 ## Messenger send acknowledgement wording — 2026-10-01
 
 - Composer awaits REST result before clearing draft. API failure keeps draft and removes the optimistic message; server persisted messages can still reconcile through realtime/reload after ambiguous transport failure. Messenger REST success says queued, not delivered; duplicate composer success toast removed. Frontend build verification required below; delivery/read receipt UI remains pending.

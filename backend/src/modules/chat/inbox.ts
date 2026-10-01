@@ -128,7 +128,7 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
     staffMap[s.user_id]=s.email.split('@')[0];
   }
 
-  const rows=(await db.query('SELECT id,client_id,sequence,author_type,visibility,body,actor_id,visitor_received_at,created_at FROM messages WHERE conversation_id=$1 AND sequence>$2 ORDER BY sequence LIMIT 100',[id,cursor])).rows;
+  const rows=(await db.query("SELECT m.id,m.client_id,m.sequence,m.author_type,m.visibility,m.body,m.actor_id,m.visitor_received_at,m.created_at,COALESCE((SELECT jsonb_agg(jsonb_build_object('type',a.kind,'url',a.url) ORDER BY a.created_at) FROM message_attachments a WHERE a.message_id=m.id AND a.workspace_id=m.workspace_id),'[]'::jsonb) AS attachments FROM messages m WHERE m.conversation_id=$1 AND m.sequence>$2 ORDER BY m.sequence LIMIT 100",[id,cursor])).rows;
 
   return rows.map((m:any)=>{
     let senderType:'customer'|'ai'|'agent'|'internal_note'|'system_event'='customer';
