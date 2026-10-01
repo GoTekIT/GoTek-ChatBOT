@@ -1,6 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+
+type MetaCapability = {surface: string; status: 'pilot_ready'|'credentials_required'|'api_limited'};
 
 export const ChannelsView: React.FC = () => {
+  const [metaCapabilities, setMetaCapabilities] = useState<Record<string, MetaCapability['status']>>({});
+  useEffect(() => {
+    let active = true;
+    void fetch('/meta/connectors').then((response) => response.ok ? response.json() : Promise.reject()).then((body) => {
+      if (!active) return;
+      const next: Record<string, MetaCapability['status']> = {};
+      for (const item of (body.connectors ?? []) as MetaCapability[]) next[item.surface] = item.status;
+      setMetaCapabilities(next);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
   const [channels, setChannels] = useState([
     {
       id: 'web',
@@ -85,6 +98,10 @@ export const ChannelsView: React.FC = () => {
   ]);
 
   const [toast, setToast] = useState<string | null>(null);
+  const capabilityStatus = (id: string, fallback: string) => {
+    const status = metaCapabilities[id];
+    return status === 'pilot_ready' ? 'Pilot ready' : status === 'credentials_required' ? 'Credentials required' : status === 'api_limited' ? 'API limited' : fallback;
+  };
 
   const triggerToast = (msg: string) => {
     setToast(msg);
@@ -138,7 +155,7 @@ export const ChannelsView: React.FC = () => {
                       : 'bg-amber-50 text-amber-800 border border-amber-200'
                   }`}
                 >
-                  {ch.status}
+                  {(['facebook-messenger','instagram','whatsapp','threads'].includes(ch.id) ? capabilityStatus(ch.id === 'facebook-messenger' ? 'facebook_messenger' : ch.id === 'instagram' ? 'instagram_messaging' : ch.id === 'whatsapp' ? 'whatsapp_business' : 'threads', ch.status) : ch.status)}
                 </span>
               </div>
               <h3 className="text-sm font-bold text-[#131b2e]">{ch.name}</h3>
