@@ -1,3 +1,7 @@
+## Provider media resolution
+
+- Added server-side Meta media resolver for stored provider IDs. It calls the Graph media endpoint with the connection token reference, validates HTTPS response URLs, and returns no credential. Seven focused Meta transport/media tests and backend build pass. A tenant-authorized download route and cache retention policy remain before UI display.
+
 ## Provider media references
 
 - Added migration `063_meta_media_references.sql` and message persistence support for provider media IDs. WhatsApp/Instagram media references are stored as typed IDs under tenant RLS; no provider URL or token is placed in message attachments. Pilot ingestion tests pass after applying migration 063.
