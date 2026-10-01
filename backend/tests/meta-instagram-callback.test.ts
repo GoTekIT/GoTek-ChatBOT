@@ -65,7 +65,7 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   assert.equal(receipts.rowCount,1);assert.equal(receipts.rows[0].workspace_id,ws);
   assert.equal((await transaction(async db=>{await scope(db,ws);return normalizeFacebookReceipt(db,ws);})).state,'idle');
   const normalize=()=>transaction(async db=>{await scope(db,ws);return normalizeInstagramReceipt(db,ws);});
-  assert.equal((await normalize()).state,'waiting_connection');
+  assert.equal((await normalize()).state,'idle'); // Pending connections are excluded from runnable work.
   const activate=()=>app.post(base+'/connections/'+result.body.id+'/activate').set('Authorization','Bearer '+token).set('X-Gotek-Request','1');
   await admin.query("UPDATE memberships SET role='Agent' WHERE workspace_id=$1",[ws]);
   const beforeDenied=calls;assert.equal((await activate()).status,403);assert.equal(calls,beforeDenied);

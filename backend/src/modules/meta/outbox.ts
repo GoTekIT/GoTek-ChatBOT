@@ -79,3 +79,15 @@ export async function reconcileExpiredMetaReplies(db:PoolClient,workspace:string
   WHERE workspace_id=$1 AND status='dispatching' AND lease_expires_at IS NOT NULL AND lease_expires_at < now() RETURNING id`,[workspace]);
  return {reconciled:result.rowCount};
 }
+
+export async function resolveMetaReconciliation(db:PoolClient,workspace:string,id:string,result:{status:'accepted';messageId:string}|{status:'cancelled'}) {
+ const row=(await db.query('SELECT status FROM meta_outbox WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,workspace])).rows[0];
+ if(!row)throw new HttpError(404,'META_OUTBOX_NOT_FOUND');
+ if(row.status!=='reconciliation_required' && row.status!=='unknown')throw new HttpError(409,'META_OUTBOX_STATE_INVALID');
+ if(result.status==='accepted') {
+  await db.query("UPDATE meta_outbox SET status='accepted',provider_message_id=$3,completed_at=now() WHERE id=$1 AND workspace_id=$2",[id,workspace,result.messageId]);
+  return {status:'accepted' as const};
+ }
+ await db.query("UPDATE meta_outbox SET status='cancelled',completed_at=now() WHERE id=$1 AND workspace_id=$2",[id,workspace]);
+ return {status:'cancelled' as const};
+}

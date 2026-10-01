@@ -75,7 +75,7 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   assert.equal((await admin.query('SELECT id FROM meta_webhook_receipts WHERE workspace_id=$1',[ws])).rowCount,1);
   await admin.query("UPDATE workspaces SET status='active' WHERE id=$1",[ws]);
   const normalize=()=>transaction(async db=>{await scope(db,ws);return normalizeFacebookReceipt(db,ws);});
-  assert.equal((await normalize()).state,'waiting_connection');
+  assert.equal((await normalize()).state,'idle'); // Pending connections are excluded from runnable work.
   const activate=()=>app.post(base+'/connections/'+selected.body.id+'/activate').set('Authorization','Bearer '+token).set('X-Gotek-Request','1');
   await admin.query("UPDATE meta_connections SET token_expires_at=now()-interval '1 second' WHERE id=$1",[selected.body.id]);
   const callsBeforeExpired=calls;

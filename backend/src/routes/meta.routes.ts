@@ -1,7 +1,8 @@
 import {Router} from 'express';
 import {authed} from '../middlewares/auth.middleware';
 import {listMetaConnections,disconnectMetaConnection} from '../modules/meta/connections';
-import {reconcileExpiredMetaReplies} from '../modules/meta/outbox';
+import {reconcileExpiredMetaReplies,resolveMetaReconciliation} from '../modules/meta/outbox';
+import {z} from 'zod';
 
 export const metaRouter = Router();
 metaRouter.get('/integrations/meta/connections',authed(
@@ -16,10 +17,19 @@ metaRouter.post('/integrations/meta/connections/:id/disconnect',authed(
 metaRouter.post('/integrations/meta/outbox/reconcile',authed(async(db,actor)=>
  reconcileExpiredMetaReplies(db,actor.workspace_id),'channels.manage'
 ));
+metaRouter.post('/integrations/meta/outbox/:id/resolve',authed(async(db,actor,req)=>{
+ const body=z.object({status:z.enum(['accepted','cancelled']),messageId:z.string().trim().min(1).max(200).optional(),reason:z.string().trim().min(10).max(1000)}).strict().parse(req.body);
+ if(body.status==='accepted'&&!body.messageId)throw new HttpError(400,'META_PROVIDER_MESSAGE_ID_REQUIRED');
+ const id=z.string().uuid().parse(req.params.id);
+ const result=await resolveMetaReconciliation(db,actor.workspace_id,id,body.status==='accepted'?{status:'accepted',messageId:body.messageId!}:{status:'cancelled'});
+ await db.query('UPDATE meta_outbox SET resolution_actor_id=$3,resolution_reason=$4 WHERE workspace_id=$1 AND id=$2',[actor.workspace_id,id,actor.user_id,body.reason]);
+ await audit(db,actor.workspace_id,actor.user_id,'meta.outbox.manually_resolved',id);
+ return {...result,verification:'operator_attestation'};
+},'channels.manage'));
 
 import {identity} from '../middlewares/auth.middleware';
 import {transaction} from '../core/db';
-import {HttpError} from '../core/security';
+import {HttpError,audit} from '../core/security';
 import {requirePermission} from '../core/authorization';
 import {metaConfig,metaAuthorizationUrl} from '../modules/meta/config';
 import {createMetaOAuthState,consumeMetaOAuthState} from '../modules/meta/oauth-state';
@@ -80,7 +90,6 @@ metaRouter.get('/integrations/meta/facebook/enrollments/:id/pages',async(req,res
 });
 
 import {persistFacebookPage} from '../modules/meta/select-page';
-import {z} from 'zod';
 metaRouter.post('/integrations/meta/facebook/enrollments/:id/select',async(req,res)=>{
  const input=z.object({assetId:z.string().regex(/^\d+$/).max(100),after:z.string().min(1).max(4096).optional()}).strict().parse(req.body);
  const id=String(req.params.id),config=metaConfig('facebook'),key=metaEncryptionKey();
