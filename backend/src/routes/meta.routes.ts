@@ -101,3 +101,36 @@ import {activateFacebookConnection} from '../modules/meta/subscription';
 metaRouter.post('/integrations/meta/facebook/connections/:id/activate',async(req,res)=>{
  res.json(await activateFacebookConnection(req,String(req.params.id)));
 });
+
+import {exchangeInstagramCode} from '../modules/meta/instagram-oauth';
+import {discoverInstagramAccount} from '../modules/meta/instagram-account';
+import {persistInstagramConnection} from '../modules/meta/instagram-connection';
+metaRouter.post('/integrations/meta/instagram/connect',authed(async(db,actor)=>{
+ const config=metaConfig('instagram');metaEncryptionKey();
+ const state=await createMetaOAuthState(db,actor,'instagram');
+ return {authorizationUrl:metaAuthorizationUrl(config,state)};
+},'channels.manage'));
+metaRouter.get('/integrations/meta/instagram/callback',async(req,res)=>{
+ const config=metaConfig('instagram'),key=metaEncryptionKey();
+ const state=typeof req.query.state==='string'?req.query.state:'';
+ const original=await transaction(async db=>{
+  const actor=await identity(db,req);await consumeMetaOAuthState(db,actor,'instagram',state);return actor;
+ });
+ if(req.query.error!==undefined)throw new HttpError(400,'META_AUTHORIZATION_DENIED');
+ const started=Date.now();
+ const grant=await exchangeInstagramCode(config,typeof req.query.code==='string'?req.query.code:'');
+ const expiresAt=new Date(started+grant.expiresIn*1000);
+ const account=await discoverInstagramAccount(config,grant);
+ try {
+  const connection=await transaction(async db=>{
+   const actor=await identity(db,req);
+   if(actor.user_id!==original.user_id||actor.workspace_id!==original.workspace_id||actor.token_hash!==original.token_hash)
+    throw new HttpError(403,'META_IDENTITY_CHANGED');
+   return persistInstagramConnection(db,actor,grant,account,key,expiresAt);
+  });
+  res.set('Referrer-Policy','no-referrer').json(connection);
+ }catch(error){
+  if((error as {code?:string}).code==='23505')throw new HttpError(409,'META_ASSET_UNAVAILABLE');
+  throw error;
+ }
+});
