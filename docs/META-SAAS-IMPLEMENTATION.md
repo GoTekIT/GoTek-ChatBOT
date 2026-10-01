@@ -30,3 +30,15 @@ Existing PR #4 remains open on codex/chatbot-delivery. New connector work is not
 ## Checkpoint
 
 Implemented only raw-byte HMAC verification and AES-256-GCM token envelope with tenant/asset authenticated context. Tests cover tampering, foreign tenant/asset, malformed signature/key and nonce uniqueness. These utilities are not yet wired to endpoints. Next: verify official OAuth/webhook contracts, ordered schema and RLS, OAuth state repository, authenticated connect flow; then durable inbound/outbound and UI. Real Meta receipt and App Review remain unverified.
+
+## Server OAuth configuration
+
+New `backend/src/modules/meta/config.ts` requires explicit configuration and has no default live API version:
+- `META_GRAPH_VERSION`: version supported/configured for the Meta App.
+- `META_FACEBOOK_APP_ID`, `META_FACEBOOK_APP_SECRET`, `META_FACEBOOK_REDIRECT_URI`, `META_FACEBOOK_LOGIN_CONFIG_ID`.
+- `META_INSTAGRAM_APP_ID`, `META_INSTAGRAM_APP_SECRET`, `META_INSTAGRAM_REDIRECT_URI` (Instagram API with Instagram Login; use its own app credentials).
+- Callback URI must be server-configured HTTPS without userinfo/query/fragment; register the identical URI in Meta. No request-supplied callback is accepted.
+- Facebook uses a Login for Business configuration; Instagram requests only business basic and messaging scopes. Config helper does not constitute provider approval or route activation.
+- Missing/malformed configuration returns stable `META_NOT_CONFIGURED`, without secret details.
+
+Reference: Meta-maintained Instagram collection https://www.postman.com/meta/instagram/folder/6raa77c/instagram-api-with-instagram-login and Messenger conversations collection https://www.postman.com/meta/messenger-platform-api/folder/22794852-255610cd-47f5-4f4d-b3fa-71aec360be9a . Verify the Facebook Login for Business configuration against the actual app dashboard before live acceptance.

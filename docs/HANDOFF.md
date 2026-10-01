@@ -248,3 +248,13 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 - Setup must run from `backend/`: the legacy root `db/migrations` otherwise takes precedence. Use explicit isolated DB_RUNTIME_FILE and normalized socket path; no shared database was used for this verification.
 - Meta creation UI now has Messenger and Instagram use cases selected; app creation and provider approval remain incomplete.
 - Next: configuration and OAuth routes with current identity/permission checks, then asset credentials, webhook receipts, inbox normalization and outbound transport. Helpers are not wired into live routes; no claim of live messaging acceptance.
+
+### OAuth configuration checkpoint
+- Added server-only provider configuration/authorization URL builder and two passing tests; backend typecheck passed.
+- Fixed provider origins, explicit graph version, HTTPS callback validation, separate Facebook business config and Instagram messaging scopes. No app secrets returned in authorization URLs.
+- Files: backend/src/modules/meta/config.ts and backend/tests/meta-config.test.ts. Routes/callback token exchange are still pending; do not expose Connect until callback persistence is complete.
+
+### Provider HTTP boundary checkpoint
+- Added `backend/src/modules/meta/http.ts`: fixed HTTPS provider host allowlist, redirects rejected, 10-second abort deadline, 1 MiB streamed response limit, object-only JSON, sanitized stable errors, no automatic retries.
+- Configuration + HTTP suites: 5/5 passed; backend typecheck passed. Tests cover forbidden endpoints, malformed/oversized responses, provider errors without secret disclosure, timeout and single-attempt behavior.
+- Official Meta business-login/manual-flow pages returned HTTP 429 during verification; token exchange contract has NOT been accepted or wired based on memory. Continue with official source/dashboard verification and callback implementation.
