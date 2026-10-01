@@ -99,7 +99,6 @@ export const TopNav: React.FC<TopNavProps> = ({
         <div className="flex items-center gap-3">
           {/* Interactive Three.js 3D Neural Core Orb */}
           <button
-            style={{display: can(me, 'knowledge.manage') ? undefined : 'none'}}
             onClick={() => setShowVectorModal(true)}
             className="flex items-center gap-2.5 px-3 py-1 bg-gradient-to-r from-blue-50/90 to-indigo-50/90 dark:from-blue-950/40 dark:to-indigo-950/40 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/50 dark:hover:to-indigo-900/50 border border-blue-200/80 dark:border-blue-800/60 rounded-full transition-all group shadow-xs cursor-pointer"
             title="Khám phá Không gian Vector Tri thức 3D (Three.js WebGL)"
@@ -134,7 +133,6 @@ export const TopNav: React.FC<TopNavProps> = ({
               Console
             </button>
             <button
-              style={{display: can(me, 'channels.manage') ? undefined : 'none'}}
               onClick={() => setActiveModule('widget-demo')}
               className={`px-3 py-1 rounded-md font-semibold flex items-center gap-1 transition-all ${
                 activeModule === 'widget-demo'
@@ -304,8 +302,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                     <span className="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">receipt_long</span>
                     <span>Nhật ký Kiểm toán (Audit)</span>
                   </button>
-                  <button style={{display: can(me, 'channels.manage') ? undefined : 'none'}}
-                    onClick={() => {
+                  <button onClick={() => {
                       setActiveModule('widget-demo');
                       setShowProfileMenu(false);
                     }}
