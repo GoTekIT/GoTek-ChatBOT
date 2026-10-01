@@ -160,6 +160,7 @@ export function ConsoleWorkspace({
       };
       es.addEventListener('inbox:visitor_message', refreshList);
       es.addEventListener('inbox:message_sent', refreshList);
+      es.addEventListener('inbox:message_receipt', refreshList);
       es.addEventListener('inbox:takeover', (e: MessageEvent) => {
         try {
           const payload = JSON.parse(e.data);
