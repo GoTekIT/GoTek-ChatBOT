@@ -53,7 +53,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
     const name=prof.fullName?.trim()||prof.name?.trim()||'Khách vãng lai';
     const email=prof.emailAddress?.trim()||prof.email?.trim()||'';
     const phone=prof.phoneNumber?.trim()||prof.phone?.trim()||'';
-    const company=prof.company?.trim()||(email.includes('@')?email.split('@')[1].split('.')[0].toUpperCase()+' Corporate':'Techcombank Corporate');
+    const company=prof.company?.trim()||'';
 
     let uiStatus:'handoff'|'ai_active'|'in_review'|'resolved'='ai_active';
     if(r.status==='resolved')uiStatus='resolved';
@@ -86,9 +86,9 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       customerCompany:company,
       customerEmail:email,
       customerPhone:phone,
-      customerLocation:prof.location||'Hanoi, Vietnam',
-      customerAvatar:avatar,
-      clientTier:'Enterprise Prospect',
+      customerLocation:prof.location||'',
+      customerAvatar:prof.avatarUrl||avatar,
+      clientTier:prof.clientTier||'',
       websiteUrl:r.website_url||'https://gotek.vn',
       lastMessageSnippet:r.last_message_body||'Bắt đầu cuộc trò chuyện mới...',
       lastMessageTime:timeStr,
@@ -96,12 +96,12 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       status:uiStatus,
       assignedTo:r.assigned_to||undefined,
       ownerVersion:r.owner_version,
-      activeUrl:prof.activeUrl||'/pricing/enterprise-contact',
-      sessionDuration:'08m 45s',
-      deviceInfo:prof.deviceInfo||'MacOS • Chrome',
-      ragMatchScore:'94% Match',
+      activeUrl:prof.activeUrl||'',
+      sessionDuration:prof.sessionDuration||'',
+      deviceInfo:prof.deviceInfo||'',
+      ragMatchScore:'',
       ragCitations:[],
-      crmTags:['Enterprise Deal','🔥 Lead Hot','Yêu cầu NDA'],
+      crmTags:Array.isArray(prof.crmTags)?prof.crmTags:[],
       messages: r.last_message_body ? [{
         id: `last-${r.id}`,
         sequence: 1,
@@ -144,11 +144,11 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
     } else if(m.author_type==='agent'){
       if(m.visibility==='internal'){
         senderType='internal_note';
-        senderName=staffMap[m.actor_id]?`${staffMap[m.actor_id]} (Tier 3)`:'Alex Rivera (Tier 3)';
+        senderName=staffMap[m.actor_id]?staffMap[m.actor_id]:'Nhân viên';
         senderRole='Chỉ nhân viên xem được';
       } else {
         senderType='agent';
-        senderName=staffMap[m.actor_id]?`${staffMap[m.actor_id]} (Staff Agent)`:'Alex Rivera (Staff Agent)';
+        senderName=staffMap[m.actor_id]?staffMap[m.actor_id]:'Nhân viên';
         senderRole='Chuyên viên Hỗ trợ';
       }
     }
@@ -304,7 +304,7 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
   const name=prof.fullName?.trim()||prof.name?.trim()||'Khách vãng lai';
   const email=prof.emailAddress?.trim()||prof.email?.trim()||'';
   const phone=prof.phoneNumber?.trim()||prof.phone?.trim()||'';
-  const company=prof.company?.trim()||(email.includes('@')?email.split('@')[1].split('.')[0].toUpperCase()+' Corporate':'Techcombank Corporate');
+  const company=prof.company?.trim()||'';
 
   let uiStatus:'handoff'|'ai_active'|'in_review'|'resolved'='ai_active';
   if(c.status==='resolved')uiStatus='resolved';
@@ -319,9 +319,9 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
     customerCompany:company,
     customerEmail:email,
     customerPhone:phone,
-    customerLocation:prof.location||'Hanoi, Vietnam',
-    customerAvatar:avatar,
-    clientTier:'Enterprise Prospect',
+    customerLocation:prof.location||'',
+    customerAvatar:prof.avatarUrl||avatar,
+    clientTier:prof.clientTier||'',
     websiteUrl:channelRow?.origin||'https://gotek.vn',
     lastMessageSnippet:messages[messages.length-1]?.content||'Bắt đầu cuộc trò chuyện...',
     lastMessageTime:'1m ago',
@@ -329,12 +329,12 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
     status:uiStatus,
     assignedTo:c.assigned_to||undefined,
     ownerVersion:c.owner_version,
-    activeUrl:prof.activeUrl||'/pricing/enterprise-contact',
-    sessionDuration:'08m 45s',
-    deviceInfo:prof.deviceInfo||'MacOS • Chrome',
-    ragMatchScore:'94% Match',
+    activeUrl:prof.activeUrl||'',
+    sessionDuration:prof.sessionDuration||'',
+    deviceInfo:prof.deviceInfo||'',
+    ragMatchScore:'',
     ragCitations:[],
-    crmTags:['Enterprise Deal','🔥 Lead Hot','Yêu cầu NDA'],
+    crmTags:Array.isArray(prof.crmTags)?prof.crmTags:[],
     messages:messages
   };
 }

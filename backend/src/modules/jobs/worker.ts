@@ -5,6 +5,7 @@ import {HttpError} from '../../core/security';
 import {transactionalAiReplyHandler, type AiProviderInvoke} from '../../modules/ai/ai-reply-worker';
 import {workspacePrompt} from '../../modules/ai/workspace-prompt';
 import {invokeProvider,invokeProviderDetailed} from '../../modules/ai/provider-transport';
+import {fetchMetaProfile} from '../../modules/meta/profile';
 import {sendMetaText} from '../../modules/meta/send';
 export type JobHandler=(job:{id:string,workspace_id:string,kind:string,payload:Record<string,unknown>})=>Promise<{receipt:string}>;
 /** Explicit tenant assigned by trusted scheduler, never from a public HTTP body. */
@@ -96,6 +97,21 @@ export async function runAiWorkerOnce(workspace:string,invoke:AiProviderInvoke){
 }
 
 /** Sends a queued Messenger reply; the Page token is resolved only inside the worker. */
+export async function runMetaProfileWorkerOnce(workspace:string,fetchProfile:typeof fetchMetaProfile=fetchMetaProfile){
+ return runWorkerOnce(workspace,{'meta.profile.fetch':async job=>{
+  return transaction(async db=>{
+   await scope(db,workspace);
+   const connection=(await db.query("SELECT id,channel_id,page_access_token_ref FROM meta_connections WHERE id=$1 AND workspace_id=$2 AND status='connected' FOR SHARE",[String(job.payload.connectionId),workspace])).rows[0];
+   if(!connection)throw new HttpError(409,'META_CONNECTION_NOT_READY');
+   const userId=String(job.payload.userId);
+   const profile=await fetchProfile(userId,connection.page_access_token_ref);
+   await db.query('UPDATE meta_identities SET profile=profile||$1::jsonb,updated_at=now() WHERE connection_id=$2 AND workspace_id=$3 AND external_user_id=$4',[profile,connection.id,workspace,userId]);
+   await db.query("UPDATE visitors SET profile=profile||$1::jsonb WHERE workspace_id=$2 AND channel_id=$3 AND profile->>'metaUserId'=$4",[profile,workspace,connection.channel_id,userId]);
+   return {receipt:'meta-profile:updated'};
+  });
+ }});
+}
+
 export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaText=sendMetaText){
  return runWorkerOnce(workspace,{'meta.message.send':async job=>{
   return transaction(async db=>{

@@ -1,3 +1,17 @@
+## Messenger profile evidence — 2026-10-01
+
+- Live Meta v26.0 User Profile request returned first/last name and HTTPS avatar for the consenting tester. Inbound now enqueues a daily idempotent profile fetch; a separate worker pass updates scoped identity/visitor rows and inbox uses provider avatar. No email/phone inference.
+- Second real tester message exercised enqueue and profile worker; authenticated inbox confirmed returned name/avatar and empty contact fields. Profile transport test PASS; existing disposable ingestion/ownership integration PASS after separating profile and send claims. Backend build checked.
+- Profile failure currently settles unknown and needs operator retry; automatic retry and refresh scheduling beyond next inbound day are not implemented. Browser UI and AI acceptance still pending.
+
+## Messenger live pilot checkpoint — 2026-10-01
+
+- Supersedes older pending-secret/roundtrip statements below: local App Secret and Page token are configured without committing credentials. Meta debug_token confirmed valid PAGE token for GoTek with pages_messaging; pages_manage_metadata is absent, so Page subscription inspection with that token returns code 200.
+- App subscription callback updated via authenticated Graph API; Meta returned success after verification. Temporary Cloudflare tunnel requires the local backend and tunnel processes to stay alive; not a production endpoint.
+- Personal-account test message reached workspace GoTek Messenger Pilot exactly once. Authenticated inbox API returned Facebook Messenger channel. API takeover and agent reply succeeded; Meta worker settled succeeded and the actual reply was observed in personal Messenger. This proves API/provider roundtrip, not browser inbox acceptance or AI completion.
+- Removed invented inbox company/location/tier/device/duration/RAG score/tags and fabricated staff fallback identities. Runtime inbox check confirms missing values remain empty. build:all PASS (existing large bundle warning). Full test suite not rerun for this mapping fix; previous suite has unresolved failures.
+- Remaining: browser inbox acceptance, profile name/avatar retrieval, response-window policy, AI/fallback live testing, receipts and remaining connector contract gaps. Keep PR Draft and never push main.
+
 ## Messenger realtime commit boundary
 
 - Webhook ingestion buffers realtime publication callbacks; HTTP route invokes them only after transaction commit. Publication failure uses a fixed safe log code and does not change an already durable ACK into a retry response.

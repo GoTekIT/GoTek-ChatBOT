@@ -5,7 +5,7 @@ import {randomUUID,createHmac} from 'node:crypto';
 import {pool,scope,transaction} from '../src/core/db';
 import {receiveMetaWebhook} from '../src/modules/meta/messenger';
 import {aiReplyHandler} from '../src/modules/ai/ai-reply-worker';
-import {runMetaWorkerOnce} from '../src/modules/jobs/worker';
+import {runMetaWorkerOnce,runMetaProfileWorkerOnce} from '../src/modules/jobs/worker';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 import {appendMessage} from '../src/modules/chat/chat-store';
 const enabled=!!process.env.META_TEST_ADMIN_URL && !!process.env.DB_RUNTIME_FILE;
@@ -31,6 +31,16 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  assert.equal(results.reduce((n,r)=>n+r.processed,0),1);
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query('SELECT * FROM messages')).rowCount,1);assert.equal((await db.query("SELECT * FROM jobs WHERE kind='ai.reply'")).rowCount,1);assert.equal((await db.query('SELECT * FROM meta_events WHERE processed_at IS NOT NULL')).rowCount,1);});
  await transaction(async db=>{await scope(db,other);for(const table of ['messages','meta_events','meta_connections','meta_identities'])assert.equal((await db.query(`SELECT * FROM ${table}`)).rowCount,0);});
+ await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT id FROM jobs WHERE kind='meta.profile.fetch'")).rowCount,1);});
+ assert.equal((await runMetaProfileWorkerOnce(workspace,async(user,ref)=>{
+  assert.equal(user,'fixture-user');assert.equal(ref,'META_FIXTURE_TOKEN');
+  return {name:'Fixture Name',avatarUrl:'https://example.test/avatar'};
+ })).state,'succeeded');
+ await transaction(async db=>{await scope(db,workspace);
+  const visitor=(await db.query('SELECT profile FROM visitors')).rows[0];
+  assert.equal(visitor.profile.name,'Fixture Name');assert.equal(visitor.profile.avatarUrl,'https://example.test/avatar');
+  assert.equal(visitor.profile.email,undefined);
+ });
  const provider=randomUUID(),model=randomUUID();
  await admin!.query("INSERT INTO providers(id,name,adapter,secret_ref,enabled) VALUES($1,$2,'local','FIXTURE_AI',true)",[provider,provider]);
  await admin!.query("INSERT INTO models(id,provider_id,name,capabilities,enabled) VALUES($1,$2,'fixture',ARRAY['chat'],true)",[model,provider]);

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import {setTimeout as delay} from 'node:timers/promises';
 import {z} from 'zod';
 import {pool} from '../src/core/db';
-import {runMetaWorkerOnce} from '../src/modules/jobs/worker';
+import {runMetaWorkerOnce,runMetaProfileWorkerOnce} from '../src/modules/jobs/worker';
 
 // Pilot-only, explicit operator-selected tenant. Never discover customer tenants.
 if(process.env.NODE_ENV==='production')throw new Error('Production is not approved.');
@@ -16,6 +16,8 @@ for(const signal of ['SIGINT','SIGTERM'] as const)process.once(signal,()=>{stopp
 try{
  do{
   try{
+   const profile=await runMetaProfileWorkerOnce(workspace);
+   console.log(JSON.stringify({worker:'meta.profile.fetch',state:profile.state}));
    const result=await runMetaWorkerOnce(workspace);
    console.log(JSON.stringify({worker:'meta.message.send',state:result.state}));
   }catch{
