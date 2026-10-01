@@ -23,6 +23,8 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
  for(const status of statuses){
   const c=(await db.query(`SELECT id,workspace_id FROM meta_connections WHERE workspace_id=$1 AND external_page_id=$2 AND channel_kind=$3 AND status='connected' FOR UPDATE`,[configuredWorkspace,status.externalAccountId,status.surface])).rows[0];
   if(!c) continue;
+  await db.query(`UPDATE meta_message_deliveries SET status=$1,error_code=$2,updated_at=now()
+    WHERE workspace_id=$3 AND provider_message_id=$4`,[status.status,status.error||null,c.workspace_id,status.providerMessageId]);
   const inserted=(await db.query('INSERT INTO meta_events(id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.id,status.eventId,'status:'+status.status,status])).rowCount;
   if(inserted) afterCommit.push(()=>realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:message_receipt',status));
  }
