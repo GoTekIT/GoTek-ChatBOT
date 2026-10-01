@@ -134,6 +134,7 @@ export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaTex
     JOIN visitors v ON v.id=c.visitor_id AND v.workspace_id=c.workspace_id
     JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id
     WHERE m.id=$1 AND m.workspace_id=$2 AND c.id=$3 AND mc.status='connected'
+    ORDER BY mc.updated_at DESC,mc.id DESC LIMIT 1
     FOR UPDATE OF c,mc`,[String(job.payload.messageId),workspace,String(job.payload.conversationId)])).rows[0];
    if(!row||row.visibility!=='public'||!row.recipient)throw new HttpError(409,'META_DISPATCH_INVALID');
    if(row.author_type==='ai'){
