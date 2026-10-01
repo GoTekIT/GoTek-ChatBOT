@@ -17,3 +17,15 @@ test('WhatsApp media maps document and keeps caption; invalid requests do not di
   assert.equal(calls,1);
  }finally{delete process.env.MEDIA_SEND_FIXTURE;}
 });
+
+test('Facebook and Instagram media do not send unsupported captions',async()=>{
+ process.env.META_FIXTURE_TOKEN='fixture';
+ try {
+  for(const channelKind of ['facebook_messenger','instagram_messaging'] as const){
+   let payload:any;
+   const result=await (await import('../src/modules/meta/send')).sendMetaMedia({channelKind,recipientId:'user',mediaType:'image',mediaUrl:'https://cdn.example.test/image.jpg',pageAccessTokenRef:'META_FIXTURE_TOKEN',fetchImpl:async(_url,init)=>{payload=JSON.parse(String(init?.body));return new Response(JSON.stringify({message_id:'mid'}));}});
+   assert.equal(result.status,'accepted');
+   assert.equal('caption' in payload.message.attachment.payload,false);
+  }
+ }finally{delete process.env.META_FIXTURE_TOKEN;}
+});
