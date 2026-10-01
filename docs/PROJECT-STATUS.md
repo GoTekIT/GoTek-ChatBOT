@@ -412,3 +412,8 @@ Channel actions now use a consistent top-right toast for success/error feedback,
 Working-hours cards now have clearer day switches, active states and time controls; frontend build and tests remain green.
 
 Step 3 pre-chat fields now use a one-column editor. Businesses can add a custom field, edit its label and placeholder, mark it required/optional, or delete it; the last remaining field cannot be deleted. Settings validation accepts safe generated custom keys (up to ten fields), while tenant scoping and visitor-side allow-list validation remain enforced. Frontend build PASS, frontend tests 5/5 PASS, backend build PASS.
+## Meta multi-surface connector catalog — 2026-10-01
+
+- Added an explicit server-side catalog for Facebook Messenger, Instagram Direct, WhatsApp Business and Threads, with per-surface profile fields, inbound/outbound capability and status.
+- Facebook remains the only live pilot. Instagram and WhatsApp require their own Page/Business credentials, webhook subscription and policy checks. Threads is catalog-only because an approved GoTek DM transport is not available; it is not presented as live messaging.
+- Added migration 062 to validate Meta channel identifiers and a contract test. No provider secret, App Review approval or production connection is claimed.
