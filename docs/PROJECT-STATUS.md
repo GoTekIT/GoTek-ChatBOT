@@ -1,3 +1,9 @@
+## Messenger terminal rejection classification
+
+- Meta worker records known validation/ownership/credential/HTTP 4xx rejection as terminal dead with the precise safe error code. Caps remaining attempts at current attempts during lease-checked settlement to avoid automatic resends.
+- Ambiguous provider errors remain unknown with their error code; no automatic retry. Integration confirms stale-owner job is dead with STALE_REPLY_OWNER and adapter is never called.
+- Disposable PostgreSQL integration PASS 1/1; backend typecheck PASS. Real Facebook roundtrip, response-window enforcement and fallback dispatch remain unfinished.
+
 ## Messenger AI queue integration
 
 - Inbound public Messenger text enqueues one grounded ai.reply job while AI_ACTIVE, in the same transaction as message ingestion. Concurrent webhook duplicates produce one AI job.

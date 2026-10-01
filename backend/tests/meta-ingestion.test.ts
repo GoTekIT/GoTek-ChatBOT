@@ -57,7 +57,8 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
   await db.query("UPDATE conversations SET reply_owner='HUMAN_ACTIVE',owner_version=owner_version+1 WHERE id=$1",[conversation]);
  });
  const stale=await runMetaWorkerOnce(workspace,async()=>{sends++;throw new Error('stale AI must never send');});
- assert.equal(stale.state,'unknown');assert.equal(sends,1);
+ assert.equal(stale.state,'dead');assert.equal(sends,1);
+ await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT error_code FROM jobs WHERE state='dead' AND kind='meta.message.send'")).rows[0].error_code,'STALE_REPLY_OWNER');});
 
  // A takeover must wait until an already-started dispatch releases its lock.
  await transaction(async db=>{
