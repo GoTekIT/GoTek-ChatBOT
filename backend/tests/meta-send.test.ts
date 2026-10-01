@@ -13,3 +13,4 @@ test('Meta send preserves ambiguous provider outcomes',async()=>{
   assert.equal(result.status,'unknown');
  }finally{delete process.env.META_FIXTURE_TOKEN;}
 });
+test('WhatsApp send uses phone_number_id endpoint and Cloud API envelope',async()=>{process.env.META_FIXTURE_TOKEN='secret';let url='';let payload:any;const result=await sendMetaText({recipientId:'15550001',text:'hello',pageAccessTokenRef:'META_FIXTURE_TOKEN',channelKind:'whatsapp_business',externalAccountId:'15551111',fetchImpl:async(u,init)=>{url=String(u);payload=JSON.parse(String(init?.body));return new Response(JSON.stringify({messages:[{id:'wamid.test'}]}),{status:200});}});assert.equal(result.providerMessageId,'wamid.test');assert.equal(url,'https://graph.facebook.com/v20.0/15551111/messages');assert.deepEqual(payload,{messaging_product:'whatsapp',to:'15550001',type:'text',text:{body:'hello'}});delete process.env.META_FIXTURE_TOKEN;});
