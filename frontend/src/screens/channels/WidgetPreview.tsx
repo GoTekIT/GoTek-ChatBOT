@@ -5,12 +5,14 @@ export function WidgetPreview({
   position,
   mode,
   name,
+  greeting,
   color = '#0057E1'
 }: {
   title: string;
   position: string;
   mode: string;
   name: string;
+  greeting?: string;
   color?: string;
 }) {
   const [open, setOpen] = useState(true);
@@ -78,7 +80,7 @@ export function WidgetPreview({
 
               <div className="preview-bubble bubble-agent">
                 <div className="bubble-text">
-                  Xin chào! 👋 Cảm ơn bạn đã ghé thăm. Chúng tôi có thể giúp gì cho bạn hôm nay?
+                  {greeting || 'Xin chào! 👋 Cảm ơn bạn đã ghé thăm. Chúng tôi có thể giúp gì cho bạn hôm nay?'}
                 </div>
                 <div className="bubble-time">10:00</div>
               </div>

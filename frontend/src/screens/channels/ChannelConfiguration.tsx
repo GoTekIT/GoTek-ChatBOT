@@ -797,6 +797,7 @@ export function ChannelConfiguration({
                     position={value.widget_position || 'right'}
                     mode={value.widget_mode || 'standard'}
                     name={value.name || 'Website'}
+                    greeting={value.greeting}
                     color={value.color || '#0057E1'}
                   />
                 </aside>

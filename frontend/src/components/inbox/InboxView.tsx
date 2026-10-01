@@ -8,9 +8,30 @@ interface InboxViewProps {
   conversations: Conversation[];
   selectedConvId: string;
   setSelectedConvId: (id: string) => void;
-  onSendMessage: (convId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
+  onSendMessage: (convId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>, sentViaWs?: boolean) => void;
   onTakeover: (convId: string) => void;
   onResolve: (convId: string) => void;
+  onResumeAi?: (convId: string) => void;
+  onIncomingMessage?: (convId: string, message: ChatMessage) => void;
+}
+
+function playNotificationChime() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch {}
 }
 
 export const InboxView: React.FC<InboxViewProps> = ({
@@ -20,6 +41,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
   onSendMessage,
   onTakeover,
   onResolve,
+  onResumeAi,
+  onIncomingMessage,
 }) => {
   // Filter tabs: all, queue (cần handoff), bot (AI đang phục vụ), mine (đã gán)
   const [filterTab, setFilterTab] = useState<'all' | 'queue' | 'bot' | 'mine'>('all');
@@ -52,20 +75,36 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const activeConv = conversations.find((c) => c.id === selectedConvId) || conversations[0];
+  const isStaffActive = Boolean(
+    activeConv && (
+      activeConv.status === 'in_review' ||
+      (activeConv.status as string) === 'open' ||
+      activeConv.reply_owner === 'HUMAN_ACTIVE' ||
+      activeConv.replyOwner === 'HUMAN_ACTIVE'
+    ) && activeConv.status !== 'ai_active'
+  );
+
+  // When active conversation is in AI mode, staff can ONLY add internal notes
+  useEffect(() => {
+    if (!isStaffActive) {
+      setComposerMode('internal');
+    } else {
+      setComposerMode('public');
+    }
+  }, [activeConv?.id, isStaffActive]);
 
   // =========================================================================
-  // REALTIME CHAT HOOK (SSE Server-Sent Events Connection)
+  // REALTIME CHAT HOOK (Full-Duplex WebSocket with SSE Fallback)
   // =========================================================================
-  const { isConnected, typingState, sendTypingStatus } = useRealtimeChat({
+  const { isConnected, transportType, typingState, sendMessageOverSocket, sendTypingStatus } = useRealtimeChat({
     conversationId: activeConv?.id,
     onNewMessage: (newMsg) => {
       if (activeConv) {
-        // Prevent duplicate appending
-        const exists = activeConv.messages.some((m) => m.id === newMsg.id);
-        if (!exists) {
-          activeConv.messages.push(newMsg);
-          showToast(`Tin nhắn mới từ ${newMsg.senderName}`);
+        if (newMsg.senderType === 'customer') {
+          playNotificationChime();
         }
+        onIncomingMessage?.(activeConv.id, newMsg);
+        showToast(`Tin nhắn mới từ ${newMsg.senderName}`);
       }
     },
     onTakeover: (data) => {
@@ -190,26 +229,33 @@ export const InboxView: React.FC<InboxViewProps> = ({
     showToast('Đã giải quyết phiên hỗ trợ thành công! 🎉');
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!messageText.trim() || !activeConv) return;
+    const text = messageText;
+    const isInternal = !isStaffActive || composerMode === 'internal';
 
-    if (composerMode === 'internal') {
-      onSendMessage(activeConv.id, {
-        senderType: 'internal_note',
-        senderName: 'Alex Rivera (Staff Lead)',
-        content: messageText,
-      });
-      showToast('Đã lưu ghi chú nội bộ');
-    } else {
-      onSendMessage(activeConv.id, {
-        senderType: 'agent',
-        senderName: 'Alex Rivera (Staff Lead)',
-        senderAvatar:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
-        content: messageText,
-      });
+    // Block public sending if conversation is still handled by AI
+    if (!isStaffActive && composerMode === 'public') {
+      showToast('⚠️ Cuộc trò chuyện đang do AI phụ trách. Vui lòng bấm "Chuyển sang Nhân viên chat" để trả lời khách!');
+      return;
     }
 
+    const msgClientId = crypto.randomUUID();
+
+    // 1. Send via WebSocket if open (<1ms)
+    const sentViaWs = await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
+
+    // 2. Dispatch to parent console state
+    onSendMessage(activeConv.id, {
+      clientId: msgClientId,
+      senderType: isInternal ? 'internal_note' : 'agent',
+      senderName: 'Alex Rivera (Staff Lead)',
+      senderAvatar:
+        'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
+      content: text,
+    }, sentViaWs);
+
+    showToast(isInternal ? 'Đã lưu ghi chú nội bộ 🔒 (Khách không nhìn thấy)' : (sentViaWs ? 'Đã gửi qua WebSocket ⚡' : 'Đã gửi phản hồi'));
     setMessageText('');
     textareaRef.current?.focus();
   };
@@ -588,14 +634,14 @@ export const InboxView: React.FC<InboxViewProps> = ({
                   {activeConv.clientTier}
                 </span>
 
-                {/* Realtime SSE Indicator Badge */}
+                {/* Realtime WebSocket / SSE Indicator Badge */}
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border transition-colors ${
                   isConnected
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200/80 dark:border-emerald-800/60'
                     : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200/80 dark:border-amber-800/60'
                 }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                  {isConnected ? 'Realtime SSE' : 'Đang kết nối...'}
+                  {isConnected ? (transportType === 'ws' ? '⚡ Realtime WebSocket' : '🟢 Realtime SSE') : 'Đang kết nối...'}
                 </span>
               </div>
               <p className="text-[12px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
@@ -613,20 +659,39 @@ export const InboxView: React.FC<InboxViewProps> = ({
             </div>
           </div>
 
-          {/* Quick Action Header Controls */}
+          {/* Quick Action Header Controls: 1 Single Action Button */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Staff Takeover Button */}
-            {activeConv.status === 'handoff' && (
+            {!isStaffActive ? (
+              // AI Mode: 1 Nút duy nhất để Chuyển sang Nhân viên chat
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => onTakeover(activeConv.id)}
-                className="px-3 py-1.5 bg-[#1664ff] hover:bg-[#3370ff] text-white rounded-lg text-[12.5px] font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
                 type="button"
+                onClick={() => onTakeover(activeConv.id)}
+                className="px-3.5 py-1.5 bg-[#1664ff] hover:bg-[#3370ff] text-white rounded-lg text-[12.5px] font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                title="Chuyển sang chế độ Nhân viên tiếp quản và trực tiếp chat với khách hàng"
               >
                 <span className="material-symbols-outlined text-[17px]">support_agent</span>
-                <span>Tiếp nhận hỗ trợ</span>
+                <span>Chuyển sang Nhân viên chat</span>
+                {activeConv.status === 'handoff' && (
+                  <span className="px-1.5 py-0.2 text-[10px] bg-amber-400 text-slate-900 font-extrabold rounded-full animate-bounce">Khách chờ</span>
+                )}
               </motion.button>
+            ) : (
+              // Staff Mode: 1 Nút duy nhất để Chuyển lại cho AI
+              onResumeAi && (
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
+                  onClick={() => onResumeAi(activeConv.id)}
+                  className="px-3.5 py-1.5 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60 rounded-lg text-[12.5px] font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  title="Bấm để chuyển giao lại cho AI Bot tự động trả lời"
+                >
+                  <span className="material-symbols-outlined text-[17px] text-purple-600 dark:text-purple-400">smart_toy</span>
+                  <span>Chuyển lại cho AI</span>
+                </motion.button>
+              )
             )}
 
             {/* Resolve Button with Celebration Confetti */}
@@ -1040,22 +1105,36 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 <div className="flex items-center p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold">
                   <button
                     type="button"
-                    onClick={() => setComposerMode('public')}
-                    className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                      composerMode === 'public'
-                        ? 'bg-white dark:bg-slate-700 text-[#1664ff] dark:text-blue-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    onClick={() => {
+                      if (!isStaffActive) {
+                        showToast('⚠️ Cuộc trò chuyện đang do AI phụ trách. Vui lòng bấm "Chuyển sang Nhân viên chat" ở trên để chat với khách!');
+                        return;
+                      }
+                      setComposerMode('public');
+                    }}
+                    className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+                      composerMode === 'public' && isStaffActive
+                        ? 'bg-white dark:bg-slate-700 text-[#1664ff] dark:text-blue-400 shadow-xs cursor-pointer'
+                        : isStaffActive
+                          ? 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 cursor-pointer'
+                          : 'text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-50'
                     }`}
+                    title={!isStaffActive ? 'Chỉ nhân viên tiếp quản mới được chat với khách' : 'Trả lời khách'}
                   >
-                    <span className="material-symbols-outlined text-[15px]">chat</span>
+                    <span className="material-symbols-outlined text-[15px]">
+                      {!isStaffActive ? 'lock' : 'chat'}
+                    </span>
                     <span>Trả lời khách</span>
+                    {!isStaffActive && (
+                      <span className="text-[10px] px-1 py-0.2 bg-slate-200 dark:bg-slate-700 text-slate-500 rounded font-normal ml-0.5">Khóa</span>
+                    )}
                   </button>
                   <button
                     type="button"
                     onClick={() => setComposerMode('internal')}
                     className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                      composerMode === 'internal'
-                        ? 'bg-amber-600 text-white shadow-xs'
+                      composerMode === 'internal' || !isStaffActive
+                        ? 'bg-amber-600 text-white shadow-xs font-bold'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                     }`}
                   >
@@ -1122,6 +1201,24 @@ export const InboxView: React.FC<InboxViewProps> = ({
               </motion.button>
             </div>
 
+            {/* Notice bar when in AI Mode */}
+            {!isStaffActive && (
+              <div className="px-4 py-1.5 bg-amber-50/90 dark:bg-amber-950/40 border-b border-amber-200/60 dark:border-amber-900/40 flex items-center justify-between text-[12px] text-amber-800 dark:text-amber-300">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">lock</span>
+                  <span>Chế độ AI đang bật. Bạn chỉ có thể thêm ghi chú nội bộ (Khách không nhìn thấy).</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onTakeover(activeConv.id)}
+                  className="px-2.5 py-0.5 bg-[#1664ff] hover:bg-[#3370ff] text-white rounded-md text-[11.5px] font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[14px]">support_agent</span>
+                  <span>Chuyển sang Nhân viên chat</span>
+                </button>
+              </div>
+            )}
+
             {/* Borderless Textarea */}
             <div className="px-4 py-2">
               <textarea
@@ -1129,14 +1226,16 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 value={messageText}
                 onChange={(e) => {
                   setMessageText(e.target.value);
-                  sendTypingStatus(true);
+                  if (isStaffActive) sendTypingStatus(true);
                 }}
-                onBlur={() => sendTypingStatus(false)}
+                onBlur={() => { if (isStaffActive) sendTypingStatus(false); }}
                 onKeyDown={handleKeyDown}
                 placeholder={
-                  composerMode === 'internal'
-                    ? 'Nhập ghi chú nội bộ (chỉ nhân viên xem được)...'
-                    : 'Nhập nội dung tin nhắn gửi khách hàng... (Nhấn Enter để gửi, Shift+Enter để xuống dòng)'
+                  !isStaffActive
+                    ? 'AI đang tự động hỗ trợ khách. Bạn chỉ có thể thêm ghi chú nội bộ (Khách không nhìn thấy)...'
+                    : composerMode === 'internal'
+                      ? 'Nhập ghi chú nội bộ (chỉ nhân viên xem được)...'
+                      : 'Nhập nội dung tin nhắn gửi khách hàng... (Nhấn Enter để gửi, Shift+Enter để xuống dòng)'
                 }
                 rows={2}
                 className="w-full text-[13.5px] bg-transparent text-[#1f2329] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-none focus:outline-none leading-relaxed select-text"
@@ -1162,7 +1261,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 >
                   <span className="material-symbols-outlined text-[18px]">sentiment_satisfied</span>
                 </button>
-                <span className="hidden sm:inline text-slate-400 dark:text-slate-500 text-[11.5px]">Nhấn Enter để gửi</span>
+                <span className="hidden sm:inline text-slate-400 dark:text-slate-500 text-[11.5px]">Nhấn Enter để lưu</span>
               </div>
 
               <motion.button
@@ -1172,13 +1271,15 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 onClick={handleSend}
                 disabled={!messageText.trim()}
                 className={`px-4 py-1.5 rounded-xl text-[13px] font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                  composerMode === 'internal'
+                  !isStaffActive || composerMode === 'internal'
                     ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20'
                     : 'bg-gradient-to-r from-[#1664ff] to-[#3370ff] hover:from-[#3370ff] hover:to-[#1664ff] text-white shadow-blue-500/25'
                 }`}
               >
-                <span>{composerMode === 'internal' ? 'Lưu ghi chú' : 'Gửi tin'}</span>
-                <span className="material-symbols-outlined text-[16px]">send</span>
+                <span>{!isStaffActive || composerMode === 'internal' ? 'Lưu ghi chú nội bộ' : 'Gửi tin'}</span>
+                <span className="material-symbols-outlined text-[16px]">
+                  {!isStaffActive || composerMode === 'internal' ? 'lock' : 'send'}
+                </span>
               </motion.button>
             </div>
           </div>

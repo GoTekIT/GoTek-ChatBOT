@@ -32,15 +32,23 @@ export function createApp() {
   // Core security & parsing middlewares
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
-  app.use(helmet({contentSecurityPolicy: false}));
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  }));
   app.use(express.json({limit: '128kb'}));
   app.use(cookieParser());
 
   // Root Service Status Page & Specs
   app.get('/', StatusController.getRoot);
 
-  // Serve static assets (logo, icons, public sdk)
-  app.use(express.static('public'));
+  // Serve static assets (logo, icons, public sdk) with Cross-Origin headers
+  app.use(express.static('public', {
+    setHeaders: (res) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+  }));
 
   // Public Widget SDK & Widget API routes
   app.get('/widget.js', widgetEmbed);

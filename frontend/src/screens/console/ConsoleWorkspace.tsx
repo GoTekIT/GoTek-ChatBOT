@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ConsoleModule, SettingsSubTab, KnowledgeDocument, StaffMember, Conversation, ChatMessage } from '../../types';
 import { INITIAL_DOCUMENTS, INITIAL_CONVERSATIONS } from '../../data/mockData';
 import { TopNav } from '../../components/TopNav';
@@ -13,6 +13,7 @@ import { Channels } from '../channels/Channels';
 import { AnalyticsView } from '../../components/analytics/AnalyticsView';
 import { CommandPalette } from '../../components/modals/CommandPalette';
 import { navigate } from '../../hooks/usePath';
+import { api } from '../../api/api';
 
 interface ConsoleWorkspaceProps {
   me?: any;
@@ -53,10 +54,148 @@ export function ConsoleWorkspace({
 
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
+  const selectedConvIdRef = useRef<string>(selectedConvId);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Keep selectedConvIdRef in sync with state
+  useEffect(() => {
+    selectedConvIdRef.current = selectedConvId;
+  }, [selectedConvId]);
+
+  // Helper to load full message history for a specific conversation
+  const loadMessagesForConv = async (convId: string) => {
+    if (!convId || !/^[0-9a-f-]{36}$/i.test(convId)) return;
+    try {
+      const msgs: ChatMessage[] = await api(`/conversations/${convId}/messages`);
+      if (Array.isArray(msgs)) {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === convId ? { ...c, messages: msgs } : c
+          )
+        );
+      }
+    } catch (err) {
+      console.warn('Load messages error', err);
+    }
+  };
+
+  // Fetch real conversations from Backend while preserving existing messages in state
+  const loadConversations = async () => {
+    try {
+      const data: Conversation[] = await api('/conversations');
+      if (data && data.length > 0) {
+        setConversations((prev) => {
+          return data.map((newConv) => {
+            const existing = prev.find((c) => c.id === newConv.id);
+            const preservedMessages = (existing && existing.messages && existing.messages.length > 0)
+              ? existing.messages
+              : (newConv.messages || []);
+
+            // Protect optimistic state: if user took over or resumed AI recently, don't let stale DB poll downgrade it
+            const isLocalNewer = Boolean(
+              existing &&
+              existing.ownerVersion &&
+              newConv.ownerVersion &&
+              existing.ownerVersion > newConv.ownerVersion
+            );
+
+            const effectiveStatus = (isLocalNewer && existing) ? existing.status : newConv.status;
+            const effectiveOwner = (isLocalNewer && existing) ? (existing.reply_owner || existing.replyOwner) : (newConv.reply_owner || newConv.replyOwner);
+            const effectiveVersion = (isLocalNewer && existing) ? existing.ownerVersion : newConv.ownerVersion;
+
+            return {
+              ...newConv,
+              status: effectiveStatus,
+              reply_owner: effectiveOwner,
+              replyOwner: effectiveOwner,
+              ownerVersion: effectiveVersion,
+              messages: preservedMessages,
+            };
+          });
+        });
+
+        // Only select firstId on initial load or if current selection is invalid/deleted
+        const currentSelected = selectedConvIdRef.current;
+        const isValidExisting = data.some((c) => c.id === currentSelected);
+
+        if (!isValidExisting) {
+          const firstId = data[0].id;
+          selectedConvIdRef.current = firstId;
+          setSelectedConvId(firstId);
+          void loadMessagesForConv(firstId);
+        }
+      }
+    } catch (err) {
+      console.warn('Backend conversations load fallback to mock', err);
+    }
+  };
+
+  useEffect(() => {
+    void loadConversations();
+    const interval = setInterval(loadConversations, 15000);
+    return () => clearInterval(interval);
+  }, [me?.workspaceId]);
+
+  // Load real messages whenever selectedConvId changes
+  useEffect(() => {
+    if (selectedConvId && /^[0-9a-f-]{36}$/i.test(selectedConvId)) {
+      void loadMessagesForConv(selectedConvId);
+    }
+  }, [selectedConvId]);
+
+  // Realtime workspace SSE stream
+  useEffect(() => {
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource('/api/stream', { withCredentials: true });
+      const refreshList = (e?: MessageEvent) => {
+        void loadConversations();
+        const activeId = selectedConvIdRef.current;
+        if (activeId && /^[0-9a-f-]{36}$/i.test(activeId)) {
+          void loadMessagesForConv(activeId);
+        }
+      };
+      es.addEventListener('inbox:visitor_message', refreshList);
+      es.addEventListener('inbox:message_sent', refreshList);
+      es.addEventListener('inbox:takeover', (e: MessageEvent) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload?.conversationId) {
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === payload.conversationId
+                  ? { ...c, status: 'in_review', reply_owner: 'HUMAN_ACTIVE', replyOwner: 'HUMAN_ACTIVE' }
+                  : c
+              )
+            );
+          }
+        } catch {}
+      });
+      es.addEventListener('inbox:ai_resumed', (e: MessageEvent) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload?.conversationId) {
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === payload.conversationId
+                  ? { ...c, status: 'ai_active', reply_owner: 'AI_ACTIVE', replyOwner: 'AI_ACTIVE' }
+                  : c
+              )
+            );
+          }
+        } catch {}
+      });
+      es.addEventListener('inbox:status_changed', refreshList);
+    } catch {
+      // Ignore
+    }
+    return () => {
+      if (es) es.close();
+    };
+  }, [me?.workspaceId]);
 
   // Sidebar resizer & collapse state (Default: true for icon-only rail mode like Lark)
   const [sidebarWidth, setSidebarWidth] = useState<number>(256);
@@ -141,15 +280,19 @@ export function ConsoleWorkspace({
     showGlobalToast('Đã gỡ tài liệu khỏi kho tri thức');
   };
 
-  // Chat actions
-  const handleSendMessage = (
+  // Chat actions wired to Backend APIs
+  const handleSendMessage = async (
     convId: string,
-    message: Omit<ChatMessage, 'id' | 'timestamp'>
+    message: Omit<ChatMessage, 'id' | 'timestamp'>,
+    sentViaWs = false
   ) => {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const isRealConv = /^[0-9a-f-]{36}$/i.test(convId);
+    const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const clientUuid = message.clientId || crypto.randomUUID();
     const fullMsg: ChatMessage = {
       ...message,
-      id: `msg-${Date.now()}`,
+      id: clientUuid,
+      clientId: clientUuid,
       timestamp: timeStr,
     };
 
@@ -166,10 +309,27 @@ export function ConsoleWorkspace({
         return c;
       })
     );
+
+    if (isRealConv && !sentViaWs) {
+      try {
+        await api(`/conversations/${convId}/messages`, 'POST', {
+          clientId: clientUuid,
+          body: message.content,
+          visibility: message.senderType === 'internal_note' ? 'internal' : 'public',
+        });
+        showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : 'Đã gửi phản hồi tới khách hàng');
+      } catch (err: any) {
+        showGlobalToast(`Lỗi gửi tin: ${err.message || 'Chưa gửi được'}`);
+      }
+    } else {
+      showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : (sentViaWs ? 'Đã gửi qua WebSocket ⚡' : 'Đã gửi phản hồi thành công'));
+    }
   };
 
-  const handleTakeover = (convId: string) => {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const handleTakeover = async (convId: string) => {
+    const isRealConv = /^[0-9a-f-]{36}$/i.test(convId);
+    const targetConv = conversations.find(c => c.id === convId);
+    const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const takeoverNotice: ChatMessage = {
       id: `sys-${Date.now()}`,
       senderType: 'system_event',
@@ -178,26 +338,121 @@ export function ConsoleWorkspace({
       content: 'Nhân viên hỗ trợ đã tiếp quản hội thoại này từ AI Copilot.',
     };
 
+    const nextVersion = (targetConv?.ownerVersion || 1) + 1;
     setConversations((prev) =>
       prev.map((c) =>
         c.id === convId
           ? {
               ...c,
               status: 'in_review',
+              reply_owner: 'HUMAN_ACTIVE',
+              replyOwner: 'HUMAN_ACTIVE',
+              ownerVersion: nextVersion,
               slaUrgent: false,
               messages: [...c.messages, takeoverNotice],
             }
           : c
       )
     );
-    showGlobalToast('Bạn đã tiếp quản thành công hội thoại với khách hàng');
+
+    if (isRealConv) {
+      try {
+        const res = await api(`/conversations/${convId}/takeover`, 'POST', {});
+        if (res?.owner_version) {
+          setConversations((prev) => prev.map((c) => (c.id === convId ? { ...c, ownerVersion: res.owner_version } : c)));
+        }
+        showGlobalToast('Bạn đã tiếp quản thành công hội thoại với khách hàng');
+      } catch (err: any) {
+        showGlobalToast(`Lỗi tiếp nhận: ${err.message || 'Thử lại'}`);
+      }
+    } else {
+      showGlobalToast('Bạn đã tiếp quản thành công hội thoại với khách hàng');
+    }
   };
 
-  const handleResolve = (convId: string) => {
+  const handleResolve = async (convId: string) => {
+    const isRealConv = /^[0-9a-f-]{36}$/i.test(convId);
+    const targetConv = conversations.find(c => c.id === convId);
+    const nextStatus = targetConv?.status === 'resolved' ? 'open' : 'resolved';
+
     setConversations((prev) =>
-      prev.map((c) => (c.id === convId ? { ...c, status: 'resolved' } : c))
+      prev.map((c) => (c.id === convId ? { ...c, status: nextStatus === 'resolved' ? 'resolved' : 'in_review' } : c))
     );
-    showGlobalToast('Hội thoại đã được đánh dấu giải quyết và lưu trữ');
+
+    if (isRealConv) {
+      try {
+        await api(`/conversations/${convId}/status`, 'PATCH', { status: nextStatus });
+        showGlobalToast(nextStatus === 'resolved' ? 'Hội thoại đã được giải quyết' : 'Hội thoại đã được mở lại');
+      } catch (err: any) {
+        showGlobalToast(`Lỗi cập nhật: ${err.message || 'Thử lại'}`);
+      }
+    } else {
+      showGlobalToast('Hội thoại đã được đánh dấu giải quyết và lưu trữ');
+    }
+  };
+
+  const handleResumeAi = async (convId: string) => {
+    const isRealConv = /^[0-9a-f-]{36}$/i.test(convId);
+    const targetConv = conversations.find((c) => c.id === convId);
+    const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const aiResumeNotice: ChatMessage = {
+      id: `sys-${Date.now()}`,
+      senderType: 'system_event',
+      senderName: 'Hệ thống',
+      timestamp: timeStr,
+      content: 'Chuyên viên đã chuyển giao hội thoại lại cho GoTek AI Copilot tự động hỗ trợ.',
+    };
+
+    const nextVersion = (targetConv?.ownerVersion || 1) + 1;
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === convId
+          ? {
+              ...c,
+              status: 'ai_active',
+              reply_owner: 'AI_ACTIVE',
+              replyOwner: 'AI_ACTIVE',
+              ownerVersion: nextVersion,
+              assignedTo: undefined,
+              messages: [...c.messages, aiResumeNotice],
+            }
+          : c
+      )
+    );
+
+    if (isRealConv) {
+      try {
+        const res = await api(`/conversations/${convId}/resume-ai`, 'POST', {});
+        if (res?.owner_version) {
+          setConversations((prev) => prev.map((c) => (c.id === convId ? { ...c, ownerVersion: res.owner_version } : c)));
+        }
+        showGlobalToast('Đã chuyển giao hội thoại cho GoTek AI');
+      } catch (err: any) {
+        showGlobalToast(`Lỗi chuyển giao: ${err.message || 'Thử lại'}`);
+      }
+    } else {
+      showGlobalToast('Đã chuyển giao hội thoại cho GoTek AI');
+    }
+  };
+
+  const handleIncomingMessage = (convId: string, message: ChatMessage) => {
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === convId) {
+          const exists = c.messages.some(
+            (m) => m.id === message.id || (m.clientId && message.clientId && m.clientId === message.clientId)
+          );
+          if (exists) return c;
+          return {
+            ...c,
+            lastMessageSnippet: message.content.slice(0, 80),
+            lastMessageTime: 'Vừa xong',
+            messages: [...c.messages, message],
+          };
+        }
+        return c;
+      })
+    );
   };
 
   return (
@@ -260,6 +515,8 @@ export function ConsoleWorkspace({
                 onSendMessage={handleSendMessage}
                 onTakeover={handleTakeover}
                 onResolve={handleResolve}
+                onResumeAi={handleResumeAi}
+                onIncomingMessage={handleIncomingMessage}
               />
             )}
 

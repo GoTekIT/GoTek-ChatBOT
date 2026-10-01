@@ -548,6 +548,7 @@ export function Channels({role}: {role: string}) {
                         position={input.widget_position || 'right'}
                         mode={input.widget_mode || 'standard'}
                         name={input.name || 'Website'}
+                        greeting={input.greeting}
                         color={input.color || '#0057E1'}
                       />
                     </aside>
