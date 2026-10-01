@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import {authed} from '../middlewares/auth.middleware';
 import {listMetaConnections,disconnectMetaConnection} from '../modules/meta/connections';
+import {reconcileExpiredMetaReplies} from '../modules/meta/outbox';
 
 export const metaRouter = Router();
 metaRouter.get('/integrations/meta/connections',authed(
@@ -9,6 +10,11 @@ metaRouter.get('/integrations/meta/connections',authed(
 // This endpoint disconnects GoTek processing; it does not claim to revoke Meta permissions.
 metaRouter.post('/integrations/meta/connections/:id/disconnect',authed(
  (db,actor,req)=>disconnectMetaConnection(db,actor,String(req.params.id)),'channels.manage'
+));
+
+// Move abandoned dispatch claims to reviewable state. This never retries provider sends.
+metaRouter.post('/integrations/meta/outbox/reconcile',authed(async(db,actor)=>
+ reconcileExpiredMetaReplies(db,actor.workspace_id),'channels.manage'
 ));
 
 import {identity} from '../middlewares/auth.middleware';
