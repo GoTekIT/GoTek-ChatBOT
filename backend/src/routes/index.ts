@@ -12,6 +12,7 @@ import {auditRouter} from './audit.routes';
 import {supportRouter} from './support.routes';
 import {platformRouter} from './platform.routes';
 import {miscRouter} from './misc.routes';
+import {metaRouter} from './meta.routes';
 
 /**
  * Centralized API Group Router
@@ -33,3 +34,4 @@ apiRouter.use(auditRouter);
 apiRouter.use(supportRouter);
 apiRouter.use(platformRouter);
 apiRouter.use(miscRouter);
+apiRouter.use(metaRouter);

@@ -265,3 +265,8 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 - Fixed request logger to omit query strings before OAuth callback activation; regression test covers code/state, webhook verify token and inbox search privacy.
 - 2/2 connection/logger tests passed and backend typecheck passed. No routes wired yet. New files are tests/meta-connections.test.ts, tests/request-logger.test.ts, modules/meta/connections.ts and migration059.
 - Next: verify token-exchange contract, persist selected authorized assets, route mounting and integration tests; then webhook/outbox workers and UI. Keep PR Draft.
+
+### Meta management HTTP routes
+- Mounted GET /api/integrations/meta/connections and POST /api/integrations/meta/connections/:id/disconnect through the existing API CSRF/no-store and transactional identity middleware; channels.manage required.
+- Extended DB integration test to call real Express endpoints: unauthenticated/revoked session 401, Agent 403, missing CSRF header 403, Owner list/disconnect 200, credential exclusion, repeat-disconnect single audit/generation change.
+- Targeted HTTP/DB suite passed. These routes manage existing records only; OAuth callback/asset enrollment and provider webhook unsubscription are still pending. Local disconnect is not Meta permission revocation.
