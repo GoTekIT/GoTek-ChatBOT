@@ -1,3 +1,7 @@
+## Provider media references
+
+- Added migration `063_meta_media_references.sql` and message persistence support for provider media IDs. WhatsApp/Instagram media references are stored as typed IDs under tenant RLS; no provider URL or token is placed in message attachments. Pilot ingestion tests pass after applying migration 063.
+
 ## Threads public API slice
 
 - Added a server-side Threads text publisher using the official `graph.threads.net` create-text endpoint with optional `reply_to_id`, token-reference lookup, length validation, and accepted/failed/unknown receipts. This is public posting/reply functionality only; Threads DM remains unsupported and is not routed into inbox.
