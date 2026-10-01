@@ -5,6 +5,7 @@ import {HttpError} from '../../core/security';
 import {transactionalAiReplyHandler, type AiProviderInvoke} from '../../modules/ai/ai-reply-worker';
 import {workspacePrompt} from '../../modules/ai/workspace-prompt';
 import {invokeProvider,invokeProviderDetailed} from '../../modules/ai/provider-transport';
+import {sendMetaText} from '../../modules/meta/send';
 export type JobHandler=(job:{id:string,workspace_id:string,kind:string,payload:Record<string,unknown>})=>Promise<{receipt:string}>;
 /** Explicit tenant assigned by trusted scheduler, never from a public HTTP body. */
 export async function runWorkerOnce(workspace:string,handlers:Record<string,JobHandler>){
@@ -18,7 +19,7 @@ export async function runWorkerOnce(workspace:string,handlers:Record<string,JobH
  if(claimed.disabled)return {state:'workspace_disabled'};
  const job=claimed.job;if(!job)return {state:'idle'};
  // External adapters require their own idempotency/receipt protocol before activation.
- if(job.external_effect){await scoped(db=>finishJob(db,job.id,job.lease_token,{state:'failed',code:'EXTERNAL_DELIVERY_DISABLED'}));return {state:'disabled'};}
+ if(job.external_effect && job.kind!=='meta.message.send'){await scoped(db=>finishJob(db,job.id,job.lease_token,{state:'failed',code:'EXTERNAL_DELIVERY_DISABLED'}));return {state:'disabled'};}
  const handler=Object.hasOwn(handlers,job.kind)?handlers[job.kind]:undefined;
  if(!handler){await scoped(db=>finishJob(db,job.id,job.lease_token,{state:'failed',code:'HANDLER_UNAVAILABLE'}));return {state:'unavailable'};}
  try{const result=await handler(job);await scoped(db=>finishJob(db,job.id,job.lease_token,{state:'succeeded',receipt:result.receipt}));return {state:'succeeded'};}
@@ -80,6 +81,16 @@ export async function runAiWorkerOnce(workspace:string,invoke:AiProviderInvoke){
   }
  }});
 
+}
+
+/** Sends a queued Messenger reply; the Page token is resolved only inside the worker. */
+export async function runMetaWorkerOnce(workspace:string){
+ return runWorkerOnce(workspace,{'meta.message.send':async job=>{
+  const p=job.payload;
+  const result=await sendMetaText({recipientId:String(p.recipientId),text:String(p.messageId ? (await transaction(async db=>{await scope(db,workspace);return (await db.query('SELECT body FROM messages WHERE id=$1 AND workspace_id=$2',[String(p.messageId),workspace])).rows[0]?.body||'';})) : ''),pageAccessTokenRef:String(p.tokenRef)});
+  if(result.status!=='accepted')throw new HttpError(502,result.errorCode||'META_DELIVERY_UNKNOWN');
+  return {receipt:`meta:${result.providerMessageId||job.id}`};
+ }});
 }
 
 /**

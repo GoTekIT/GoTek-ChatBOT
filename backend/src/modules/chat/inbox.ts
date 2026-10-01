@@ -2,6 +2,7 @@ import type {PoolClient} from 'pg';
 import {z} from 'zod';
 import {HttpError,audit,uuid} from '../../core/security';
 import {appendMessage,takeover} from './chat-store';
+import {enqueueJob} from '../jobs/jobs';
 import {realtimeHub} from './realtime';
 
 export type Actor={workspace_id:string,user_id:string,role:string};
@@ -210,6 +211,10 @@ export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown){
 
   // 2. Persist with exact same messageId for 100% durability and consistency
   const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId});
+  if(data.visibility==='public'){
+    const meta=(await db.query("SELECT mc.id,mc.page_access_token_ref,v.profile->>'metaUserId' AS recipient_id FROM conversations c JOIN visitors v ON v.id=c.visitor_id JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id AND mc.status='connected' WHERE c.id=$1 AND c.workspace_id=$2",[id,a.workspace_id])).rows[0];
+    if(meta?.recipient_id) await enqueueJob(db,a.workspace_id,{kind:'meta.message.send',key:`meta-send:${id}:${data.clientId}`,payload:{conversationId:id,messageId:message.id,recipientId:meta.recipient_id,tokenRef:meta.page_access_token_ref},external:true,maxAttempts:3});
+  }
 
   realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:message_sent', {
     conversationId: id,
