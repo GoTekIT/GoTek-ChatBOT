@@ -23,10 +23,15 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
  for(const status of statuses){
   const c=(await db.query(`SELECT id,workspace_id FROM meta_connections WHERE workspace_id=$1 AND external_page_id=$2 AND channel_kind=$3 AND status='connected' FOR UPDATE`,[configuredWorkspace,status.externalAccountId,status.surface])).rows[0];
   if(!c) continue;
-  await db.query(`UPDATE meta_message_deliveries SET status=$1,error_code=$2,updated_at=now()
-    WHERE workspace_id=$3 AND provider_message_id=$4`,[status.status,status.error||null,c.workspace_id,status.providerMessageId]);
-  const inserted=(await db.query('INSERT INTO meta_events(id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.id,status.eventId,'status:'+status.status,status])).rowCount;
-  if(inserted) afterCommit.push(()=>realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:message_receipt',status));
+  const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,status.eventId,'status:'+status.status,status])).rowCount;
+  if(inserted){
+   await db.query(`UPDATE meta_message_deliveries SET status=CASE
+      WHEN status='read' THEN 'read'
+      WHEN status='delivered' AND $1 IN ('sent') THEN 'delivered'
+      ELSE $1 END,error_code=$2,updated_at=now()
+      WHERE workspace_id=$3 AND provider_message_id=$4`,[status.status,status.error||null,c.workspace_id,status.providerMessageId]);
+   afterCommit.push(()=>realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:message_receipt',status));
+  }
  }
  const normalized=normalizeMetaInbound(body);
  if(!normalized.length) return {accepted:true,processed:0};
@@ -34,7 +39,7 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
  for(const event of normalized){
   const c=(await db.query(`SELECT * FROM meta_connections WHERE workspace_id=$1 AND external_page_id=$2 AND channel_kind=$3 AND status='connected' FOR UPDATE`,[configuredWorkspace,event.externalAccountId,event.surface])).rows[0];
   if(!c) continue;
-  const inserted=(await db.query('INSERT INTO meta_events(id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.id,event.eventId,'message',event])).rowCount;
+  const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,event.eventId,'message',event])).rowCount;
   if(!inserted) continue;
   const profile={externalId:event.senderId,name:event.displayName||'Meta user',source:event.surface};
   await db.query('INSERT INTO meta_identities(id,connection_id,workspace_id,external_user_id,profile) VALUES($1,$2,$3,$4,$5) ON CONFLICT(connection_id,external_user_id) DO UPDATE SET profile=EXCLUDED.profile||meta_identities.profile,updated_at=now()',[uuid(),c.id,c.workspace_id,event.senderId, profile]);

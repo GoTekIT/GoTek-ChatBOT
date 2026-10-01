@@ -253,7 +253,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
     setIsSending(true);
 
     const visibility = isInternal ? 'internal' : 'public';
-    const msgClientId = attemptsRef.current.begin(activeConv.id,text,visibility);
+    const media=mediaUrl.trim()?{type:mediaType,url:mediaUrl.trim()}:undefined;
+    const msgClientId = attemptsRef.current.begin(activeConv.id,text,visibility,media);
 
     try {
       // 1. Send via WebSocket if open (<1ms)
@@ -268,11 +269,11 @@ export const InboxView: React.FC<InboxViewProps> = ({
       senderAvatar:
         'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
       content: text,
-      ...(mediaUrl.trim() ? {attachments:[{type:mediaType,url:mediaUrl.trim()}]} : {}),
+      ...(media ? {attachments:[media]} : {}),
       }, sentViaWs);
 
       if (!saved) return;
-      attemptsRef.current.confirmed(activeConv.id,text,visibility,msgClientId);
+      attemptsRef.current.confirmed(activeConv.id,text,visibility,msgClientId,media);
       setMessageText('');
       setMediaUrl('');
       setShowMedia(false);
