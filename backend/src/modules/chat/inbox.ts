@@ -44,7 +44,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
     filterClause+=` AND (h.name ILIKE $${p.length} OR coalesce(v.profile->>'fullName','') ILIKE $${p.length} OR coalesce(v.profile->>'name','') ILIKE $${p.length} OR coalesce(v.profile->>'emailAddress','') ILIKE $${p.length} OR coalesce(v.profile->>'phoneNumber','') ILIKE $${p.length} OR EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id=c.id AND m.body ILIKE $${p.length}))`;
   }
 
-  const sql=`SELECT c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at, h.name AS channel_name, h.origin AS website_url, CASE WHEN EXISTS(SELECT 1 FROM meta_connections mc WHERE mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id AND mc.status='connected') THEN 'facebook_messenger' ELSE h.widget_mode END AS channel_type, v.profile AS visitor_profile, (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body, (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
+  const sql=`SELECT c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at, h.name AS channel_name, h.origin AS website_url, CASE WHEN EXISTS(SELECT 1 FROM meta_connections mc WHERE mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id AND mc.status='connected') THEN 'facebook_messenger' ELSE h.widget_mode END AS channel_type, v.profile AS visitor_profile, (SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,'author_type',m.author_type,'visibility',m.visibility) FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_meta, (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body, (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
 
   const rows=(await db.query(sql,p)).rows;
 
@@ -103,11 +103,12 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       ragCitations:[],
       crmTags:Array.isArray(prof.crmTags)?prof.crmTags:[],
       messages: r.last_message_body ? [{
-        id: `last-${r.id}`,
-        sequence: 1,
-        author_type: 'visitor',
-        senderType: 'customer',
-        senderName: name,
+        id: r.last_message_meta.id,
+        sequence: r.last_message_meta.sequence,
+        author_type: r.last_message_meta.author_type,
+        visibility: r.last_message_meta.visibility,
+        senderType: r.last_message_meta.visibility==='internal'?'internal_note':r.last_message_meta.author_type==='visitor'?'customer':r.last_message_meta.author_type,
+        senderName: r.last_message_meta.author_type==='visitor'?name:r.last_message_meta.author_type==='ai'?'GoTek AI Copilot':'Nhân viên',
         timestamp: timeStr,
         content: r.last_message_body
       }] : []

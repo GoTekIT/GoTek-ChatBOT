@@ -1,3 +1,7 @@
+## Inbox preview metadata — 2026-10-01
+
+- List preview now uses persisted message ID, sequence, author and visibility instead of a fabricated visitor message. Local authenticated Messenger list check confirms actual message ID/sequence/author; backend typecheck PASS. Browser and real AI acceptance remain pending.
+
 ## Messenger customer search — 2026-10-01
 
 - Inbox search now includes provider profile.name in addition to widget fullName, so Facebook customers are searchable by their returned name. Authenticated local API search found the actual pilot conversation; backend typecheck PASS. Browser acceptance and real AI configuration remain pending.
