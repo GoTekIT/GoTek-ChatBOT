@@ -251,7 +251,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
     try {
       // 1. Send via WebSocket if open (<1ms)
-      const sentViaWs = activeConv.channel === 'Facebook Messenger' ? false : await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
+      const isMetaChannel = ['Facebook Messenger', 'Instagram', 'WhatsApp', 'Threads'].includes(activeConv.channel);
+      const sentViaWs = isMetaChannel ? false : await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
 
       // 2. Dispatch to parent console state
       const saved = await onSendMessage(activeConv.id, {
