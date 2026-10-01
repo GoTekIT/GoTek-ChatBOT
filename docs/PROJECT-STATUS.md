@@ -1,4 +1,6 @@
 ## Meta source preservation and setup checkpoint
+- Added `npm --prefix backend run meta:bootstrap` for the test workspace. It upserts Facebook/Instagram/WhatsApp connections from server-side refs (`META_*_TOKEN_REF`) and account/channel IDs; it never accepts raw tokens or prints secrets.
+
 - Meta WhatsApp Step 1 now shows the generated test number `+1 (555) 189-9807`, phone_number_id `1386169614577563`, and WABA id `1591377349136734`; the access-token field still reports `Not generated yet`, so provider roundtrip is not yet verified. No token was copied into source or logs.
 
 - Webhook ingestion now normalizes and persists Facebook Messenger, Instagram messaging, and WhatsApp Cloud message envelopes through the same tenant-scoped path. Outbound text dispatch selects the Facebook/Instagram or WhatsApp Graph envelope from the connection kind and preserves accepted/failed/unknown receipts. Real provider roundtrip for Instagram/WhatsApp is still NEEDS VERIFICATION.
