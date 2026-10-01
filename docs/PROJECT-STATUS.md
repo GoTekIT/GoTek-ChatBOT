@@ -1,3 +1,7 @@
+## UI media payload checkpoint
+- Console API send now forwards the first `ChatMessage.attachments` item as backend `media`; existing text sends are unchanged.
+- Frontend build completed and frontend suite passed 10/10. The current composer still has no file picker/upload control, so users cannot yet create an attachment from the UI.
+
 ## Outbound media inbox checkpoint
 - `inboxSend` now accepts optional `{media:{type,url}}`, persists the attachment with the outbound message, and preserves idempotent retries.
 - Meta worker reads the persisted attachment and dispatches through `sendMetaMedia`; text messages retain the existing path. URLs are validated by the adapter and receipt persistence remains active.
