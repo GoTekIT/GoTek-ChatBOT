@@ -127,15 +127,16 @@ export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaTex
    await scope(db,workspace);
    // Serialize dispatch with takeover and connection revocation. Resolve the
    // recipient and credential from current scoped rows, never queued secrets.
-   const row=(await db.query(`SELECT m.body,m.author_type,m.visibility,m.actor_id,
+   const candidates=(await db.query(`SELECT m.body,m.author_type,m.visibility,m.actor_id,
     c.reply_owner,c.owner_version,c.assigned_to,
     v.profile->>'metaUserId' AS recipient,mc.page_access_token_ref,mc.channel_kind,mc.external_page_id
     FROM messages m JOIN conversations c ON c.id=m.conversation_id AND c.workspace_id=m.workspace_id
     JOIN visitors v ON v.id=c.visitor_id AND v.workspace_id=c.workspace_id
     JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id
     WHERE m.id=$1 AND m.workspace_id=$2 AND c.id=$3 AND mc.status='connected'
-    ORDER BY mc.updated_at DESC,mc.id DESC LIMIT 1
-    FOR UPDATE OF c,mc`,[String(job.payload.messageId),workspace,String(job.payload.conversationId)])).rows[0];
+    FOR UPDATE OF c,mc`,[String(job.payload.messageId),workspace,String(job.payload.conversationId)])).rows;
+   if(candidates.length!==1)throw new HttpError(409,'META_DISPATCH_INVALID');
+   const row=candidates[0];
    if(!row||row.visibility!=='public'||!row.recipient)throw new HttpError(409,'META_DISPATCH_INVALID');
    if(row.author_type==='ai'){
     if(row.reply_owner!=='AI_ACTIVE'||row.owner_version!==job.payload.ownerVersion)throw new HttpError(409,'STALE_REPLY_OWNER');

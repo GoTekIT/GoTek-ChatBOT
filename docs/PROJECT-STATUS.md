@@ -1,3 +1,23 @@
+## Media metadata validation
+
+- Resolver parses returned HTTPS URLs, rejects credentials/malformed/oversized URLs and refuses redirects on authenticated metadata requests. Signed query parameters remain intact. Backend build and eight focused media/transport tests passed.
+- This is metadata resolution only. It does not download media bytes or provide an authenticated inbox media route. OAuth confirmation remains pending; do not infer authorization from automated goal continuation.
+
+## WhatsApp media webhook DB evidence
+
+- Signed image/video fixture webhooks now have integration assertions for stored provider IDs, deduped replay, tenant isolation, no fabricated public attachment URLs, and no text AI job for media-only inputs. Backend build and ingestion tests passed. This is synthetic input through the real persistence path, not live Meta delivery or media playback acceptance.
+- Live WhatsApp OAuth is waiting for user confirmation for Test WhatsApp Business Account only; do not select unknown/future accounts. Instagram test account identity is still missing.
+
+## Provider media retry verification
+
+- appendMessage now compares persisted provider media type/ID sets on clientId replay. Removing, replacing or changing the type of a provider attachment raises IDEMPOTENCY_CONFLICT. Integration assertions confirm one persisted reference on identical replay and tenant-isolated reads.
+- Backend typecheck and ingestion integration tests passed. This verifies persistence, not WhatsApp media rendering or authenticated download.
+
+## Outbound ambiguity correction
+
+- Replaces recency-based connection selection introduced in 86e7222: multiple connected accounts on a channel now terminate dispatch with META_DISPATCH_INVALID before any provider call. A database regression creates this ambiguity and asserts no transport call and terminal job state. Backend build and both ingestion integration tests pass.
+- This guards existing ambiguous mappings; immutable conversation-to-connection binding and concurrent connection provisioning still require implementation/verification. Real Instagram/WhatsApp acceptance remains incomplete.
+
 ## Provider media resolution
 
 - Added server-side Meta media resolver for stored provider IDs. It calls the Graph media endpoint with the connection token reference, validates HTTPS response URLs, and returns no credential. Seven focused Meta transport/media tests and backend build pass. A tenant-authorized download route and cache retention policy remain before UI display.
