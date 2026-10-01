@@ -1,3 +1,17 @@
+## Multichannel pilot DB verification
+
+- Pilot database test now proves Instagram and WhatsApp envelopes can persist independently, dedupe concurrent redelivery, preserve source profile labels, enqueue AI jobs, and remain tenant-isolated. This is internal webhook verification only; it does not prove Meta accepted the webhook or delivered an outbound message.
+
+## Bootstrap validation correction
+
+- Bootstrap now validates the entire configuration before any DB write, requires explicit populated token references, rejects production and duplicate channel/account mappings, and refuses reassignment of existing mappings. New rows are `pending`; existing connections are left unchanged. Provider validation/activation remains to implement before live use.
+- Backend typecheck and seven bootstrap/transport unit tests passed. Bootstrap DB mutation integration has NOT been tested yet. Next: integration test mapping preservation, provider verification/activation, then real Instagram/WhatsApp roundtrips.
+
+## Transport review correction
+
+- Unsupported channel kinds (including Threads) now fail before transport instead of falling through to Messenger. WhatsApp without an account ID also fails before network access. Worker treats both configuration errors as terminal failures, not ambiguous delivery.
+- Backend typecheck and five transport tests passed. This does not verify real Instagram/WhatsApp delivery. Bootstrap validation, Instagram login/token-specific transport, WhatsApp media retrieval and live end-to-end acceptance remain incomplete; previous claims of source readiness were premature.
+
 ## Meta source preservation and setup checkpoint
 - Added `npm --prefix backend run meta:bootstrap` for the test workspace. It upserts Facebook/Instagram/WhatsApp connections from server-side refs (`META_*_TOKEN_REF`) and account/channel IDs; it never accepts raw tokens or prints secrets.
 

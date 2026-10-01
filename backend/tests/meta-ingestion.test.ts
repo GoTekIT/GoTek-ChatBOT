@@ -119,3 +119,32 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  await assert.rejects(transaction(async db=>{await scope(db,workspace);return appendMessage(db,{...mediaInput,attachments:[{type:'image',url:'https://example.test/changed.jpg'}]});}),{code:'IDEMPOTENCY_CONFLICT'});
  await assert.rejects(transaction(db=>receiveMetaWebhook(db,Buffer.from('{}'),signature)),{code:'META_SIGNATURE_INVALID'});
 });
+
+test('Instagram and WhatsApp persist independently with signed redelivery and tenant isolation',{skip:!enabled},async()=>{
+ const workspace=randomUUID(),other=randomUUID();
+ process.env.META_WORKSPACE_ID=workspace;process.env.META_APP_SECRET='multichannel-fixture';
+ await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2),($3,$4)',[workspace,'Multi Meta fixture',other,'Other Meta fixture']);
+ const cases=[{kind:'instagram_messaging',account:'100001',body:{object:'instagram',entry:[{id:'100001',messaging:[{sender:{id:'shared-user'},recipient:{id:'100001'},message:{mid:'same-mid',text:'Instagram fixture'}}]}]}},{kind:'whatsapp_business',account:'100002',body:{object:'whatsapp_business_account',entry:[{id:'waba-id-not-phone-id',changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'100002'},messages:[{from:'shared-user',id:'same-mid',type:'text',text:{body:'WhatsApp fixture'}}]}}]}]}}];
+ for(const fixture of cases){
+  const channel=randomUUID(),connection=randomUUID();
+  await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Meta fixture','https://example.test','Hello','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
+  await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,channel_kind,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,$5,'Fixture','META_FIXTURE_TOKEN')",[connection,workspace,channel,fixture.kind,fixture.account]);
+  const raw=Buffer.from(JSON.stringify(fixture.body));
+  const signature:string='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(raw).digest('hex');
+  const effects:Array<()=>void>=[];
+  const received:Array<{accepted:boolean;processed:number}>=await Promise.all([transaction(db=>receiveMetaWebhook(db,raw,signature,effects)),transaction(db=>receiveMetaWebhook(db,raw,signature,effects))]);
+  assert.equal(received.reduce((sum,r)=>sum+r.processed,0),1);
+  assert.equal(effects.length,1);
+  await transaction(async db=>{await scope(db,workspace);
+   const rows=(await db.query('SELECT m.body,v.profile FROM messages m JOIN conversations c ON c.id=m.conversation_id JOIN visitors v ON v.id=c.visitor_id WHERE c.channel_id=$1',[channel])).rows;
+   assert.equal(rows.length,1);assert.equal(rows[0].profile.source,fixture.kind);
+   assert.equal(rows[0].body,fixture.kind==='instagram_messaging'?'Instagram fixture':'WhatsApp fixture');
+  });
+ }
+ await transaction(async db=>{await scope(db,workspace);
+  assert.equal((await db.query('SELECT id FROM conversations')).rowCount,2);
+  assert.equal((await db.query('SELECT id FROM meta_identities')).rowCount,2);
+  assert.equal((await db.query("SELECT id FROM jobs WHERE kind='ai.reply'")).rowCount,2);
+ });
+ await transaction(async db=>{await scope(db,other);for(const table of ['messages','conversations','meta_identities','meta_events'])assert.equal((await db.query(`SELECT id FROM ${table}`)).rowCount,0);});
+});

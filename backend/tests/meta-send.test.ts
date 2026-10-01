@@ -14,3 +14,18 @@ test('Meta send preserves ambiguous provider outcomes',async()=>{
  }finally{delete process.env.META_FIXTURE_TOKEN;}
 });
 test('WhatsApp send uses phone_number_id endpoint and Cloud API envelope',async()=>{process.env.META_FIXTURE_TOKEN='secret';let url='';let payload:any;const result=await sendMetaText({recipientId:'15550001',text:'hello',pageAccessTokenRef:'META_FIXTURE_TOKEN',channelKind:'whatsapp_business',externalAccountId:'15551111',fetchImpl:async(u,init)=>{url=String(u);payload=JSON.parse(String(init?.body));return new Response(JSON.stringify({messages:[{id:'wamid.test'}]}),{status:200});}});assert.equal(result.providerMessageId,'wamid.test');assert.equal(url,'https://graph.facebook.com/v20.0/15551111/messages');assert.deepEqual(payload,{messaging_product:'whatsapp',to:'15550001',type:'text',text:{body:'hello'}});delete process.env.META_FIXTURE_TOKEN;});
+
+test('unsupported channels and missing WhatsApp account cannot dispatch to Messenger',async()=>{
+ let calls=0;
+ const transport:typeof fetch=async()=>{calls++;throw new Error('must not dispatch');};
+ const base={recipientId:'user',text:'test',pageAccessTokenRef:'UNSET_TEST_TOKEN',fetchImpl:transport};
+ for(const channelKind of ['threads','', 'unknown']){
+  const result=await sendMetaText({...base,channelKind:channelKind as never});
+  assert.deepEqual(result,{status:'failed',errorCode:'META_CHANNEL_UNSUPPORTED'});
+ }
+ for(const externalAccountId of [undefined,'',' ']){
+  const result=await sendMetaText({...base,channelKind:'whatsapp_business',externalAccountId});
+  assert.deepEqual(result,{status:'failed',errorCode:'META_ACCOUNT_REQUIRED'});
+ }
+ assert.equal(calls,0);
+});

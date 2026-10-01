@@ -37,7 +37,7 @@ export async function runWorkerOnce(workspace:string,handlers:Record<string,JobH
  // Messenger rejections are terminal: do not retry sends implicitly.
  if(job.kind==='meta.message.send'&&error instanceof HttpError){
   const code=error.code;
-  const known=['META_DISPATCH_INVALID','STALE_REPLY_OWNER','META_TOKEN_NOT_CONFIGURED','META_MESSAGE_INVALID'].includes(code)||/^META_HTTP_4[0-9]{2}$/.test(code);
+  const known=['META_CHANNEL_UNSUPPORTED','META_ACCOUNT_REQUIRED','META_DISPATCH_INVALID','STALE_REPLY_OWNER','META_TOKEN_NOT_CONFIGURED','META_MESSAGE_INVALID'].includes(code)||/^META_HTTP_4[0-9]{2}$/.test(code);
   try{
    await scoped(async db=>{
     if(known)await db.query("UPDATE jobs SET max_attempts=attempts WHERE id=$1 AND state='running' AND lease_token=$2 AND lease_until>now()",[job.id,job.lease_token]);
