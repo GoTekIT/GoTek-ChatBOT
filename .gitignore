@@ -25,3 +25,21 @@ research/handoff-v2-render/
 # Local plan & scratch scripts
 plan_nguyen/
 check_db.js
+
+# Local simulation data, mock seed, and scratch test scripts
+backend/scripts/seed-data.ts
+backend/scripts/check_history.js
+backend/scripts/inspect_channel.*
+backend/scripts/reopen_conv.*
+backend/scripts/test_speed.*
+backend/scripts/verify_*
+backend/scripts/test_*
+backend/scripts/check_*
+backend/scripts/inspect_*
+backend/scripts/*.cjs
+backend/scripts/scratch/
+*.mock.json
+*.seed.json
+mock_data/
+mock-data/
+
