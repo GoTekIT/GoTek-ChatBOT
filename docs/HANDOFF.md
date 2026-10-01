@@ -1,3 +1,16 @@
+## Messenger dispatch DB verification
+
+- Extended the disposable PostgreSQL integration fixture to execute the real Meta job claim/dispatch path with an injected provider adapter. PASS 1/1, not skipped, on port 55433.
+- Proves valid AI dispatch uses database recipient/token reference despite forged queue routing fields; successful receipt settles the job; ownership changed before dispatch blocks the stale AI without calling the adapter.
+- This tests pre-dispatch ownership change, not a concurrent takeover racing an in-flight HTTP request. That concurrency/lock-contention case remains unverified. Rejections currently settle as unknown through the generic worker catch and need distinct terminal failure classification.
+- Backend typecheck passes. No live Facebook send, no main push. Next: test in-flight takeover serialization, add AI enqueue and inbound scheduling, configure approved runtime/Page mapping and perform live roundtrip.
+
+## Messenger dispatch fence — pending database concurrency acceptance
+
+- Worker resolves recipient and token reference from current tenant-scoped conversation/visitor/connected Page rows rather than job payload. Public agent messages require the current assignee/HUMAN_ACTIVE; AI messages require matching ownerVersion/AI_ACTIVE.
+- Conversation and connection row locks serialize the send attempt with takeover/revocation. Checks the live job lease has at least 21 seconds remaining before the 20-second bounded transport call. This temporarily holds DB locks during provider I/O; test latency and lock contention before acceptance.
+- Backend typecheck passes; existing 5 transport/signature tests pass but do NOT exercise these new SQL concurrency guards. Database race tests and real Messenger receipt remain required. No live sends or main pushes performed.
+
 ## Messenger pilot worker entrypoint — continuation
 
 - Added `backend/scripts/meta-worker.ts` and `npm run worker:meta --prefix backend -- --once`. Run from backend with the appropriate env; `GOTEK_WORKER_WORKSPACE` must be a UUID matching `META_WORKSPACE_ID`, and `META_ENABLE_TEST_SEND=true` is required. Production is rejected; no scheduler is automatically started.

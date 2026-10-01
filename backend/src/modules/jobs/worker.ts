@@ -84,12 +84,32 @@ export async function runAiWorkerOnce(workspace:string,invoke:AiProviderInvoke){
 }
 
 /** Sends a queued Messenger reply; the Page token is resolved only inside the worker. */
-export async function runMetaWorkerOnce(workspace:string){
+export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaText=sendMetaText){
  return runWorkerOnce(workspace,{'meta.message.send':async job=>{
-  const p=job.payload;
-  const result=await sendMetaText({recipientId:String(p.recipientId),text:String(p.messageId ? (await transaction(async db=>{await scope(db,workspace);return (await db.query('SELECT body FROM messages WHERE id=$1 AND workspace_id=$2',[String(p.messageId),workspace])).rows[0]?.body||'';})) : ''),pageAccessTokenRef:String(p.tokenRef)});
-  if(result.status!=='accepted')throw new HttpError(502,result.errorCode||'META_DELIVERY_UNKNOWN');
-  return {receipt:`meta:${result.providerMessageId||job.id}`};
+  return transaction(async db=>{
+   await scope(db,workspace);
+   // Serialize dispatch with takeover and connection revocation. Resolve the
+   // recipient and credential from current scoped rows, never queued secrets.
+   const row=(await db.query(`SELECT m.body,m.author_type,m.visibility,m.actor_id,
+    c.reply_owner,c.owner_version,c.assigned_to,
+    v.profile->>'metaUserId' AS recipient,mc.page_access_token_ref
+    FROM messages m JOIN conversations c ON c.id=m.conversation_id AND c.workspace_id=m.workspace_id
+    JOIN visitors v ON v.id=c.visitor_id AND v.workspace_id=c.workspace_id
+    JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id
+    WHERE m.id=$1 AND m.workspace_id=$2 AND c.id=$3 AND mc.status='connected'
+    FOR UPDATE OF c,mc`,[String(job.payload.messageId),workspace,String(job.payload.conversationId)])).rows[0];
+   if(!row||row.visibility!=='public'||!row.recipient)throw new HttpError(409,'META_DISPATCH_INVALID');
+   if(row.author_type==='ai'){
+    if(row.reply_owner!=='AI_ACTIVE'||row.owner_version!==job.payload.ownerVersion)throw new HttpError(409,'STALE_REPLY_OWNER');
+   }else if(row.author_type!=='agent'||row.reply_owner!=='HUMAN_ACTIVE'||row.assigned_to!==row.actor_id){
+    throw new HttpError(409,'STALE_REPLY_OWNER');
+   }
+   const live=await db.query("SELECT id FROM jobs WHERE id=$1 AND workspace_id=$2 AND state='running' AND lease_token=$3 AND lease_until>clock_timestamp()+interval '21 seconds' FOR UPDATE",[job.id,workspace,(job as typeof job&{lease_token:string}).lease_token]);
+   if(!live.rowCount)throw new HttpError(409,'STALE_JOB_LEASE');
+   const result=await send({recipientId:row.recipient,text:row.body,pageAccessTokenRef:row.page_access_token_ref});
+   if(result.status!=='accepted')throw new HttpError(502,result.errorCode||'META_DELIVERY_UNKNOWN');
+   return {receipt:`meta:${result.providerMessageId}`};
+  });
  }});
 }
 

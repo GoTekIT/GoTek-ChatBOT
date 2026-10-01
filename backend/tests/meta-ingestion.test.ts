@@ -4,6 +4,9 @@ import pg from 'pg';
 import {randomUUID,createHmac} from 'node:crypto';
 import {pool,scope,transaction} from '../src/core/db';
 import {receiveMetaWebhook} from '../src/modules/meta/messenger';
+import {runMetaWorkerOnce} from '../src/modules/jobs/worker';
+import {enqueueJob} from '../src/modules/jobs/jobs';
+import {appendMessage} from '../src/modules/chat/chat-store';
 const enabled=!!process.env.META_TEST_ADMIN_URL && !!process.env.DB_RUNTIME_FILE;
 const admin=enabled?new pg.Pool({connectionString:process.env.META_TEST_ADMIN_URL}):undefined;
 after(async()=>{await pool.end();await admin?.end();});
@@ -19,5 +22,25 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  assert.equal(results.reduce((n,r)=>n+r.processed,0),1);
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query('SELECT * FROM messages')).rowCount,1);assert.equal((await db.query('SELECT * FROM meta_events WHERE processed_at IS NOT NULL')).rowCount,1);});
  await transaction(async db=>{await scope(db,other);for(const table of ['messages','meta_events','meta_connections','meta_identities'])assert.equal((await db.query(`SELECT * FROM ${table}`)).rowCount,0);});
+ let conversation='',message='';
+ await transaction(async db=>{
+  await scope(db,workspace);
+  conversation=(await db.query('SELECT id FROM conversations')).rows[0].id;
+  message=(await appendMessage(db,{workspace,conversation,clientId:randomUUID(),author:'ai',visibility:'public',ownerVersion:1,body:'AI fixture reply'})).id;
+  await enqueueJob(db,workspace,{kind:'meta.message.send',key:randomUUID(),payload:{conversationId:conversation,messageId:message,ownerVersion:1,recipientId:'untrusted',tokenRef:'untrusted'},external:true,maxAttempts:1});
+ });
+ let sends=0;
+ const accepted=await runMetaWorkerOnce(workspace,async input=>{
+  sends++;assert.equal(input.recipientId,'fixture-user');assert.equal(input.pageAccessTokenRef,'META_FIXTURE_TOKEN');
+  return {status:'accepted',providerMessageId:'fixture-receipt'};
+ });
+ assert.equal(accepted.state,'succeeded');assert.equal(sends,1);
+ await transaction(async db=>{
+  await scope(db,workspace);
+  await enqueueJob(db,workspace,{kind:'meta.message.send',key:randomUUID(),payload:{conversationId:conversation,messageId:message,ownerVersion:1},external:true,maxAttempts:1});
+  await db.query("UPDATE conversations SET reply_owner='HUMAN_ACTIVE',owner_version=owner_version+1 WHERE id=$1",[conversation]);
+ });
+ const stale=await runMetaWorkerOnce(workspace,async()=>{sends++;throw new Error('stale AI must never send');});
+ assert.equal(stale.state,'unknown');assert.equal(sends,1);
  await assert.rejects(transaction(db=>receiveMetaWebhook(db,Buffer.from('{}'),signature)),{code:'META_SIGNATURE_INVALID'});
 });
