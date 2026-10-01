@@ -4,8 +4,9 @@ import {randomUUID,createHmac} from 'node:crypto';
 import pg from 'pg';
 import request from 'supertest';
 import {createApp} from '../src/app';
-import {pool} from '../src/core/db';
+import {pool,transaction,scope} from '../src/core/db';
 import {digest} from '../src/core/security';
+import {normalizeFacebookReceipt} from '../src/modules/meta/normalize';
 const admin=new pg.Pool({host:process.env.PGHOST||'/tmp',port:Number(process.env.PGPORT)||55432,user:process.env.PGUSER||'gotek_migrator',password:process.env.PGPASSWORD||'gotek_dev_password',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 test('Facebook HTTP callback consumes state once, hides tokens and rechecks revoked sessions',async()=>{
@@ -55,7 +56,7 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   assert.equal((await app.get(webhook).query({'hub.mode':'subscribe','hub.verify_token':'wrong','hub.challenge':'challenge'})).status,403);
   const verified=await app.get(webhook).query({'hub.mode':'subscribe','hub.verify_token':'verify-fixture','hub.challenge':'challenge'});
   assert.equal(verified.status,200);assert.equal(verified.text,'challenge');
-  const raw=JSON.stringify({object:'page',entry:[{id:'789',workspace_id:randomUUID(),messaging:[{sender:{id:'111'},recipient:{id:'789'},message:{mid:'message-one',text:'hello'}}]}]});
+  const raw=JSON.stringify({object:'page',entry:[{id:'789',workspace_id:randomUUID(),messaging:[{timestamp:Date.now(),sender:{id:'111'},recipient:{id:'789'},message:{mid:'message-one',text:'hello'}}]}]});
   const signature='sha256='+createHmac('sha256','fixture-secret').update(raw).digest('hex');
   assert.equal((await app.post(webhook).set('Content-Type','application/json').send(raw)).status,403);
   assert.equal((await app.post(webhook).set('Content-Type','application/json').set('X-Hub-Signature-256',signature).send(raw+' ')).status,403);
@@ -68,6 +69,25 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   assert.equal((await app.post(webhook).set('Content-Type','application/json').set('X-Hub-Signature-256',blockedSignature).send(blockedRaw)).status,200);
   assert.equal((await admin.query('SELECT id FROM meta_webhook_receipts WHERE workspace_id=$1',[ws])).rowCount,1);
   await admin.query("UPDATE workspaces SET status='active' WHERE id=$1",[ws]);
+  const normalize=()=>transaction(async db=>{await scope(db,ws);return normalizeFacebookReceipt(db,ws);});
+  assert.equal((await normalize()).state,'waiting_connection');
+  // Fixture activation only; no provider subscription is claimed by this test.
+  await admin.query("UPDATE meta_connections SET status='active' WHERE id=$1",[selected.body.id]);
+  await admin.query('UPDATE channels SET enabled=true WHERE id=$1',[selected.body.channelId]);
+  assert.equal((await normalize()).inserted,1);
+  assert.equal((await normalize()).state,'idle');
+  const repeated=JSON.stringify({...JSON.parse(raw),entry:JSON.parse(raw).entry.map((entry:any)=>({...entry,time:12345}))});
+  const repeatedSignature='sha256='+createHmac('sha256','fixture-secret').update(repeated).digest('hex');
+  assert.equal((await app.post(webhook).set('Content-Type','application/json').set('X-Hub-Signature-256',repeatedSignature).send(repeated)).status,200);
+  assert.equal((await normalize()).duplicates,1);
+  assert.equal((await admin.query('SELECT id FROM messages WHERE workspace_id=$1',[ws])).rowCount,1);
+  const inbox=await app.get('/api/conversations').set('Authorization','Bearer '+token);
+  assert.equal(inbox.status,200);
+  const conversation=(await admin.query('SELECT id FROM conversations WHERE workspace_id=$1',[ws])).rows[0];
+  assert.ok(conversation);
+  assert.ok(inbox.body.some((item:any)=>item.id===conversation.id));
+  const messages=await app.get('/api/conversations/'+conversation.id+'/messages').set('Authorization','Bearer '+token);
+  assert.equal(messages.status,200);assert.equal(messages.body[0].body,'hello');
   const deniedState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await app.get(base+'/callback').query({state:deniedState,error:'access_denied'}).set('Authorization','Bearer '+token)).status,400);
   const before=calls;assert.equal((await callback(deniedState)).status,400);assert.equal(calls,before);
@@ -77,7 +97,7 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
  } finally {
   globalThis.fetch=originalFetch;
   for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
-  for(const table of ['meta_webhook_receipts','meta_connections','channel_members','channels','audit_events'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
+  for(const table of ['meta_inbound_messages','meta_contacts','messages','conversations','visitors','meta_webhook_receipts','meta_connections','channel_members','channels','audit_events'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
   for(const table of ['meta_enrollments','meta_oauth_attempts','sessions','memberships'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
   await admin.query('DELETE FROM workspaces WHERE id=$1',[ws]);
   await admin.query('DELETE FROM users WHERE id=$1',[user]);

@@ -200,3 +200,4 @@ Facebook Connect/callback/Page-list endpoints implemented with encrypted short-l
 Facebook callback HTTP/DB suite passed with mocked provider, including session revocation during exchange. Backend typecheck passed. No live Meta verification yet.
 Facebook Page selection persists pending encrypted connection and consumes enrollment; HTTP test/typecheck passed. Channel transport now separates website from social channels. Subscription activation, webhook and outbound remain pending.
 Facebook signed webhook ingress and durable tenant receipts implemented; targeted HTTP/database fixture suite and typecheck passed. Inbox normalization/subscription/outbound are still pending; no live Meta acceptance.
+Facebook text normalization and explicit per-tenant batch worker added. Fixture HTTP/DB flow reaches existing Inbox APIs and deduplicates repeated message IDs; typecheck passed. No live Meta or production worker acceptance; outbound/attachments/Instagram still pending.
