@@ -1,3 +1,8 @@
+## Media adapter checkpoint (implementation incomplete)
+- Added sendMetaMedia transport helper; WhatsApp file maps to document, captions are validated rather than silently dropped, malformed recipients/types and credential-bearing or non-HTTPS URLs fail before dispatch.
+- Helper is not connected to inbox upload/send or the worker yet. No claim of end-to-end media sending. Receipt projection still needs connection-scoped matching, monotonic updates, early-event reconciliation and UI integration.
+- Provider contract reference: https://www.postman.com/meta/whatsapp-business-platform/request/zdgzfmt/send-document-message-by-url
+
 ## CI diagnosis checkpoint
 
 - Retrieved failed run 36886952553 logs successfully by polling the exec session to completion. Previous missing-log claim was incorrect.
