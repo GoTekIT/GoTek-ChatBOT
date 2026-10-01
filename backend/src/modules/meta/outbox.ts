@@ -56,7 +56,7 @@ async function claimMetaReply(db:PoolClient,workspace:string,provider:'facebook'
   await db.query("UPDATE meta_outbox SET status='cancelled',completed_at=now() WHERE id=$1 AND workspace_id=$2",[row.id,workspace]);
   return {state:'cancelled' as const,id:row.id};
  }
- await db.query("UPDATE meta_outbox SET status='dispatching',attempted_at=now() WHERE id=$1 AND workspace_id=$2",[row.id,workspace]);
+ await db.query("UPDATE meta_outbox SET status='dispatching',attempted_at=now(),lease_expires_at=now()+interval '10 minutes' WHERE id=$1 AND workspace_id=$2",[row.id,workspace]);
  return {state:'dispatching' as const,...row,...eligible};
 }
 
@@ -66,9 +66,16 @@ export async function completeMetaReply(db:PoolClient,workspace:string,id:string
  if(!row)throw new HttpError(404,'META_OUTBOX_NOT_FOUND');
  if(row.status!=='dispatching')throw new HttpError(409,'META_OUTBOX_STATE_INVALID');
  if(result.status==='accepted') {
-  await db.query("UPDATE meta_outbox SET status='accepted',provider_message_id=$3,completed_at=now() WHERE id=$1 AND workspace_id=$2",[id,workspace,result.messageId]);
+  await db.query("UPDATE meta_outbox SET status='accepted',provider_message_id=$3,completed_at=now(),lease_expires_at=NULL WHERE id=$1 AND workspace_id=$2",[id,workspace,result.messageId]);
   return {status:'accepted' as const};
  }
- await db.query("UPDATE meta_outbox SET status='unknown',completed_at=now() WHERE id=$1 AND workspace_id=$2",[id,workspace]);
+ await db.query("UPDATE meta_outbox SET status='unknown',completed_at=now(),lease_expires_at=NULL WHERE id=$1 AND workspace_id=$2",[id,workspace]);
  return {status:'unknown' as const};
+}
+
+/** Move expired network claims to a reviewable state; never resend automatically. */
+export async function reconcileExpiredMetaReplies(db:PoolClient,workspace:string) {
+ const result=await db.query(`UPDATE meta_outbox SET status='reconciliation_required',completed_at=coalesce(completed_at,now())
+  WHERE workspace_id=$1 AND status='dispatching' AND lease_expires_at IS NOT NULL AND lease_expires_at < now() RETURNING id`,[workspace]);
+ return {reconciled:result.rowCount};
 }

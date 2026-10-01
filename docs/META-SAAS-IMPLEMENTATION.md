@@ -50,3 +50,7 @@ Meta-maintained collection: https://www.postman.com/meta/instagram/request/scob1
 Instagram OAuth source: https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/business-login (read through signed-in browser on 2026-10-01). The documented short-token response contains one data entry with access_token, string user_id and comma-separated permissions; long-token exchange is server-side GET graph.instagram.com/access_token with ig_exchange_token. Do not log that request URL because Meta requires credentials in its query. Adapter validates both messaging scopes and positive expiry; app-scoped user_id still needs account identity verification before channel binding. Fixture coverage is not live acceptance.
 
 Account identity reference: https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/get-started (browser read 2026-10-01). The table distinguishes id (app-scoped) from user_id (professional account and webhook entry ID). Discovery requests user_id,username with the grant token; strict documented data-array response validation remains subject to live API-version verification.
+
+## Reconciliation checkpoint
+
+Migration 066 adds a ten-minute dispatch lease. The explicit `meta-outbox-reconcile` worker moves expired `dispatching` rows to `reconciliation_required`; it never retries a send automatically. Provider `unknown` outcomes remain reviewable and are not silently resent.
