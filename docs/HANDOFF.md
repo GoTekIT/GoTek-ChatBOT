@@ -282,3 +282,13 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 - Facebook asset + exchange fixture tests 4/4 passed, backend typecheck passed. Adapter not mounted to callback yet; live Graph acceptance remains UNKNOWN.
 - Reference fallback: Meta archived SDK source https://github.com/facebookarchive/facebook-php-sdk/blob/master/src/base_facebook.php supports the server-side exchange parameter contract, but is historical evidence, not proof of compatibility with the selected current Graph version. Current official docs fetch remains unavailable. Validate against actual Meta App before release.
 - Next: encrypted expiring enrollment repository bound to original identity/session; callback must consume state in a committed transaction before exchange and revalidate identity before persistence. Follow with asset selection and activation, webhook/outbox and Instagram adapter.
+
+### Facebook callback/enrollment checkpoint
+- Added migrations 060 (encrypted enrollment with tenant RLS and 10-minute maximum validity) and 061 (minimal column UPDATE privilege required for PostgreSQL row locking). Applied only to isolated test cluster.
+- Mounted Facebook Connect POST, callback GET, and enrollment Page-list GET. Callback commits single-use state consumption before provider exchange and rechecks current identity/permission before saving grant. Page listing rechecks identity and enrollment after provider response. No token returned to browser.
+- Added enrollment tests for encrypted storage, user/session/tenant/role binding, wrong key and expiry. Initial test exposed missing row-lock privilege; migration061 corrects it without rewriting applied060.
+- Callback currently returns enrollmentId JSON; final UI redirect, Page selection/activation, cleanup of expired enrollment rows, callback HTTP integration tests, Instagram, webhook and outbox remain pending. Live provider compatibility not verified.
+
+### Callback HTTP verification
+- Added meta-callback.test.ts with real Express + isolated PostgreSQL, provider fetch stubbed: Connect state, invalid/replayed state, successful encrypted enrollment/Page projection, consent denial consumed once, and session revoked during exchange preventing new enrollment. Passed; backend typecheck passed.
+- Provider calls remain simulated; not live Meta approval/acceptance. Page selection/activation, expiry cleanup, final Connect UI, Instagram and webhook/outbox remain next work.
