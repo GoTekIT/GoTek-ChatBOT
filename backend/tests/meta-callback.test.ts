@@ -1,6 +1,6 @@
 import {test,after} from 'node:test';
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHmac} from 'node:crypto';
 import pg from 'pg';
 import request from 'supertest';
 import {createApp} from '../src/app';
@@ -11,7 +11,7 @@ after(async()=>{await pool.end();await admin.end();});
 test('Facebook HTTP callback consumes state once, hides tokens and rechecks revoked sessions',async()=>{
  const ws=randomUUID(),user=randomUUID(),token=randomUUID();
  const originalFetch=globalThis.fetch;
- const configured={META_FACEBOOK_APP_ID:'123',META_FACEBOOK_APP_SECRET:'fixture-secret',META_FACEBOOK_REDIRECT_URI:'https://example.test/api/integrations/meta/facebook/callback',META_FACEBOOK_LOGIN_CONFIG_ID:'456',META_GRAPH_VERSION:'v25.0',META_TOKEN_ENCRYPTION_KEY:'ab'.repeat(32)};
+ const configured={META_FACEBOOK_VERIFY_TOKEN:'verify-fixture',META_FACEBOOK_APP_ID:'123',META_FACEBOOK_APP_SECRET:'fixture-secret',META_FACEBOOK_REDIRECT_URI:'https://example.test/api/integrations/meta/facebook/callback',META_FACEBOOK_LOGIN_CONFIG_ID:'456',META_GRAPH_VERSION:'v25.0',META_TOKEN_ENCRYPTION_KEY:'ab'.repeat(32)};
  const saved=Object.fromEntries(Object.keys(configured).map(k=>[k,process.env[k]]));
  Object.assign(process.env,configured);
  let calls=0, revoke=false;
@@ -51,6 +51,23 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   const stored=(await admin.query('SELECT c.transport,c.enabled,m.token_ciphertext FROM channels c JOIN meta_connections m ON m.channel_id=c.id WHERE c.id=$1',[selected.body.channelId])).rows[0];
   assert.equal(stored.transport,'facebook');assert.equal(stored.enabled,false);assert.equal(stored.token_ciphertext.includes('private-page-token'),false);
   assert.equal((await app.get('/api/channels/'+selected.body.channelId+'/installation').set('Authorization','Bearer '+token)).status,409);
+  const webhook='/integrations/meta/facebook/webhook';
+  assert.equal((await app.get(webhook).query({'hub.mode':'subscribe','hub.verify_token':'wrong','hub.challenge':'challenge'})).status,403);
+  const verified=await app.get(webhook).query({'hub.mode':'subscribe','hub.verify_token':'verify-fixture','hub.challenge':'challenge'});
+  assert.equal(verified.status,200);assert.equal(verified.text,'challenge');
+  const raw=JSON.stringify({object:'page',entry:[{id:'789',workspace_id:randomUUID(),messaging:[{sender:{id:'111'},recipient:{id:'789'},message:{mid:'message-one',text:'hello'}}]}]});
+  const signature='sha256='+createHmac('sha256','fixture-secret').update(raw).digest('hex');
+  assert.equal((await app.post(webhook).set('Content-Type','application/json').send(raw)).status,403);
+  assert.equal((await app.post(webhook).set('Content-Type','application/json').set('X-Hub-Signature-256',signature).send(raw+' ')).status,403);
+  for(let i=0;i<2;i++)assert.equal((await app.post(webhook).set('Content-Type','application/json').set('X-Hub-Signature-256',signature).send(raw)).status,200);
+  const receipts=await admin.query('SELECT * FROM meta_webhook_receipts WHERE workspace_id=$1',[ws]);
+  assert.equal(receipts.rowCount,1);assert.equal(receipts.rows[0].connection_id,selected.body.id);
+  await admin.query("UPDATE workspaces SET status='disabled' WHERE id=$1",[ws]);
+  const blockedRaw=raw.replace('message-one','message-two');
+  const blockedSignature='sha256='+createHmac('sha256','fixture-secret').update(blockedRaw).digest('hex');
+  assert.equal((await app.post(webhook).set('Content-Type','application/json').set('X-Hub-Signature-256',blockedSignature).send(blockedRaw)).status,200);
+  assert.equal((await admin.query('SELECT id FROM meta_webhook_receipts WHERE workspace_id=$1',[ws])).rowCount,1);
+  await admin.query("UPDATE workspaces SET status='active' WHERE id=$1",[ws]);
   const deniedState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await app.get(base+'/callback').query({state:deniedState,error:'access_denied'}).set('Authorization','Bearer '+token)).status,400);
   const before=calls;assert.equal((await callback(deniedState)).status,400);assert.equal(calls,before);
@@ -60,7 +77,7 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
  } finally {
   globalThis.fetch=originalFetch;
   for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
-  for(const table of ['meta_connections','channel_members','channels','audit_events'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
+  for(const table of ['meta_webhook_receipts','meta_connections','channel_members','channels','audit_events'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
   for(const table of ['meta_enrollments','meta_oauth_attempts','sessions','memberships'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
   await admin.query('DELETE FROM workspaces WHERE id=$1',[ws]);
   await admin.query('DELETE FROM users WHERE id=$1',[user]);

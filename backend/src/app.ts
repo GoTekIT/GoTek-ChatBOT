@@ -15,6 +15,7 @@ import {widgetEmbed} from './modules/widget/widget-embed';
 
 // Modular Domain Routers
 import {apiRouter} from './routes/index';
+import {metaWebhookRouter} from './modules/meta/webhook';
 
 // Re-export identity for backward compatibility with existing tests
 export {identity, type Identity};
@@ -32,6 +33,7 @@ export function createApp() {
   // Core security & parsing middlewares
   app.disable('x-powered-by');
   app.use(helmet({contentSecurityPolicy: false}));
+  app.use('/integrations/meta', metaWebhookRouter);
   app.use(express.json({limit: '128kb'}));
   app.use(cookieParser());
 

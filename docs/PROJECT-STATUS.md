@@ -199,3 +199,4 @@ Facebook code-exchange/permission-validation adapter implemented with fixture te
 Facebook Connect/callback/Page-list endpoints implemented with encrypted short-lived enrollment; pending HTTP callback acceptance and Page activation. Whole Meta integration remains IN PROGRESS.
 Facebook callback HTTP/DB suite passed with mocked provider, including session revocation during exchange. Backend typecheck passed. No live Meta verification yet.
 Facebook Page selection persists pending encrypted connection and consumes enrollment; HTTP test/typecheck passed. Channel transport now separates website from social channels. Subscription activation, webhook and outbound remain pending.
+Facebook signed webhook ingress and durable tenant receipts implemented; targeted HTTP/database fixture suite and typecheck passed. Inbox normalization/subscription/outbound are still pending; no live Meta acceptance.
