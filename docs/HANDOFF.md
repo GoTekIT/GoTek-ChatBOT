@@ -1,3 +1,9 @@
+## CI diagnosis checkpoint
+
+- Retrieved failed run 36886952553 logs successfully by polling the exec session to completion. Previous missing-log claim was incorrect.
+- Resolved stale-owner test expectations: cancelled AI publishing is terminal dead with STALE_REPLY_OWNER, while provider dispatch/usage uncertainty remains independent. Added no-retry checks and exact cancellation error checks; kept disabled-workspace outcome unknown. Three affected suites pass (6 tests) on pilot PostgreSQL 55433; backend TypeScript build and git diff --check pass. Tests now accept PGPORT for isolated execution. Full CI rerun remains pending.
+- Run 36887584254 was authoritatively in_progress at Backend Typecheck & Tests when inspected. No claim of full CI acceptance.
+
 ## Inbox source account binding
 
 - Inbox list/detail resolve channel_kind by the visitor original meta connection binding instead of the earliest account on the channel. Bound source survives disconnected/reauth states.
