@@ -6,6 +6,7 @@ import {MembershipRepository} from '../repositories/membership.repository';
 import {InvitationRepository} from '../repositories/invitation.repository';
 import {UserRepository} from '../repositories/user.repository';
 import {requirePermission} from '../core/authorization';
+import {publishTask, QUEUES} from '../core/rabbitmq.js';
 
 export class MemberService {
   static async listMembers(db: PoolClient, workspaceId: string): Promise<any[]> {
@@ -54,12 +55,19 @@ export class MemberService {
     return InvitationRepository.listRecent(db);
   }
 
+  /** Returns pending invitations for the currently logged-in user's email */
+  static async listPendingForUser(db: PoolClient, userId: string): Promise<any[]> {
+    const user = await UserRepository.findById(db, userId);
+    if (!user?.email) return [];
+    return InvitationRepository.listPendingForEmail(db, user.email);
+  }
+
   static async createInvitation(
     db: PoolClient,
     workspaceId: string,
     operatorId: string,
     data: {email: string; role: 'Admin' | 'Agent'}
-  ): Promise<{id: string; status: string}> {
+  ): Promise<{id: string; status: string; inviteUrl?: string; token?: string; email?: string}> {
     const ws = await WorkspaceRepository.lockById(db, workspaceId);
     const seatLimit = ws?.seat_limit ?? 5;
 
@@ -94,7 +102,20 @@ export class MemberService {
     ]);
 
     await audit(db, workspaceId, operatorId, 'invitation.created', id);
-    return {id, status: 'local_delivery'};
+    const inviteUrl = `/app/invitation#workspaceId=${workspaceId}&token=${token}`;
+    const appOrigin = process.env.APP_ORIGIN?.split(',')[0] || 'http://localhost:3001';
+    const fullInviteUrl = `${appOrigin}${inviteUrl}`;
+
+    // Enqueue real transactional email via Brevo / SMTP worker
+    await publishTask(QUEUES.NOTIFICATIONS, {
+      type: 'INVITE_EMAIL',
+      email: data.email,
+      workspaceName: ws?.name,
+      inviteUrl: fullInviteUrl,
+      role: data.role
+    }).catch(err => console.warn('[MemberService] ⚠️ Failed to enqueue invite email task:', err));
+
+    return {id, status: 'local_delivery', inviteUrl, token, email: data.email};
   }
 
   static async revokeInvitation(db: PoolClient, workspaceId: string, operatorId: string, inviteId: string): Promise<void> {
@@ -126,6 +147,32 @@ export class MemberService {
     if (activeCount >= ws.seat_limit) {
       throw new HttpError(409, 'SEAT_LIMIT');
     }
+
+    await MembershipRepository.upsert(db, workspaceId, userId, invite.role);
+    await InvitationRepository.markAccepted(db, invite.id);
+    await audit(db, workspaceId, userId, 'invitation.accepted', invite.id);
+  }
+
+  /** Accept invitation by ID (in-app flow — email verified by matching invite email to caller's email) */
+  static async acceptInvitationById(db: PoolClient, userId: string, invitationId: string): Promise<void> {
+    const invite = await InvitationRepository.findValidByIdForUpdate(db, invitationId);
+    if (!invite) throw new HttpError(400, 'INVALID_OR_EXPIRED_TOKEN');
+
+    const workspaceId = invite.workspace_id;
+    await scope(db, workspaceId);
+    const ws = await WorkspaceRepository.lockById(db, workspaceId);
+    if (!ws || ws.status !== 'active') throw new HttpError(400, 'INVALID_OR_EXPIRED_TOKEN');
+
+    const user = await UserRepository.findById(db, userId);
+    if (!user?.email || invite.email.toLowerCase() !== user.email.toLowerCase() || !user.verified_at) {
+      throw new HttpError(403, 'FORBIDDEN');
+    }
+
+    const existing = await MembershipRepository.find(db, workspaceId, userId);
+    if (existing?.active) throw new HttpError(409, 'ALREADY_MEMBER');
+
+    const activeCount = await MembershipRepository.countActive(db, workspaceId);
+    if (activeCount >= ws.seat_limit) throw new HttpError(409, 'SEAT_LIMIT');
 
     await MembershipRepository.upsert(db, workspaceId, userId, invite.role);
     await InvitationRepository.markAccepted(db, invite.id);

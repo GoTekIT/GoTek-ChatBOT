@@ -15,6 +15,7 @@ interface SidebarProps {
   sidebarWidth: number;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  inboxCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -29,6 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sidebarWidth,
   isCollapsed,
   onToggleCollapse,
+  inboxCount,
 }) => {
   return (
     <motion.aside
@@ -151,11 +153,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             )}
 
-            <span className={`bg-[#f53f3f] text-white text-[9.5px] font-bold rounded-full flex items-center justify-center shadow-xs shrink-0 ${
-              isCollapsed ? 'absolute top-1 right-1 px-1 min-w-[15px] h-3.5' : 'px-1.5 py-0.2'
-            }`}>
-              3
-            </span>
+            {typeof inboxCount === 'number' && inboxCount > 0 && (
+              <span className={`bg-[#f53f3f] text-white text-[9.5px] font-bold rounded-full flex items-center justify-center shadow-xs shrink-0 ${
+                isCollapsed ? 'absolute top-1 right-1 px-1 min-w-[15px] h-3.5' : 'px-1.5 py-0.2'
+              }`}>
+                {inboxCount > 99 ? '99+' : inboxCount}
+              </span>
+            )}
           </button>
 
           {/* Floating Tooltip when collapsed */}

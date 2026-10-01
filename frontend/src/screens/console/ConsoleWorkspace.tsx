@@ -537,6 +537,7 @@ export function ConsoleWorkspace({
               sidebarWidth={sidebarWidth}
               isCollapsed={isSidebarCollapsed}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              inboxCount={conversations.length}
             />
 
             {/* Subtle Draggable Resizer between Sidebar & Content */}

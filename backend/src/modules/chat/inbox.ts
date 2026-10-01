@@ -154,6 +154,7 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
 
     const timeDate=new Date(m.created_at);
     const timeFormatted=timeDate.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+    const status = m.visitor_received_at ? 'delivered' : 'sent';
 
     return {
       ...m,
@@ -161,7 +162,8 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
       senderName,
       senderRole,
       timestamp:timeFormatted,
-      content:m.body
+      content:m.body,
+      status
     };
   });
 }

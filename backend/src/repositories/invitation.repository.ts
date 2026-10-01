@@ -61,7 +61,32 @@ export class InvitationRepository {
     return res.rows[0];
   }
 
+  /** Find a valid invitation by ID (for in-app accept — email ownership checked by caller) */
+  static async findValidByIdForUpdate(db: PoolClient, id: string): Promise<InvitationRow | undefined> {
+    const res = await db.query<InvitationRow>(
+      'SELECT * FROM invitations WHERE id = $1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > now() FOR UPDATE',
+      [id]
+    );
+    return res.rows[0];
+  }
+
   static async markAccepted(db: PoolClient, id: string): Promise<void> {
     await db.query('UPDATE invitations SET accepted_at = now() WHERE id = $1', [id]);
+  }
+
+  /** Return pending invitations where the email matches the logged-in user (case-insensitive) */
+  static async listPendingForEmail(db: PoolClient, email: string): Promise<any[]> {
+    const res = await db.query(
+      `SELECT i.id, i.workspace_id, i.role, i.expires_at, w.name AS workspace_name
+       FROM invitations i
+       JOIN workspaces w ON w.id = i.workspace_id
+       WHERE lower(i.email) = lower($1)
+         AND i.accepted_at IS NULL
+         AND i.revoked_at IS NULL
+         AND i.expires_at > now()
+       ORDER BY i.created_at DESC`,
+      [email]
+    );
+    return res.rows;
   }
 }

@@ -15,7 +15,15 @@ export interface WelcomeNotificationTask {
   fullName: string;
 }
 
-export type NotificationTask = OtpNotificationTask | WelcomeNotificationTask;
+export interface InviteNotificationTask {
+  type: 'INVITE_EMAIL';
+  email: string;
+  workspaceName?: string;
+  inviteUrl: string;
+  role: string;
+}
+
+export type NotificationTask = OtpNotificationTask | WelcomeNotificationTask | InviteNotificationTask;
 
 // ---- Brevo client (singleton) -------------------------------------------------
 let _brevo: BrevoClient | null = null;
@@ -159,6 +167,80 @@ async function sendWelcomeEmail(task: WelcomeNotificationTask): Promise<void> {
   console.log(`[Worker 🐰] 📬 Welcome email (dev): ${task.email} (${task.fullName})`);
 }
 
+async function sendInviteEmail(task: InviteNotificationTask): Promise<void> {
+  const senderEmail = process.env.EMAIL_FROM ?? 'no-reply@gotek.vn';
+  const senderName  = process.env.EMAIL_FROM_NAME ?? 'GoTek Chatbot';
+  const subject     = `[GoTek] Lời mời tham gia Workspace ${task.workspaceName || 'GoTek Solutions HQ'} 🎉`;
+
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:540px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,0.05)">
+  <div style="background:linear-gradient(135deg,#1664ff,#722ed1);padding:32px 24px;text-align:center">
+    <h1 style="color:#ffffff;margin:0 0 8px;font-size:22px;font-weight:bold">Lời mời tham gia Workspace 🎉</h1>
+    <p style="color:#e0e7ff;margin:0;font-size:14px">${task.workspaceName || 'GoTek Solutions HQ'}</p>
+  </div>
+  <div style="padding:32px 28px;color:#1e293b;line-height:1.6">
+    <p style="font-size:15px;margin:0 0 16px">Xin chào,</p>
+    <p style="font-size:14px;color:#475569;margin:0 0 20px">
+      Bạn vừa nhận được lời mời tham gia vào không gian làm việc <strong>${task.workspaceName || 'GoTek Solutions HQ'}</strong> với vai trò: <span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#e8f3ff;color:#1664ff;font-weight:bold;font-size:13px">${task.role}</span>.
+    </p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${task.inviteUrl}" style="display:inline-block;padding:12px 28px;background:#1664ff;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:14px;box-shadow:0 2px 8px rgba(22,100,255,0.3)">
+        👉 Chấp nhận lời mời ngay
+      </a>
+    </div>
+    <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;border-top:1px solid #f1f5f9;padding-top:16px">
+      Hoặc sao chép liên kết này vào trình duyệt:<br/>
+      <a href="${task.inviteUrl}" style="color:#1664ff;word-break:break-all">${task.inviteUrl}</a>
+    </p>
+  </div>
+  <div style="background:#f8fafc;padding:14px 24px;text-align:center;border-top:1px solid #f1f5f9">
+    <p style="color:#94a3b8;font-size:12px;margin:0">© 2026 GoTek Technology. Tất cả quyền được bảo lưu.</p>
+  </div>
+</div>`.trim();
+
+  const text = `Bạn được mời tham gia Workspace ${task.workspaceName || 'GoTek Solutions HQ'} với vai trò ${task.role}.\nChấp nhận lời mời tại: ${task.inviteUrl}`;
+
+  const brevo = getBrevo();
+  if (brevo) {
+    try {
+      await brevo.transactionalEmails.sendTransacEmail({
+        sender:      {name: senderName, email: senderEmail},
+        to:          [{email: task.email}],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      });
+      console.log(`[Worker 🐰] ✅ Invite email gửi qua Brevo → ${task.email}`);
+      return;
+    } catch (brevoErr: any) {
+      const hint = brevoErr?.body?.message || brevoErr?.message || String(brevoErr);
+      console.warn(`[Worker 🐰] ⚠️ Brevo failed (${brevoErr?.statusCode ?? '?'}): ${hint.substring(0, 120)}`);
+      console.warn(`[Worker 🐰] → Falling back to SMTP...`);
+    }
+  }
+
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    const nodemailer = await import('nodemailer');
+    const transport  = nodemailer.default.createTransport({
+      host:   process.env.SMTP_HOST,
+      port:   Number(process.env.SMTP_PORT ?? 587),
+      secure: false,
+      auth:   {user: process.env.SMTP_USER, pass: process.env.SMTP_PASS},
+    });
+    await transport.sendMail({
+      from:    `"${senderName}" <${process.env.SMTP_USER}>`,
+      to:      task.email,
+      subject,
+      html,
+      text,
+    });
+    console.log(`[Worker 🐰] ✅ Invite email gửi qua SMTP → ${task.email}`);
+    return;
+  }
+
+  console.log(`[Worker 🐰] 📬 Invite email (dev): ${task.email} (${task.inviteUrl})`);
+}
+
 // ---- Worker entry point -------------------------------------------------------
 export async function startNotificationWorker(): Promise<void> {
   try {
@@ -167,6 +249,8 @@ export async function startNotificationWorker(): Promise<void> {
         await sendOtpEmail(task);
       } else if (task.type === 'WELCOME_EMAIL') {
         await sendWelcomeEmail(task);
+      } else if (task.type === 'INVITE_EMAIL') {
+        await sendInviteEmail(task);
       }
     });
     const brevoActive = !!process.env.BREVO_API_KEY;

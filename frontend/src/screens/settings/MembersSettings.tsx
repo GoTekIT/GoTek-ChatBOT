@@ -43,6 +43,9 @@ export function MembersSettings({onChange, authorization}: MembersSettingsProps)
     }
   }
 
+  const [createdInvite, setCreatedInvite] = useState<{email: string; inviteUrl: string} | null>(null);
+  const [copied, setCopied] = useState(false);
+
   return (
     <div className="members-settings">
       <h1>Quản lý nhân sự</h1>
@@ -51,13 +54,88 @@ export function MembersSettings({onChange, authorization}: MembersSettingsProps)
       <section className="panel">
         <h2>Mời thành viên</h2>
         <p className="muted">
-          Môi trường thử nghiệm: lời mời được lưu vào hộp thư local, chưa gửi email ra ngoài.
+          Môi trường thử nghiệm: lời mời được lưu vào hộp thư local và tạo liên kết trực tiếp để gửi nhân viên.
         </p>
+
+        {createdInvite && (
+          <div style={{
+            margin: '12px 0 16px 0',
+            padding: '14px 16px',
+            backgroundColor: '#e8f3ff',
+            borderRadius: '10px',
+            border: '1px solid #99c8ff',
+            color: '#0e42d2'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <strong style={{ fontSize: '13px' }}>
+                🎉 Đã tạo liên kết mời thành công cho: {createdInvite.email}
+              </strong>
+              <button
+                type="button"
+                onClick={() => setCreatedInvite(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#666' }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#333' }}>
+              Hãy sao chép liên kết này gửi cho nhân viên (qua Zalo/Slack/email nội bộ). Nhân viên chỉ cần mở liên kết này trên trình duyệt và bấm &quot;Chấp nhận lời mời&quot; để tham gia ca trực:
+            </p>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                readOnly
+                value={`${window.location.origin}${createdInvite.inviteUrl}`}
+                style={{
+                  flex: 1,
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  borderRadius: '6px',
+                  border: '1px solid #ccd',
+                  backgroundColor: '#fff'
+                }}
+              />
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}${createdInvite.inviteUrl}`);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2500);
+                }}
+                style={{ whiteSpace: 'nowrap', padding: '6px 14px' }}
+              >
+                {copied ? '✓ Đã sao chép!' : '📋 Sao chép link'}
+              </button>
+            </div>
+          </div>
+        )}
+
         <form
-          onSubmit={e => {
+          onSubmit={async e => {
             e.preventDefault();
             const f = new FormData(e.currentTarget);
-            void action(() => api('/invitations', 'POST', Object.fromEntries(f)));
+            const data = Object.fromEntries(f);
+            setBusy(true);
+            setError(null);
+            try {
+              const res: any = await api('/invitations', 'POST', data);
+              await onChange();
+              await load();
+              if (res?.inviteUrl) {
+                setCreatedInvite({
+                  email: data.email as string,
+                  inviteUrl: res.inviteUrl
+                });
+                setMessage(`Đã tạo liên kết mời cho ${data.email}.`);
+              } else {
+                setMessage('Đã lưu thay đổi.');
+              }
+            } catch (err) {
+              setError(err as Error);
+            } finally {
+              setBusy(false);
+            }
           }}
         >
           <fieldset disabled={busy}>
