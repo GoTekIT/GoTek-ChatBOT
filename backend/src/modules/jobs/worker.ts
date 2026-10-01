@@ -147,7 +147,7 @@ export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaTex
    if(!live.rowCount)throw new HttpError(409,'STALE_JOB_LEASE');
    const media=(await db.query("SELECT kind,url FROM message_attachments WHERE workspace_id=$1 AND message_id=$2 ORDER BY created_at LIMIT 1",[workspace,job.payload.messageId])).rows[0];
    const result=media
-    ? await sendMetaMedia({recipientId:row.recipient,mediaType:media.kind,mediaUrl:media.url,caption:row.body,pageAccessTokenRef:row.page_access_token_ref,channelKind:row.channel_kind,externalAccountId:row.external_page_id})
+    ? await sendMetaMedia({recipientId:row.recipient,mediaType:media.kind,mediaUrl:media.url,...(media.kind==='audio'?{}:{caption:row.body}),pageAccessTokenRef:row.page_access_token_ref,channelKind:row.channel_kind,externalAccountId:row.external_page_id})
     : await send({recipientId:row.recipient,text:row.body,pageAccessTokenRef:row.page_access_token_ref,channelKind:row.channel_kind,externalAccountId:row.external_page_id});
    if(result.status!=='accepted')throw new HttpError(502,result.errorCode||'META_DELIVERY_UNKNOWN');
    await db.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,provider_message_id,status)
