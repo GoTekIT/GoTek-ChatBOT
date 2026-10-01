@@ -262,6 +262,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
           };
 
           realtimeHub.registerWs(clientId, ctx.workspaceId, ws, ctx.conversationId, true);
+          console.log(`[WebSocket] 🟢 Visitor connected (${clientId}) - Conv: ${vRow.conversation_id}, Workspace: ${vRow.workspace_id}`);
 
           ws.send(JSON.stringify({
             type: 'system:ready',
@@ -283,6 +284,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
           }
 
           if (!sessionToken) {
+            console.warn(`[WebSocket] ⚠️ Unauthorized connection attempt: Missing staff session`);
             ws.close(4001, 'Unauthorized: Missing staff session');
             return;
           }
@@ -297,6 +299,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
           )).rows[0];
 
           if (!sRow) {
+            console.warn(`[WebSocket] ⚠️ Unauthorized connection attempt: Invalid staff session`);
             ws.close(4001, 'Unauthorized: Invalid staff session');
             return;
           }
@@ -310,6 +313,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
           };
 
           realtimeHub.registerWs(clientId, ctx.workspaceId, ws, undefined, false);
+          console.log(`[WebSocket] 🟢 Staff connected (${clientId}) - User: ${sRow.full_name} (${sRow.user_id}), Workspace: ${sRow.workspace_id}`);
 
           ws.send(JSON.stringify({
             type: 'system:ready',
@@ -320,6 +324,10 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
             timestamp: new Date().toISOString(),
           }));
         }
+
+        ws.on('close', () => {
+          console.log(`[WebSocket] ⚪ Disconnected (${clientId})`);
+        });
 
         // Authentication succeeded: drain queued frames immediately
         isReady = true;

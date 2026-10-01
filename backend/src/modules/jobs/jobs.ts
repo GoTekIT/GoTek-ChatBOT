@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import { HttpError, uuid } from '../../core/security';
+import { publishTask, QUEUES } from '../../core/rabbitmq.js';
 
 type JobInput = { kind: string; key: string; payload: Record<string, unknown>; external: boolean; maxAttempts?: number };
 type JobOutcome = { state: 'succeeded'; receipt: string } | { state: 'failed' | 'unknown'; code: string };
@@ -13,7 +14,32 @@ export async function enqueueJob(db: PoolClient, workspace: string, input: JobIn
   const attempts = input.maxAttempts ?? 5;
   validateJobInput(input, attempts);
   const inserted = await db.query(`INSERT INTO jobs (id, workspace_id, kind, idempotency_key, payload, external_effect, max_attempts) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (workspace_id,idempotency_key) DO NOTHING RETURNING *`, [uuid(), workspace, input.kind, input.key, input.payload, input.external, attempts]);
-  if (inserted.rowCount) return inserted.rows[0];
+  
+  if (inserted.rowCount) {
+    const job = inserted.rows[0];
+    // Publish to RabbitMQ for event-driven asynchronous processing
+    let targetQueue: string | null = null;
+    if (input.kind === 'ai.reply') targetQueue = QUEUES.AI_REPLY;
+    else if (input.kind === 'knowledge.embed') targetQueue = QUEUES.KNOWLEDGE_EMBED;
+    else if (input.kind === 'web.crawl' || input.kind === 'web.refresh') targetQueue = QUEUES.WEB_CRAWL;
+
+    if (targetQueue) {
+      void publishTask(targetQueue, {
+        workspace,
+        jobId: job.id,
+        kind: input.kind,
+        key: input.key,
+        payload: input.payload
+      }).then(() => {
+        console.log(`[RabbitMQ] 📤 Published job "${input.kind}" (${job.id}) to queue "${targetQueue}"`);
+      }).catch(err => {
+        console.warn(`[RabbitMQ] ⚠️ Failed to publish to ${targetQueue}:`, err?.message || err);
+      });
+    }
+
+    return job;
+  }
+
   const previous = (await db.query('SELECT *, payload=$3::jsonb AS same_payload FROM jobs WHERE workspace_id=$1 AND idempotency_key=$2', [workspace, input.key, input.payload])).rows[0];
   if (!previous || previous.kind !== input.kind || !previous.same_payload || previous.external_effect !== input.external || previous.max_attempts !== attempts) throw new HttpError(409, 'IDEMPOTENCY_CONFLICT');
   return previous;

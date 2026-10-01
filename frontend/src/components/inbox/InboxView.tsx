@@ -93,6 +93,28 @@ export const InboxView: React.FC<InboxViewProps> = ({
     }
   }, [activeConv?.id, isStaffActive]);
 
+  // UC-032: Restore draft for current conversation
+  useEffect(() => {
+    if (!activeConv?.id) {
+      setMessageText('');
+      return;
+    }
+    const savedDraft = localStorage.getItem(`gotek_draft_${activeConv.id}`);
+    setMessageText(savedDraft || '');
+  }, [activeConv?.id]);
+
+  const handleMessageChange = (val: string) => {
+    setMessageText(val);
+    if (activeConv?.id) {
+      if (val.trim()) {
+        localStorage.setItem(`gotek_draft_${activeConv.id}`, val);
+      } else {
+        localStorage.removeItem(`gotek_draft_${activeConv.id}`);
+      }
+    }
+    if (isStaffActive) sendTypingStatus(Boolean(val.trim()));
+  };
+
   // =========================================================================
   // REALTIME CHAT HOOK (Full-Duplex WebSocket with SSE Fallback)
   // =========================================================================
@@ -249,11 +271,14 @@ export const InboxView: React.FC<InboxViewProps> = ({
     onSendMessage(activeConv.id, {
       clientId: msgClientId,
       senderType: isInternal ? 'internal_note' : 'agent',
-      senderName: 'Alex Rivera (Staff Lead)',
-      senderAvatar:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
+      senderName: 'Chuyên viên Hỗ trợ',
+      senderAvatar: '',
       content: text,
     }, sentViaWs);
+
+    if (activeConv?.id) {
+      localStorage.removeItem(`gotek_draft_${activeConv.id}`);
+    }
 
     showToast(isInternal ? 'Đã lưu ghi chú nội bộ 🔒 (Khách không nhìn thấy)' : (sentViaWs ? 'Đã gửi qua WebSocket ⚡' : 'Đã gửi phản hồi'));
     setMessageText('');
@@ -631,6 +656,19 @@ export const InboxView: React.FC<InboxViewProps> = ({
         <header className="h-14 px-6 bg-white dark:bg-[#0d131f]/90 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between shrink-0 z-10 transition-colors">
           {/* Customer Summary Info */}
           <div className="flex items-center gap-3 min-w-0">
+            {/* Mobile Back Button (UC-035) */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsQueueOpen(true);
+                setSelectedConvId('');
+              }}
+              className="md:hidden -ml-2 mr-0.5 p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+              title="Quay lại danh sách hội thoại"
+            >
+              <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+            </button>
+
             <div className="relative">
               <img
                 src={activeConv.customerAvatar}
@@ -1239,10 +1277,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
               <textarea
                 ref={textareaRef}
                 value={messageText}
-                onChange={(e) => {
-                  setMessageText(e.target.value);
-                  if (isStaffActive) sendTypingStatus(true);
-                }}
+                onChange={(e) => handleMessageChange(e.target.value)}
                 onBlur={() => { if (isStaffActive) sendTypingStatus(false); }}
                 onKeyDown={handleKeyDown}
                 placeholder={
