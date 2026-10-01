@@ -265,6 +265,7 @@ export function ConsoleWorkspace({
 
             {activeModule === 'knowledge' && canOpenModule(me, 'knowledge') && (
               <KnowledgeBaseView
+                authorization={me}
                 documents={documents}
                 onAddDocument={handleAddDocument}
                 onUpdateDocument={handleUpdateDocument}
