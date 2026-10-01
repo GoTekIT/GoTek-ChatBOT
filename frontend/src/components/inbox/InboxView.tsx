@@ -50,6 +50,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [composerMode, setComposerMode] = useState<'public' | 'internal'>('public');
   const [messageText, setMessageText] = useState('');
+  const [mediaUrl, setMediaUrl] = useState('');
+  const [mediaType, setMediaType] = useState<'image'|'video'|'audio'|'file'>('image');
+  const [showMedia, setShowMedia] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [newTagInput, setNewTagInput] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
@@ -265,11 +268,14 @@ export const InboxView: React.FC<InboxViewProps> = ({
       senderAvatar:
         'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
       content: text,
+      ...(mediaUrl.trim() ? {attachments:[{type:mediaType,url:mediaUrl.trim()}]} : {}),
       }, sentViaWs);
 
       if (!saved) return;
       attemptsRef.current.confirmed(activeConv.id,text,visibility,msgClientId);
       setMessageText('');
+      setMediaUrl('');
+      setShowMedia(false);
       textareaRef.current?.focus();
     } finally {
       sendingRef.current = false;
@@ -1271,7 +1277,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
               <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-[12px]">
                 <button
                   type="button"
-                  onClick={() => showToast('Tính năng đính kèm tệp sẵn sàng')}
+                  onClick={() => setShowMedia((value) => !value)}
                   className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
                   title="Đính kèm tệp tin"
                 >
@@ -1287,6 +1293,13 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 </button>
                 <span className="hidden sm:inline text-slate-400 dark:text-slate-500 text-[11.5px]">Nhấn Enter để lưu</span>
               </div>
+
+              {showMedia && <div className="absolute bottom-14 left-4 right-4 z-10 flex gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                <select aria-label="Loại tệp Meta" value={mediaType} onChange={(e) => setMediaType(e.target.value as typeof mediaType)} className="rounded border px-2 text-xs dark:bg-slate-800">
+                  <option value="image">Ảnh</option><option value="video">Video</option><option value="audio">Audio</option><option value="file">Tệp</option>
+                </select>
+                <input aria-label="URL media HTTPS" value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="https://... (URL công khai)" className="min-w-0 flex-1 rounded border px-2 text-xs dark:bg-slate-800" type="url" />
+              </div>}
 
               <motion.button
                 whileHover={{ scale: 1.04 }}
