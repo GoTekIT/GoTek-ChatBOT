@@ -48,7 +48,7 @@ async function normalizeMetaReceipt(db:PoolClient,workspace:string,provider:'fac
   }
   const message=await appendMessage(db,{workspace,conversation:contact.conversation_id,clientId:randomUUID(),author:'visitor',visibility:'public',body:event.message.text});
   const timestamp=new Date(event.timestamp);
-  const inbound=await db.query('INSERT INTO meta_inbound_messages(workspace_id,connection_id,external_message_id,message_id,provider_timestamp) VALUES($1,$2,$3,$4,$5) ON CONFLICT(connection_id,external_message_id) DO NOTHING RETURNING id',[workspace,connection.id,event.message.mid,message.id,timestamp]);
+  const inbound=await db.query('INSERT INTO meta_inbound_messages(workspace_id,connection_id,external_message_id,message_id,provider_timestamp) VALUES($1,$2,$3,$4,$5) ON CONFLICT(connection_id,external_message_id) DO NOTHING RETURNING message_id',[workspace,connection.id,event.message.mid,message.id,timestamp]);
   if(!inbound.rowCount) { duplicates++; continue; }
   // Out-of-order delivery must never move the messaging window backwards. Future provider times are capped.
   await db.query('UPDATE meta_contacts SET last_inbound_at=greatest(last_inbound_at,least($3::timestamptz,now())) WHERE connection_id=$1 AND external_user_id=$2',[connection.id,event.sender.id,timestamp]);
