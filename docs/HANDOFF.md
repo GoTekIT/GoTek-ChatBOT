@@ -1,3 +1,7 @@
+## Composer media URL checkpoint
+- Inbox composer now exposes media type + HTTPS URL fields behind the attachment button and forwards the attachment with the existing send idempotency key.
+- This is URL-based media dispatch; local file upload/storage is intentionally not claimed. Frontend build and 10 tests pass.
+
 ## UI media payload checkpoint
 - Console API send now forwards the first `ChatMessage.attachments` item as backend `media`; existing text sends are unchanged.
 - Frontend build completed and frontend suite passed 10/10. The current composer still has no file picker/upload control, so users cannot yet create an attachment from the UI.
