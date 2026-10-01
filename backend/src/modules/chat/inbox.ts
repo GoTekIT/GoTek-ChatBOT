@@ -43,6 +43,7 @@ export async function inboxTakeover(db:PoolClient,a:Actor,id:string,body:unknown
 export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown){
  await access(db,a,id);
  const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal'])}).strict().parse(body);
+ if(data.visibility==='public')await requireWebsiteDispatch(db,a.workspace_id,id);
  const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id});
 
  // Broadcast realtime new message event
@@ -80,6 +81,7 @@ export async function inboxSetStatus(db:PoolClient,a:Actor,id:string,body:unknow
 /** Explicit return to AI; never triggered automatically by a visitor message. */
 export async function inboxResumeAi(db:PoolClient,a:Actor,id:string,body:unknown){
  await access(db,a,id);
+ await requireWebsiteDispatch(db,a.workspace_id,id);
  const data=z.object({version:z.number().int().positive()}).strict().parse(body);
  const current=(await db.query('SELECT reply_owner,owner_version,assigned_to FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,a.workspace_id])).rows[0];
  if(!current)throw new HttpError(404,'NOT_FOUND');
@@ -111,4 +113,10 @@ export async function inboxTyping(db:PoolClient,a:Actor,id:string,body:unknown){
    timestamp: new Date().toISOString(),
  }));
  return {success:true};
+}
+
+/** Remove this gate only when durable provider dispatch is integrated; local insert is not a social send. */
+async function requireWebsiteDispatch(db:PoolClient,workspace:string,conversation:string) {
+ const channel=(await db.query('SELECT h.transport FROM channels h JOIN conversations c ON c.channel_id=h.id AND c.workspace_id=h.workspace_id WHERE c.workspace_id=$1 AND c.id=$2',[workspace,conversation])).rows[0];
+ if(channel?.transport!=='website')throw new HttpError(409,'META_OUTBOUND_NOT_READY');
 }

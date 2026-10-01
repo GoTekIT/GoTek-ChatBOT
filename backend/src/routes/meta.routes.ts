@@ -96,3 +96,8 @@ metaRouter.post('/integrations/meta/facebook/enrollments/:id/select',async(req,r
   throw error;
  }
 });
+
+import {activateFacebookConnection} from '../modules/meta/subscription';
+metaRouter.post('/integrations/meta/facebook/connections/:id/activate',async(req,res)=>{
+ res.json(await activateFacebookConnection(req,String(req.params.id)));
+});

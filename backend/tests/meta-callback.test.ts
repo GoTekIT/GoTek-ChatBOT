@@ -23,6 +23,7 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
    return Response.json({access_token:'private-user-token',expires_in:3600});
   }
   if(String(input).includes('/me/permissions'))return Response.json({data:['pages_show_list','pages_messaging','pages_manage_metadata','pages_read_engagement'].map(permission=>({permission,status:'granted'}))});
+  if(String(input).includes('/subscribed_apps'))return Response.json({success:true});
   if(String(input).includes('/me/accounts'))return Response.json({data:[{id:'789',name:'Test Page',tasks:['MESSAGING'],access_token:'private-page-token'}]});
   throw new Error('Unexpected provider request');
  };
@@ -71,9 +72,8 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   await admin.query("UPDATE workspaces SET status='active' WHERE id=$1",[ws]);
   const normalize=()=>transaction(async db=>{await scope(db,ws);return normalizeFacebookReceipt(db,ws);});
   assert.equal((await normalize()).state,'waiting_connection');
-  // Fixture activation only; no provider subscription is claimed by this test.
-  await admin.query("UPDATE meta_connections SET status='active' WHERE id=$1",[selected.body.id]);
-  await admin.query('UPDATE channels SET enabled=true WHERE id=$1',[selected.body.channelId]);
+  // Provider subscription is mocked; exercise the authenticated activation endpoint.
+  assert.equal((await app.post(base+'/connections/'+selected.body.id+'/activate').set('Authorization','Bearer '+token).set('X-Gotek-Request','1')).status,200);
   assert.equal((await normalize()).inserted,1);
   assert.equal((await normalize()).state,'idle');
   const repeated=JSON.stringify({...JSON.parse(raw),entry:JSON.parse(raw).entry.map((entry:any)=>({...entry,time:12345}))});
@@ -88,6 +88,14 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   assert.ok(inbox.body.some((item:any)=>item.id===conversation.id));
   const messages=await app.get('/api/conversations/'+conversation.id+'/messages').set('Authorization','Bearer '+token);
   assert.equal(messages.status,200);assert.equal(messages.body[0].body,'hello');
+  const sendPath='/api/conversations/'+conversation.id+'/messages';
+  const send=await app.post(sendPath).set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({clientId:randomUUID(),body:'not actually sent',visibility:'public'});
+  assert.equal(send.status,409);assert.equal(send.body.error,'META_OUTBOUND_NOT_READY');
+  const note=await app.post(sendPath).set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({clientId:randomUUID(),body:'internal note',visibility:'internal'});
+  assert.equal(note.status,200);
+  const resume=await app.post('/api/conversations/'+conversation.id+'/resume-ai').set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({version:1});
+  assert.equal(resume.status,409);assert.equal(resume.body.error,'META_OUTBOUND_NOT_READY');
+  assert.equal((await admin.query("SELECT id FROM messages WHERE workspace_id=$1 AND author_type='agent' AND visibility='public'",[ws])).rowCount,0);
   const deniedState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await app.get(base+'/callback').query({state:deniedState,error:'access_denied'}).set('Authorization','Bearer '+token)).status,400);
   const before=calls;assert.equal((await callback(deniedState)).status,400);assert.equal(calls,before);
