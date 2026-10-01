@@ -42,6 +42,7 @@ export function createApp() {
 
   // Root Service Status Page & Specs
   app.get('/', StatusController.getRoot);
+  app.get('/privacy', (_req, res) => res.type('html').send('<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Chính sách quyền riêng tư GoTek Chatbot</title></head><body><main><h1>Chính sách quyền riêng tư GoTek Chatbot</h1><p>GoTek Chatbot xử lý dữ liệu hội thoại và thông tin liên hệ do người dùng chủ động cung cấp để hỗ trợ chăm sóc khách hàng.</p><h2>Dữ liệu được xử lý</h2><p>Tin nhắn, tên hiển thị, ảnh đại diện và mã định danh nền tảng được dùng để hiển thị hội thoại cho nhân viên được phân quyền.</p><h2>Quyền kiểm soát</h2><p>Người dùng có thể yêu cầu truy cập, chỉnh sửa hoặc xoá dữ liệu qua quản trị viên của doanh nghiệp vận hành kênh.</p><h2>Liên hệ</h2><p>Liên hệ quản trị viên GoTek để được hỗ trợ về dữ liệu và quyền riêng tư.</p></main></body></html>'));
 
   // Serve static assets (logo, icons, public sdk) with Cross-Origin headers
   app.use(express.static('public', {
