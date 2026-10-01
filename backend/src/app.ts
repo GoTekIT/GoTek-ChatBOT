@@ -15,6 +15,7 @@ import {widgetEmbed} from './modules/widget/widget-embed';
 
 // Modular Domain Routers
 import {apiRouter} from './routes/index';
+import {metaRouter} from './routes/meta.routes';
 
 // Re-export identity for backward compatibility with existing tests
 export {identity, type Identity};
@@ -36,7 +37,7 @@ export function createApp() {
     contentSecurityPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' }
   }));
-  app.use(express.json({limit: '128kb'}));
+  app.use(express.json({limit: '128kb', verify: (req, _res, buf) => { (req as any).rawBody = Buffer.from(buf); }}));
   app.use(cookieParser());
 
   // Root Service Status Page & Specs
@@ -60,6 +61,7 @@ export function createApp() {
 
   // Mount Centralized API Group Routes
   app.use('/api', apiRouter);
+  app.use(metaRouter);
 
   // 404 & Centralized Error Handling Middlewares
   app.use('/api', notFoundHandler);

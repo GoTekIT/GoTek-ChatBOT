@@ -6,7 +6,9 @@ import type {Request, Response, NextFunction} from 'express';
  */
 export function requestLogger(req: Request, res: Response, next: NextFunction) {
   const start = Date.now();
-  const {method, originalUrl} = req;
+  const {method} = req;
+  // Webhook verification and visitor authentication can carry credentials in queries.
+  const originalUrl = req.originalUrl.split('?')[0];
   const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
 
   res.on('finish', () => {

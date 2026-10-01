@@ -1,3 +1,13 @@
+## Messenger pilot checkpoint — 2026-10-01 (IN PROGRESS)
+
+- Branch: `codex/meta-messenger-pilot`; no commit/push/merge performed.
+- Meta App `1678095707658415`, GoTek Page `1285832874604365` were observed connected in Developer Console; webhook subscription and live delivery remain unverified.
+- Draft migration 059 and webhook route exist but migration has NOT been applied. Connector is NOT ready for public exposure.
+- This continuation: extracted/tested raw-body HMAC verification; verify token reads runtime env; removed query strings from request logs; operator-provisioned META_PAGE_ID/META_WORKSPACE_ID sets transaction-local scope before RLS lookup; missing routing/connection returns failure rather than silently acknowledging lost messages. Echo events excluded; resolved conversation reused to avoid duplicate visitor token hash.
+- Verified: backend `tsx --test tests/meta-webhook-security.test.ts` 2/2 PASS; `npm run build` PASS. No DB integration or live Messenger test run.
+- Remaining: repository/service/controller separation, robust event validation, durable ingestion/processing, post-commit realtime, composite tenant constraints, connection management and token storage, profile fetch, inbox source/filter, outbound worker/receipts/window enforcement, AI dispatch and ownership fencing. Current draft must not be described as a working connector.
+- Next: complete durable tenant-scoped event pipeline and disposable PostgreSQL integration tests, then outbound/AI/UI. Preserve existing index.ts env change. Public tunnel confirmation remains pending; do not interpret automatic goal continuation as approval.
+
 # Current snapshot
 
 ## Chuyển Đổi Lời Mở Đầu Sang Bong Bóng Chat & Làm Gọn Header Widget — 2026-10-01
