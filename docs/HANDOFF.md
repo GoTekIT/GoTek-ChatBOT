@@ -1,4 +1,6 @@
 ## Meta source preservation and setup checkpoint
+- Meta WhatsApp Step 1 now shows the generated test number `+1 (555) 189-9807`, phone_number_id `1386169614577563`, and WABA id `1591377349136734`; the access-token field still reports `Not generated yet`, so provider roundtrip is not yet verified. No token was copied into source or logs.
+
 - Webhook ingestion now normalizes and persists Facebook Messenger, Instagram messaging, and WhatsApp Cloud message envelopes through the same tenant-scoped path. Outbound text dispatch selects the Facebook/Instagram or WhatsApp Graph envelope from the connection kind and preserves accepted/failed/unknown receipts. Real provider roundtrip for Instagram/WhatsApp is still NEEDS VERIFICATION.
 
 - Database regression passed on isolated pilot port 55433: list/detail labels and empty placeholder website for Facebook, Instagram and WhatsApp across connected/disconnected/reauth_required states (9 combinations). Existing ordering, dedupe, ownership and tenant isolation assertions also passed.
