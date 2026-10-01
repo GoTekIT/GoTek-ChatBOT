@@ -12,7 +12,7 @@ export type NormalizedMetaInbound = {
   attachments: MetaAttachment[];
   mediaReferences: Array<{type:'image'|'video'|'audio'|'file';id:string}>;
 };
-export type NormalizedMetaStatus = {surface:'whatsapp_business';externalAccountId:string;eventId:string;providerMessageId:string;status:'sent'|'delivered'|'read'|'failed';recipientId:string;error?:string};
+export type NormalizedMetaStatus = {surface:'facebook_messenger'|'instagram_messaging'|'whatsapp_business';externalAccountId:string;eventId:string;providerMessageId:string;status:'sent'|'delivered'|'read'|'failed';recipientId:string;error?:string};
 const record=z.record(z.string(),z.unknown());
 const object=(value:unknown):Record<string,unknown>=>record.safeParse(value).data||{};
 const list=(value:unknown):unknown[]=>Array.isArray(value)?value:[];
@@ -64,6 +64,18 @@ export function normalizeMetaInbound(input:unknown):NormalizedMetaInbound[]{
 
 export function normalizeMetaStatuses(input:unknown):NormalizedMetaStatus[]{
  const body=object(input),out:NormalizedMetaStatus[]=[];
+ if(body.object==='page'||body.object==='instagram'){
+  const surface=body.object==='page'?'facebook_messenger':'instagram_messaging';
+  for(const rawEntry of list(body.entry)){
+   const entry=object(rawEntry),account=str(entry.id);
+   for(const rawEvent of list(entry.messaging)){
+    const event=object(rawEvent),recipient=str(object(event.recipient).id),delivery=object(event.delivery),read=object(event.read);
+    for(const mid of list(delivery.mids).map(str).filter(Boolean))out.push({surface,externalAccountId:account,eventId:mid,providerMessageId:mid,status:'delivered',recipientId:recipient});
+    const readMid=str(read.mid);if(readMid)out.push({surface,externalAccountId:account,eventId:readMid,providerMessageId:readMid,status:'read',recipientId:recipient});
+   }
+  }
+  return out;
+ }
  if(body.object!=='whatsapp_business_account')return out;
  for(const item of list(body.entry)) for(const change of list(object(item).changes)){
   const value=object(object(change).value),account=str(object(value.metadata).phone_number_id);
