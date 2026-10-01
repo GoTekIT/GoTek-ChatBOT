@@ -1,3 +1,7 @@
+## Meta channel UI state
+
+- Channels view now lists Facebook Messenger, Instagram Direct, WhatsApp Business and Threads with truthful implementation states. WhatsApp/Instagram are not shown as active before credentials; Threads is explicitly API-limited and public-publishing only. Frontend production build passes.
+
 ## Capability route verification
 
 - `GET /meta/connectors` is covered by an HTTP contract test: all four Meta surfaces are listed, Threads remains explicitly API-limited, and no credential field is returned.
