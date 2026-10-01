@@ -1,3 +1,4 @@
+import {listMetaConnections,disconnectMetaConnection} from '../src/modules/meta/connections';
 import {test,after} from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
@@ -198,6 +199,16 @@ test('WhatsApp persists each receipt transition once, including reverse arrival 
  await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[workspace,'Receipt fixture']);
  await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Receipt fixture','https://example.test','Hi','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
  await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,channel_kind) VALUES($1,$2,$3,$4,'Fixture','META_FIXTURE_TOKEN','whatsapp_business')",[connection,workspace,channel,phone]);
+ await transaction(async db=>{
+  await scope(db,workspace);
+  const view=await listMetaConnections(db,{workspace_id:workspace,role:'Owner'});
+  assert.equal(view.connections.length,1);
+  assert.equal(view.connections[0].id,connection);
+  assert.equal('page_access_token_ref' in view.connections[0],false);
+  await assert.rejects(listMetaConnections(db,{workspace_id:workspace,role:'Agent'}),{code:'FORBIDDEN'});
+  const other=randomUUID();await scope(db,other);
+  assert.equal((await listMetaConnections(db,{workspace_id:other,role:'Owner'})).connections.length,0);
+ });
  for(const status of ['read','delivered','sent','sent','read']){
   const raw=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:phone},statuses:[{id:'same-mid',status,recipient_id:'fixture-recipient'}]}}]}]}));
   const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
@@ -209,5 +220,21 @@ test('WhatsApp persists each receipt transition once, including reverse arrival 
   assert.deepEqual(receipts.map(r=>r.event_kind),['status:delivered','status:read','status:sent']);
   assert.ok(receipts.every(r=>r.payload.providerMessageId==='same-mid'&&!r.payload.entry));
   assert.equal((await db.query('SELECT id FROM messages')).rowCount,0);
+ });
+});
+
+test('disconnect is scoped, audited once and preserves connection history',{skip:!enabled},async()=>{
+ const workspace=randomUUID(),other=randomUUID(),channel=randomUUID(),connection=randomUUID(),user=randomUUID();
+ await admin!.query("INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,'Fixture','','unused')",[user,user+'@example.test']);
+ await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[workspace,'Disconnect fixture']);
+ await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Fixture','https://example.test','Hi','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
+ await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Fixture','META_FIXTURE_TOKEN')",[connection,workspace,channel,randomUUID()]);
+ const actor={workspace_id:workspace,user_id:user,role:'Owner'};
+ await assert.rejects(transaction(async db=>{await scope(db,workspace);return disconnectMetaConnection(db,{...actor,role:'Agent'},connection);}),{code:'FORBIDDEN'});
+ await assert.rejects(transaction(async db=>{await scope(db,other);return disconnectMetaConnection(db,{...actor,workspace_id:other},connection);}),{code:'META_CONNECTION_NOT_FOUND'});
+ await transaction(async db=>{await scope(db,workspace);
+  for(let i=0;i<2;i++)assert.equal((await disconnectMetaConnection(db,actor,connection)).status,'disconnected');
+  assert.equal((await db.query('SELECT id FROM meta_connections WHERE id=$1',[connection])).rowCount,1);
+  assert.equal((await db.query("SELECT id FROM audit_events WHERE object_id=$1 AND action='meta.connection_disconnected'",[connection])).rowCount,1);
  });
 });
