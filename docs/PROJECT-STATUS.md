@@ -1,6 +1,16 @@
+## WhatsApp existing visitor regression fix
+
+- Reproduced SQL 42703 on a second WhatsApp message carrying a profile name: visitors has no updated_at column. Removed the invalid column assignment.
+- Database integration now verifies default-name hydration and preservation of a staff-edited name; Meta integration suite 3/3 passes and backend typecheck passes. No live WhatsApp acceptance claimed.
+
+
+### WhatsApp receipt correction (2026-10-01)
+- Fixed receipt deduplication: key now includes status, so sent/delivered/read for one provider message are all retained even in reverse arrival order. Stored payload is the individual normalized receipt, not the entire multi-account envelope.
+- Verified: pilot database integration suite 3/3 passed, including duplicate and reverse-order receipt callbacks.
+- Still incomplete: receipt-to-outbound-message correlation, authoritative delivery state projection and visible status badges; SSE refresh alone does not display provider delivery states. Live WhatsApp recipient verification remains pending.
 ## WhatsApp inbound display name
 
-- New visitors now use a nonempty contacts.profile.name only when exactly one contact wa_id matches the message sender. Names are bounded to 300 characters; missing/ambiguous contacts retain the fallback. No email, avatar or phone is inferred. Existing profile refresh remains separate.
+- New visitors now use a nonempty contacts.profile.name only when exactly one contact wa_id matches the message sender. Names are bounded to 300 characters; missing/ambiguous contacts retain the fallback. No email, avatar or phone is inferred. Existing visitors with the default name are hydrated; staff-edited names are preserved.
 - Backend build and four inbound normalization tests pass. This has not been verified with live Meta traffic.
 - Contract source: https://www.postman.com/meta/whatsapp-business-platform/request/36ymkut/received-contact-messages
 
