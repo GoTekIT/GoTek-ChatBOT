@@ -17,6 +17,7 @@ export async function activateFacebookConnection(req:Request,id:string) {
   const actor=await identity(db,req);requirePermission(actor.role,'channels.manage');
   const row=(await db.query("SELECT * FROM meta_connections WHERE workspace_id=$1 AND id=$2 AND provider='facebook' FOR UPDATE",[actor.workspace_id,id])).rows[0];
   if(!row)throw new HttpError(404,'META_CONNECTION_NOT_FOUND');
+  if(row.token_expires_at && new Date(row.token_expires_at).getTime()<=Date.now())throw new HttpError(409,'META_RECONNECT_REQUIRED');
   if(row.status==='active')return {actor,row,active:true};
   if(row.status!=='pending'||!row.token_ciphertext)throw new HttpError(409,'META_RECONNECT_REQUIRED');
   if(!row.granted_scopes.includes('pages_manage_metadata'))throw new HttpError(403,'META_PERMISSIONS_REQUIRED');
@@ -33,8 +34,9 @@ export async function activateFacebookConnection(req:Request,id:string) {
  return transaction(async db=>{
   const actor=await identity(db,req);requirePermission(actor.role,'channels.manage');
   if(actor.user_id!==original.actor.user_id || actor.workspace_id!==original.actor.workspace_id || actor.token_hash!==original.actor.token_hash)throw new HttpError(403,'META_IDENTITY_CHANGED');
-  const row=(await db.query('SELECT status,generation,channel_id FROM meta_connections WHERE workspace_id=$1 AND id=$2 FOR UPDATE',[actor.workspace_id,id])).rows[0];
+  const row=(await db.query('SELECT status,generation,channel_id,token_expires_at FROM meta_connections WHERE workspace_id=$1 AND id=$2 FOR UPDATE',[actor.workspace_id,id])).rows[0];
   if(!row || row.generation!==original.row.generation || !['pending','active'].includes(row.status))throw new HttpError(409,'META_CONNECTION_CHANGED');
+  if(row.token_expires_at && new Date(row.token_expires_at).getTime()<=Date.now())throw new HttpError(409,'META_RECONNECT_REQUIRED');
   if(row.status==='pending') {
    await db.query("UPDATE meta_connections SET status='active',updated_at=now() WHERE id=$1 AND workspace_id=$2",[id,actor.workspace_id]);
    await db.query('UPDATE channels SET enabled=true WHERE id=$1 AND workspace_id=$2',[row.channel_id,actor.workspace_id]);

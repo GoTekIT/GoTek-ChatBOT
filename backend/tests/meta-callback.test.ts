@@ -16,7 +16,7 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
  const configured={META_FACEBOOK_VERIFY_TOKEN:'verify-fixture',META_FACEBOOK_APP_ID:'123',META_FACEBOOK_APP_SECRET:'fixture-secret',META_FACEBOOK_REDIRECT_URI:'https://example.test/api/integrations/meta/facebook/callback',META_FACEBOOK_LOGIN_CONFIG_ID:'456',META_GRAPH_VERSION:'v25.0',META_TOKEN_ENCRYPTION_KEY:'ab'.repeat(32)};
  const saved=Object.fromEntries(Object.keys(configured).map(k=>[k,process.env[k]]));
  Object.assign(process.env,configured);
- let calls=0, revoke=false;
+ let calls=0, revoke=false, expireSubscription=false;
  globalThis.fetch=async(input)=>{
   calls++;
   if(String(input).includes('/oauth/access_token')) {
@@ -24,7 +24,10 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
    return Response.json({access_token:'private-user-token',expires_in:3600});
   }
   if(String(input).includes('/me/permissions'))return Response.json({data:['pages_show_list','pages_messaging','pages_manage_metadata','pages_read_engagement'].map(permission=>({permission,status:'granted'}))});
-  if(String(input).includes('/subscribed_apps'))return Response.json({success:true});
+  if(String(input).includes('/subscribed_apps')){
+   if(expireSubscription)await admin.query("UPDATE meta_connections SET token_expires_at=now()-interval '1 second' WHERE workspace_id=$1",[ws]);
+   return Response.json({success:true});
+  }
   if(String(input).includes('/me/accounts'))return Response.json({data:[{id:'789',name:'Test Page',tasks:['MESSAGING'],access_token:'private-page-token'}]});
   throw new Error('Unexpected provider request');
  };
@@ -73,6 +76,17 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   await admin.query("UPDATE workspaces SET status='active' WHERE id=$1",[ws]);
   const normalize=()=>transaction(async db=>{await scope(db,ws);return normalizeFacebookReceipt(db,ws);});
   assert.equal((await normalize()).state,'waiting_connection');
+  const activate=()=>app.post(base+'/connections/'+selected.body.id+'/activate').set('Authorization','Bearer '+token).set('X-Gotek-Request','1');
+  await admin.query("UPDATE meta_connections SET token_expires_at=now()-interval '1 second' WHERE id=$1",[selected.body.id]);
+  const callsBeforeExpired=calls;
+  assert.equal((await activate()).body.error,'META_RECONNECT_REQUIRED');assert.equal(calls,callsBeforeExpired);
+  await admin.query("UPDATE meta_connections SET token_expires_at=now()+interval '1 hour' WHERE id=$1",[selected.body.id]);
+  expireSubscription=true;
+  assert.equal((await activate()).body.error,'META_RECONNECT_REQUIRED');
+  assert.equal((await admin.query('SELECT enabled FROM channels WHERE id=$1',[selected.body.channelId])).rows[0].enabled,false);
+  assert.equal((await admin.query('SELECT status FROM meta_connections WHERE id=$1',[selected.body.id])).rows[0].status,'pending');
+  expireSubscription=false;
+  await admin.query('UPDATE meta_connections SET token_expires_at=NULL WHERE id=$1',[selected.body.id]);
   // Provider subscription is mocked; exercise the authenticated activation endpoint.
   assert.equal((await app.post(base+'/connections/'+selected.body.id+'/activate').set('Authorization','Bearer '+token).set('X-Gotek-Request','1')).status,200);
   assert.equal((await normalize()).inserted,1);
