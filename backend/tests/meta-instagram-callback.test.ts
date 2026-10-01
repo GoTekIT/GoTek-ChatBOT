@@ -107,6 +107,11 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   const foreignState=new URL((await connect(otherToken)).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await callback(foreignState,otherToken)).status,409);
   assert.equal((await admin.query('SELECT id FROM channels WHERE workspace_id=$1',[other])).rowCount,0);
+  const deniedState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
+  const denied=await app.get(base+'/callback').query({state:deniedState,error:'access_denied',error_description:'private-provider-detail'}).set('Authorization','Bearer '+token).set('Accept','text/html');
+  assert.equal(denied.status,303);assert.equal(denied.headers.location,'/app/channels?meta_error=META_AUTHORIZATION_DENIED');
+  assert.equal(denied.headers['cache-control'],'no-store');assert.equal(denied.text.includes('private-provider-detail'),false);
+  assert.equal((await callback(deniedState)).status,400);
   const browserState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   const browserCallback=await app.get(base+'/callback').query({state:browserState,code:'fixture-code'}).set('Authorization','Bearer '+token).set('Accept','text/html');
   assert.equal(browserCallback.status,303);assert.equal(browserCallback.headers.location,'/app/channels');

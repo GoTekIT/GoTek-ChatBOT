@@ -1,3 +1,4 @@
+import {metaCallbackError} from '../../services/meta-errors';
 import React,{useEffect,useRef,useState} from 'react';
 import {MetaService,type MetaConnection,type MetaProvider} from '../../services/meta.service';
 const labels={pending:'Chờ kích hoạt',active:'Đã kích hoạt',reauth_required:'Cần kết nối lại',disconnected:'Đã ngắt'};
@@ -10,7 +11,9 @@ export function MetaConnections({scope,allowed}:{scope:string;allowed:boolean}) 
   const current=++epoch.current;setConnections([]);setPages([]);setError('');setEnrollment('');
   if(!allowed)return;
   setBusy(true);
-  const candidate=new URLSearchParams(window.location.search).get('meta_enrollment')||'';
+  const query=new URLSearchParams(window.location.search);
+  if(query.has('meta_error'))setError(metaCallbackError(query.get('meta_error')||''));
+  const candidate=query.get('meta_enrollment')||'';
   const id=/^[0-9a-f-]{36}$/i.test(candidate)?candidate:'';
   void (async()=>{
    try{

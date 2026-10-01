@@ -142,3 +142,11 @@ metaRouter.get('/integrations/meta/instagram/callback',async(req,res)=>{
 metaRouter.post('/integrations/meta/instagram/connections/:id/activate',async(req,res)=>{
  res.json(await activateInstagramConnection(req,String(req.params.id)));
 });
+
+// Browser OAuth errors return to a fixed application route without reflecting provider details or codes.
+metaRouter.use((error:unknown,req:import('express').Request,res:import('express').Response,next:import('express').NextFunction)=>{
+ if(!/^\/integrations\/meta\/(facebook|instagram)\/callback$/.test(req.path)||!req.get('accept')?.includes('text/html')){next(error);return;}
+ const code=error instanceof HttpError?error.code:'META_CONNECT_FAILED';
+ const safe=['META_AUTHORIZATION_DENIED','META_OAUTH_STATE_INVALID','META_PERMISSIONS_REQUIRED','META_ASSET_UNAVAILABLE','UNAUTHENTICATED','FORBIDDEN','META_NOT_CONFIGURED'].includes(code)?code:'META_CONNECT_FAILED';
+ res.set('Cache-Control','no-store').set('Referrer-Policy','no-referrer').redirect(303,'/app/channels?meta_error='+safe);
+});
