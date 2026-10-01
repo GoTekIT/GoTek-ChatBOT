@@ -15,9 +15,14 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
  const settings={META_INSTAGRAM_VERIFY_TOKEN:'ig-verify',META_INSTAGRAM_APP_ID:'123',META_INSTAGRAM_APP_SECRET:'fixture',META_INSTAGRAM_REDIRECT_URI:'https://example.test/ig/callback',META_GRAPH_VERSION:'v25.0',META_TOKEN_ENCRYPTION_KEY:'cd'.repeat(32)};
  const saved=Object.fromEntries(Object.keys(settings).map(k=>[k,process.env[k]])),originalFetch=globalThis.fetch;
  Object.assign(process.env,settings);
- let calls=0,revoke=false;
- globalThis.fetch=async(input)=>{
+ let calls=0,revoke=false,subscriptionConfirmed=false;
+ globalThis.fetch=async(input,init)=>{
   calls++;const url=new URL(String(input));
+  if(url.pathname==='/v25.0/222/subscribed_apps'){
+   assert.equal(url.hostname,'graph.instagram.com');assert.equal(init?.method,'POST');
+   assert.equal(new URLSearchParams(String(init?.body)).get('subscribed_fields'),'messages');
+   return Response.json({success:subscriptionConfirmed});
+  }
   if(url.hostname==='api.instagram.com')return Response.json({data:[{access_token:'short-private',user_id:'111',permissions:'instagram_business_basic,instagram_business_manage_messages'}]});
   if(url.pathname==='/access_token')return Response.json({access_token:'long-private',token_type:'bearer',expires_in:3600});
   if(url.pathname==='/v25.0/me'){
@@ -61,9 +66,15 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   assert.equal((await transaction(async db=>{await scope(db,ws);return normalizeFacebookReceipt(db,ws);})).state,'idle');
   const normalize=()=>transaction(async db=>{await scope(db,ws);return normalizeInstagramReceipt(db,ws);});
   assert.equal((await normalize()).state,'waiting_connection');
-  // Activation is a fixture only until the provider subscription flow is implemented.
-  await admin.query("UPDATE meta_connections SET status='active' WHERE id=$1",[result.body.id]);
-  await admin.query('UPDATE channels SET enabled=true WHERE id=$1',[result.body.channelId]);
+  const activate=()=>app.post(base+'/connections/'+result.body.id+'/activate').set('Authorization','Bearer '+token).set('X-Gotek-Request','1');
+  await admin.query("UPDATE memberships SET role='Agent' WHERE workspace_id=$1",[ws]);
+  const beforeDenied=calls;assert.equal((await activate()).status,403);assert.equal(calls,beforeDenied);
+  await admin.query("UPDATE memberships SET role='Owner' WHERE workspace_id=$1",[ws]);
+  assert.equal((await activate()).body.error,'META_SUBSCRIPTION_UNCONFIRMED');
+  assert.equal((await admin.query('SELECT enabled FROM channels WHERE id=$1',[result.body.channelId])).rows[0].enabled,false);
+  subscriptionConfirmed=true;
+  assert.equal((await activate()).status,200);
+  const afterActivated=calls;assert.equal((await activate()).status,200);assert.equal(calls,afterActivated);
   assert.equal((await normalize()).inserted,1);
   const inbox=await app.get('/api/conversations').set('Authorization','Bearer '+token);
   assert.equal(inbox.status,200);assert.equal(inbox.body[0].transport,'instagram');

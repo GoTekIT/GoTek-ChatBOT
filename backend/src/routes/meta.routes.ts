@@ -97,7 +97,7 @@ metaRouter.post('/integrations/meta/facebook/enrollments/:id/select',async(req,r
  }
 });
 
-import {activateFacebookConnection} from '../modules/meta/subscription';
+import {activateFacebookConnection,activateInstagramConnection} from '../modules/meta/subscription';
 metaRouter.post('/integrations/meta/facebook/connections/:id/activate',async(req,res)=>{
  res.json(await activateFacebookConnection(req,String(req.params.id)));
 });
@@ -133,4 +133,8 @@ metaRouter.get('/integrations/meta/instagram/callback',async(req,res)=>{
   if((error as {code?:string}).code==='23505')throw new HttpError(409,'META_ASSET_UNAVAILABLE');
   throw error;
  }
+});
+
+metaRouter.post('/integrations/meta/instagram/connections/:id/activate',async(req,res)=>{
+ res.json(await activateInstagramConnection(req,String(req.params.id)));
 });

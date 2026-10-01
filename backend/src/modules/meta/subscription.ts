@@ -10,25 +10,28 @@ import {decryptMetaToken} from './security';
 import {metaJsonRequest} from './http';
 import {z} from 'zod';
 
-export async function activateFacebookConnection(req:Request,id:string) {
+export const activateFacebookConnection=(req:Request,id:string)=>activateMetaConnection(req,id,'facebook');
+export const activateInstagramConnection=(req:Request,id:string)=>activateMetaConnection(req,id,'instagram');
+async function activateMetaConnection(req:Request,id:string,provider:'facebook'|'instagram') {
  z.string().uuid().parse(id);
- const config=metaConfig('facebook'),key=metaEncryptionKey();
+ const config=metaConfig(provider),key=metaEncryptionKey();
  const original=await transaction(async db=>{
   const actor=await identity(db,req);requirePermission(actor.role,'channels.manage');
-  const row=(await db.query("SELECT * FROM meta_connections WHERE workspace_id=$1 AND id=$2 AND provider='facebook' FOR UPDATE",[actor.workspace_id,id])).rows[0];
+  const row=(await db.query("SELECT * FROM meta_connections WHERE workspace_id=$1 AND id=$2 AND provider=$3 FOR UPDATE",[actor.workspace_id,id,provider])).rows[0];
   if(!row)throw new HttpError(404,'META_CONNECTION_NOT_FOUND');
   if(row.token_expires_at && new Date(row.token_expires_at).getTime()<=Date.now())throw new HttpError(409,'META_RECONNECT_REQUIRED');
   if(row.status==='active')return {actor,row,active:true};
   if(row.status!=='pending'||!row.token_ciphertext)throw new HttpError(409,'META_RECONNECT_REQUIRED');
-  if(!row.granted_scopes.includes('pages_manage_metadata'))throw new HttpError(403,'META_PERMISSIONS_REQUIRED');
+  if(!row.granted_scopes.includes(provider==='facebook'?'pages_manage_metadata':'instagram_business_manage_messages'))throw new HttpError(403,'META_PERMISSIONS_REQUIRED');
   return {actor,row,active:false};
  });
  if(original.active)return {id,status:'active'};
  let token:string;
  try{token=decryptMetaToken(original.row.token_ciphertext,key,original.actor.workspace_id,original.row.asset_id);}
  catch{throw new HttpError(503,'META_CREDENTIAL_UNAVAILABLE');}
- const url=new URL(`https://graph.facebook.com/${config.graphVersion}/${original.row.asset_id}/subscribed_apps`);
- const body=new URLSearchParams({subscribed_fields:'messages,messaging_postbacks,message_deliveries,message_reads',appsecret_proof:createHmac('sha256',config.appSecret).update(token).digest('hex')});
+ const url=new URL(`https://${provider==='facebook'?'graph.facebook.com':'graph.instagram.com'}/${config.graphVersion}/${original.row.asset_id}/subscribed_apps`);
+ const body=new URLSearchParams({subscribed_fields:provider==='facebook'?'messages,messaging_postbacks,message_deliveries,message_reads':'messages'});
+ if(provider==='facebook')body.set('appsecret_proof',createHmac('sha256',config.appSecret).update(token).digest('hex'));
  const result=await metaJsonRequest(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/x-www-form-urlencoded'},body});
  if(result.success!==true)throw new HttpError(502,'META_SUBSCRIPTION_UNCONFIRMED');
  return transaction(async db=>{
