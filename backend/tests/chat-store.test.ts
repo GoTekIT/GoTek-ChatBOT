@@ -1,6 +1,6 @@
 import {inboxList,inboxMessages,inboxTakeover,inboxSend,inboxSetStatus} from '../src/modules/chat/inbox';
 import {test,after} from 'node:test';import assert from 'node:assert/strict';import pg from 'pg';import {randomUUID} from 'node:crypto';import {pool,scope,transaction} from '../src/core/db';import {appendMessage,takeover} from '../src/modules/chat/chat-store';
-const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
+const admin=new pg.Pool({host:'127.0.0.1',port:Number(process.env.PGPORT||55432),user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
 test('H03 message ordering/idempotency, takeover fencing, note boundary and tenant isolation',async()=>{
  const w=randomUUID(),ch=randomUUID(),v=randomUUID(),c=randomUUID(),agent=randomUUID(),other=randomUUID();
  await admin.query('INSERT INTO workspaces(id,name) VALUES($1,$2),($3,$4)',[w,'Chat fixture',other,'Other fixture']);
