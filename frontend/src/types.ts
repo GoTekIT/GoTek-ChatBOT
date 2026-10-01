@@ -75,7 +75,7 @@ export interface Conversation {
   lastMessageSnippet: string;
   lastMessageTime: string;
   unreadCount?: number;
-  channel: 'Widget' | 'Slack App' | 'Email' | 'API Chat' | 'Facebook Messenger';
+  channel: 'Widget' | 'Slack App' | 'Email' | 'API Chat' | 'Facebook Messenger' | 'Instagram' | 'WhatsApp' | 'Threads';
   status: 'handoff' | 'ai_active' | 'in_review' | 'resolved';
   reply_owner?: string;
   replyOwner?: string;
