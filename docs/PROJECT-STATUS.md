@@ -1,3 +1,8 @@
+## Inbox source account binding
+
+- Inbox list/detail resolve channel_kind by the visitor original meta connection binding instead of the earliest account on the channel. Bound source survives disconnected/reauth states.
+- Database regression passes across three platforms and three connection states with an older unrelated Threads connection present; backend typecheck passed. Legacy unbound visitors do not gain an inferred Meta identity.
+
 ## Inbox original-connection validation
 
 - Public Meta replies now reject an identity binding mismatch before message persistence or job enqueue; worker independently checks again at dispatch. Existing committed request IDs retain replay behavior.

@@ -59,6 +59,9 @@ test('H03 message ordering/idempotency, takeover fencing, note boundary and tena
  // Historic source must survive disconnect/re-auth in both inbox surfaces.
  const connection=randomUUID();
  await run(db=>db.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Test Page','META_TEST_ONLY')",[connection,w,ch,randomUUID()]));
+ await admin.query("UPDATE visitors SET token_hash=$2,profile=$3 WHERE id=$1",[v,'meta:'+connection+':source-user',{metaUserId:'source-user'}]);
+ const unrelated=randomUUID();
+ await admin.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,channel_kind,created_at) VALUES($1,$2,$3,$4,'Unrelated','META_TEST_ONLY','threads',now()-interval '1 day')",[unrelated,w,ch,randomUUID()]);
  for(const [kind,label] of [['facebook_messenger','Facebook Messenger'],['instagram_messaging','Instagram'],['whatsapp_business','WhatsApp']]){
   for(const status of ['connected','disconnected','reauth_required']){
    await run(db=>db.query('UPDATE meta_connections SET channel_kind=$1,status=$2 WHERE id=$3',[kind,status,connection]));
