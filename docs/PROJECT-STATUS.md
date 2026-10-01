@@ -1,3 +1,7 @@
+## Connector capability catalogue
+
+- Added `GET /meta/connectors`, a credential-free catalogue for UI and admin tooling. It explicitly reports Facebook Messenger, Instagram Direct and WhatsApp Business transport capability, while Threads is marked `api_limited` with no DM inbound/outbound claim.
+
 ## Configurable Meta Graph API version
 
 - Meta outbound adapters now use `META_GRAPH_API_VERSION` when it matches `v<major>.<minor>`, defaulting to `v25.0`; malformed overrides fail closed to the known default. WhatsApp endpoint tests and Threads/media transport tests pass.
