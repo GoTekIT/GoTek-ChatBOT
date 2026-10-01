@@ -50,7 +50,17 @@ inboxRouter.post(
 
 inboxRouter.post(
   '/conversations/:id/messages',
-  authed((db, i, req) => inboxSend(db, i, String(req.params.id), req.body))
+  async (req,res,next) => {
+    const afterCommit:Array<()=>void>=[];
+    try {
+      const message=await transaction(async db=>{
+        const actor=await identity(db,req);
+        return inboxSend(db,actor,String(req.params.id),req.body,afterCommit);
+      });
+      for(const publish of afterCommit){try{publish();}catch{console.warn('INBOX_REALTIME_PUBLISH_FAILED');}}
+      res.json(message);
+    }catch(error){next(error);}
+  }
 );
 
 inboxRouter.patch(

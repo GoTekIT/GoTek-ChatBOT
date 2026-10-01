@@ -189,40 +189,37 @@ export async function inboxTakeover(db:PoolClient,a:Actor,id:string,body?:unknow
   return result;
 }
 
-export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown){
+export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown,afterCommit:Array<()=>void>=[]){
   await access(db,a,id);
   const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal'])}).strict().parse(body);
+  // Serialize retries before checking current connector availability. A committed
+  // request remains replayable after disconnect without creating a new send job.
+  await db.query('SELECT id FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,a.workspace_id]);
+  const existing=(await db.query('SELECT id FROM messages WHERE workspace_id=$1 AND conversation_id=$2 AND client_id=$3',[a.workspace_id,id,data.clientId])).rowCount;
+  if(existing) return appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id});
+  let meta: {id:string;page_access_token_ref:string;recipient_id:string} | undefined;
+  if(data.visibility==='public') {
+    const visitor=(await db.query("SELECT v.profile FROM conversations c JOIN visitors v ON v.id=c.visitor_id WHERE c.id=$1 AND c.workspace_id=$2",[id,a.workspace_id])).rows[0];
+    if(visitor?.profile?.metaUserId) {
+      const routes=(await db.query("SELECT mc.id,mc.page_access_token_ref,v.profile->>'metaUserId' AS recipient_id FROM conversations c JOIN visitors v ON v.id=c.visitor_id JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id WHERE c.id=$1 AND c.workspace_id=$2 AND mc.status='connected' AND mc.channel_kind IN ('facebook_messenger','instagram_messaging','whatsapp_business') FOR SHARE OF mc",[id,a.workspace_id])).rows;
+      if(routes.length!==1) throw new HttpError(409,'META_CONNECTION_UNAVAILABLE');
+      meta=routes[0];
+    }
+  }
   const msgId = uuid();
-  const nowIso = new Date().toISOString();
-
-  // 1. Instant in-memory broadcast (<2ms) so visitor widget never lags behind
-  realtimeHub.broadcastToConversation(id, 'message:new', {
-    id: msgId,
-    workspace_id: a.workspace_id,
-    conversation_id: id,
-    client_id: data.clientId,
-    clientId: data.clientId,
-    sequence: 0,
-    author_type: 'agent',
-    actor_id: a.user_id,
-    visibility: data.visibility,
-    body: data.body,
-    created_at: nowIso,
-  });
-
-  // 2. Persist with exact same messageId for 100% durability and consistency
   const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId});
   if(data.visibility==='public'){
-    const meta=(await db.query("SELECT mc.id,mc.page_access_token_ref,v.profile->>'metaUserId' AS recipient_id FROM conversations c JOIN visitors v ON v.id=c.visitor_id JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id AND mc.status='connected' WHERE c.id=$1 AND c.workspace_id=$2",[id,a.workspace_id])).rows[0];
+
     if(meta?.recipient_id) await enqueueJob(db,a.workspace_id,{kind:'meta.message.send',key:`meta-send:${id}:${data.clientId}`,payload:{conversationId:id,messageId:message.id,recipientId:meta.recipient_id,tokenRef:meta.page_access_token_ref},external:true,maxAttempts:3});
   }
 
-  realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:message_sent', {
-    conversationId: id,
-    messageSnippet: message.body.slice(0, 100),
-    author: message.author_type,
-    visibility: message.visibility,
-    createdAt: message.created_at,
+  // Only a newly inserted message publishes, with the durable ID and sequence.
+  if(message.id===msgId) afterCommit.push(()=>{
+    realtimeHub.broadcastToConversation(id,'message:new',{...message,clientId:data.clientId});
+    realtimeHub.broadcastToWorkspace(a.workspace_id,'inbox:message_sent',{
+      conversationId:id,messageSnippet:message.body.slice(0,100),author:message.author_type,
+      visibility:message.visibility,createdAt:message.created_at,
+    });
   });
 
   return message;

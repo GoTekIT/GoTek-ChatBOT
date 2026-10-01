@@ -1,3 +1,19 @@
+## Committed reply replay after disconnect
+
+- inboxSend locks the conversation before connector inspection (consistent with dispatch lock ordering). Existing client IDs are validated by appendMessage and returned without another job or realtime callback, even if the connection is now unavailable. New replies still fail closed.
+- Database chat-store regression and backend typecheck passed.
+
+## Inbox REST realtime commit boundary
+
+- Removed pre-validation temporary message broadcasts from inboxSend. The HTTP send route now publishes queued callbacks only after transaction commit, using the stored message ID/sequence. Idempotent replay queues no second broadcast; publication failure does not turn a committed send into HTTP failure.
+- Chat-store database suite passes including callback dedupe, unavailable Meta send and ownership fences; backend typecheck passes. This applies to REST inbox send, not all other realtime producers.
+
+## Meta reply availability guard
+
+- Public inbox replies for visitors carrying metaUserId require exactly one connected supported Meta route; unavailable or ambiguous routes return META_CONNECTION_UNAVAILABLE before message persistence/broadcast. Internal notes remain local.
+- Meta REST success toast now says queued, not delivered. This is not a full delivery-state implementation.
+- build:all passes; chat-store database test passes including offline Meta rejection and no inserted reply. Live testing deferred. Immutable conversation-to-connection binding and provider receipt projection remain open.
+
 ## Meta local disconnect implementation
 
 - Owner/Admin can disconnect from the active Channels screen via authenticated POST /api/meta/connections/:id/disconnect. Tenant-scoped row lock serializes with outbound dispatch; already-dispatched requests cannot be recalled. Provider token is not revoked externally.

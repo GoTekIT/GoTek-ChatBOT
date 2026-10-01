@@ -23,8 +23,20 @@ test('H03 message ordering/idempotency, takeover fencing, note boundary and tena
  await admin.query('INSERT INTO channel_members(workspace_id,channel_id,user_id) VALUES($1,$2,$3)',[w,ch,agent]);
  assert.equal((await run(db=>inboxList(db,actor))).length,1);
  assert.equal((await run(db=>inboxMessages(db,actor,c,2)))[0].visibility,'internal');
- const sent=await run(db=>inboxSend(db,actor,c,{clientId:randomUUID(),body:'Scoped reply',visibility:'public'}));assert.equal(sent.sequence,4);
+ const effects:Array<()=>void>=[];
+ const replyInput={clientId:randomUUID(),body:'Scoped reply',visibility:'public' as const};
+ const sent=await run(db=>inboxSend(db,actor,c,replyInput,effects));assert.equal(sent.sequence,4);
+ assert.equal(effects.length,1);
+ assert.equal((await run(db=>inboxSend(db,actor,c,replyInput,effects))).id,sent.id);
+ assert.equal(effects.length,1,'replay must not publish another realtime message');
 
+
+ await admin.query("UPDATE visitors SET profile=$2 WHERE id=$1",[v,{metaUserId:'fixture-customer',source:'whatsapp_business'}]);
+ assert.equal((await run(db=>inboxSend(db,actor,c,replyInput,effects))).id,sent.id,'committed retry survives unavailable connector');
+ assert.equal(effects.length,1);
+ await assert.rejects(run(db=>inboxSend(db,actor,c,{clientId:randomUUID(),body:'Must not silently save offline Meta reply',visibility:'public'})),{code:'META_CONNECTION_UNAVAILABLE'});
+ assert.equal((await run(db=>db.query('SELECT id FROM messages WHERE conversation_id=$1',[c]))).rowCount,4);
+ await admin.query("UPDATE visitors SET profile='{}'::jsonb WHERE id=$1",[v]);
  const replacement=randomUUID();
  await admin.query('INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,$3,$4,$5)',[replacement,replacement+'@example.test','Replacement','0900000000','disabled-test-identity']);
  await admin.query("INSERT INTO memberships(workspace_id,user_id,role) VALUES($1,$2,'Agent')",[w,replacement]);
