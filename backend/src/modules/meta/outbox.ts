@@ -27,3 +27,42 @@ export async function enqueueFacebookReply(db:PoolClient,actor:Actor,conversatio
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[randomUUID(),actor.workspace_id,connection.id,connection.generation,conversationId,message.id,contact.external_user_id,actor.user_id,current.owner_version]);
  return {...message,delivery_status:'queued'};
 }
+
+/** Claim is committed before network I/O. A dispatching row is never automatically re-queued. */
+export async function claimFacebookReply(db:PoolClient,workspace:string) {
+ const row=(await db.query("SELECT * FROM meta_outbox WHERE workspace_id=$1 AND status='queued' ORDER BY created_at,id LIMIT 1 FOR UPDATE SKIP LOCKED",[workspace])).rows[0];
+ if(!row)return null;
+ const eligible=(await db.query(`SELECT m.body,x.asset_id,x.token_ciphertext FROM meta_connections x
+ JOIN channels h ON h.id=x.channel_id AND h.workspace_id=x.workspace_id
+ JOIN workspaces w ON w.id=x.workspace_id
+ JOIN conversations c ON c.id=$3 AND c.workspace_id=x.workspace_id AND c.channel_id=x.channel_id
+ JOIN memberships a ON a.workspace_id=x.workspace_id AND a.user_id=$4 AND a.active
+ JOIN messages m ON m.id=$5 AND m.workspace_id=x.workspace_id AND m.conversation_id=c.id
+ JOIN meta_contacts p ON p.connection_id=x.id AND p.workspace_id=x.workspace_id AND p.conversation_id=c.id AND p.external_user_id=$6
+ WHERE x.workspace_id=$1 AND x.id=$2 AND x.provider='facebook' AND x.status='active' AND x.generation=$7
+ AND x.token_ciphertext IS NOT NULL AND 'pages_messaging'=ANY(x.granted_scopes)
+ AND (x.token_expires_at IS NULL OR x.token_expires_at>now())
+ AND w.status='active' AND h.enabled AND c.reply_owner='HUMAN_ACTIVE' AND c.assigned_to=$4 AND c.owner_version=$8
+ AND m.author_type='agent' AND m.actor_id=$4 AND m.visibility='public'
+ AND p.last_inbound_at>now()-interval '24 hours'
+ AND (a.role IN ('Owner','Admin') OR (a.role='Agent' AND EXISTS(SELECT 1 FROM channel_members cm WHERE cm.workspace_id=x.workspace_id AND cm.channel_id=x.channel_id AND cm.user_id=$4)))
+ FOR SHARE OF x,h,w,c,a,m,p`,[workspace,row.connection_id,row.conversation_id,row.actor_id,row.message_id,row.recipient_id,row.generation,row.owner_version])).rows[0];
+ if(!eligible) {
+  await db.query("UPDATE meta_outbox SET status='cancelled',completed_at=now() WHERE id=$1 AND workspace_id=$2",[row.id,workspace]);
+  return {state:'cancelled' as const,id:row.id};
+ }
+ await db.query("UPDATE meta_outbox SET status='dispatching',attempted_at=now() WHERE id=$1 AND workspace_id=$2",[row.id,workspace]);
+ return {state:'dispatching' as const,...row,...eligible};
+}
+
+export async function completeFacebookReply(db:PoolClient,workspace:string,id:string,result:{status:'accepted';messageId:string}|{status:'unknown'}) {
+ const row=(await db.query('SELECT status FROM meta_outbox WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,workspace])).rows[0];
+ if(!row)throw new HttpError(404,'META_OUTBOX_NOT_FOUND');
+ if(row.status!=='dispatching')throw new HttpError(409,'META_OUTBOX_STATE_INVALID');
+ if(result.status==='accepted') {
+  await db.query("UPDATE meta_outbox SET status='accepted',provider_message_id=$3,completed_at=now() WHERE id=$1 AND workspace_id=$2",[id,workspace,result.messageId]);
+  return {status:'accepted' as const};
+ }
+ await db.query("UPDATE meta_outbox SET status='unknown',completed_at=now() WHERE id=$1 AND workspace_id=$2",[id,workspace]);
+ return {status:'unknown' as const};
+}

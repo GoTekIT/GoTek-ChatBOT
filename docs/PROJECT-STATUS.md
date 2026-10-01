@@ -204,3 +204,4 @@ Facebook text normalization and explicit per-tenant batch worker added. Fixture 
 Facebook subscription activation endpoint added with provider confirmation and generation/identity recheck; mocked HTTP flow/typecheck passed. Public social replies/AI resume fail explicitly until real outbound path exists; notes remain usable. Live Meta acceptance pending.
 Internal Facebook text send adapter added; not enabled in Inbox pending durable outbox and dispatch checks. Unknown outcomes are not retried automatically.
 Meta durable outbound schema/enqueue added and tested for ownership/window/idempotency. Not enabled in Inbox; dispatch worker and delivery state integration still pending.
+Outbound claim and bounded worker added with generation/ownership/window fences; fixture tests and typecheck passed. Worker is not scheduled and real provider dispatch remains unverified.

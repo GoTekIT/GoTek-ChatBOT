@@ -327,3 +327,9 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 - Internal enqueueFacebookReply requires channel access, active Facebook connection/messaging scope, current human owner and 24-hour inbound window; message+outbox insert share transaction. Same clientId replay returns same queued item; changed body conflicts.
 - Extended HTTP/DB fixture suite passed for takeover gate, duplicate enqueue, conflict and closed window; backend typecheck passed. Facebook-send adapter tests previously 3/3 passed.
 - Not wired to Inbox; public social send gate remains. Next dispatcher must persist claim before external call, recheck membership/channel/owner/generation/window, classify crash/timeout as unknown, and expose honest delivery status. AI, attachments, history, Instagram, Connect UI and live Meta verification remain required.
+
+### Outbound claim/worker checkpoint
+- Added claimFacebookReply with committed dispatching claim before network I/O, row lock SKIP LOCKED, generation/status/expiry/scope/channel/workspace/owner/member/window checks and cancellation of stale work. Added completeFacebookReply to transition only dispatching rows to accepted (provider message ID required) or unknown. No automatic retry after crash/timeout.
+- Added scripts/meta-outbound-worker.ts, bounded single explicit META_WORKSPACE_ID job, production-rejected, decrypts server token then calls Facebook adapter and records accepted/unknown. It is not scheduled or enabled by default.
+- Fixture callback flow includes concurrent claim and stale window cancellation; passed with typecheck. Worker process itself not run against real provider.
+- Inbox still has no public Meta send route; dispatcher needs UI/status integration and reconciliation tooling. Unknown outcomes require human/provider reconciliation before any retry.
