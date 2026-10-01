@@ -5,7 +5,7 @@ import pg from 'pg';
 import request from 'supertest';
 import {createApp} from '../src/app';
 import {pool,transaction,scope} from '../src/core/db';
-import {normalizeFacebookReceipt} from '../src/modules/meta/normalize';
+import {normalizeFacebookReceipt,normalizeInstagramReceipt} from '../src/modules/meta/normalize';
 import {digest} from '../src/core/security';
 const admin=new pg.Pool({host:process.env.PGHOST||'/tmp',port:Number(process.env.PGPORT)||55432,user:process.env.PGUSER||'gotek_migrator',password:process.env.PGPASSWORD||'gotek_dev_password',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
@@ -58,6 +58,21 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   const receipts=await admin.query('SELECT workspace_id,connection_id FROM meta_webhook_receipts WHERE connection_id=$1',[result.body.id]);
   assert.equal(receipts.rowCount,1);assert.equal(receipts.rows[0].workspace_id,ws);
   assert.equal((await transaction(async db=>{await scope(db,ws);return normalizeFacebookReceipt(db,ws);})).state,'idle');
+  const normalize=()=>transaction(async db=>{await scope(db,ws);return normalizeInstagramReceipt(db,ws);});
+  assert.equal((await normalize()).state,'waiting_connection');
+  // Activation is a fixture only until the provider subscription flow is implemented.
+  await admin.query("UPDATE meta_connections SET status='active' WHERE id=$1",[result.body.id]);
+  await admin.query('UPDATE channels SET enabled=true WHERE id=$1',[result.body.channelId]);
+  assert.equal((await normalize()).inserted,1);
+  const inbox=await app.get('/api/conversations').set('Authorization','Bearer '+token);
+  assert.equal(inbox.status,200);assert.equal(inbox.body[0].transport,'instagram');
+  const history=await app.get('/api/conversations/'+inbox.body[0].id+'/messages').set('Authorization','Bearer '+token);
+  assert.equal(history.body[0].body,'hello');
+  const repeated=raw.replace('"messaging":','"time":1,"messaging":');
+  const repeatedSignature='sha256='+createHmac('sha256','fixture').update(repeated).digest('hex');
+  assert.equal((await app.post(webhook).set('Content-Type','application/json').set('X-Hub-Signature-256',repeatedSignature).send(repeated)).status,200);
+  assert.equal((await normalize()).duplicates,1);
+  assert.equal((await admin.query('SELECT id FROM messages WHERE workspace_id=$1',[ws])).rowCount,1);
   const reconnectState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await callback(reconnectState)).body.id,result.body.id);
   assert.equal((await admin.query('SELECT generation FROM meta_connections WHERE id=$1',[result.body.id])).rows[0].generation,2);
@@ -71,7 +86,7 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   globalThis.fetch=originalFetch;
   for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
   for(const workspace of [ws,other]){
-   for(const table of ['meta_webhook_receipts','meta_connections','channel_members','channels','audit_events','meta_oauth_attempts','sessions','memberships'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[workspace]);
+   for(const table of ['meta_inbound_messages','meta_contacts','messages','conversations','visitors','meta_webhook_receipts','meta_connections','channel_members','channels','audit_events','meta_oauth_attempts','sessions','memberships'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[workspace]);
    await admin.query('DELETE FROM workspaces WHERE id=$1',[workspace]);
   }
   await admin.query('DELETE FROM users WHERE id=$1',[user]);

@@ -12,10 +12,12 @@ const incoming=z.object({
  message:z.object({mid:z.string().min(1).max(1000),text:z.string().min(1).max(10000),is_echo:z.boolean().optional()})
 });
 /** Caller has established tenant scope. One receipt per transaction; provider payload never sets tenant scope. */
-export async function normalizeFacebookReceipt(db:PoolClient,workspace:string) {
+export const normalizeFacebookReceipt=(db:PoolClient,workspace:string)=>normalizeMetaReceipt(db,workspace,'facebook');
+export const normalizeInstagramReceipt=(db:PoolClient,workspace:string)=>normalizeMetaReceipt(db,workspace,'instagram');
+async function normalizeMetaReceipt(db:PoolClient,workspace:string,provider:'facebook'|'instagram') {
  const receipt=(await db.query(`SELECT r.* FROM meta_webhook_receipts r JOIN meta_connections x ON x.id=r.connection_id AND x.workspace_id=r.workspace_id
- WHERE r.workspace_id=$1 AND r.processed_at IS NULL AND x.provider='facebook'
- ORDER BY r.received_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`,[workspace])).rows[0];
+ WHERE r.workspace_id=$1 AND r.processed_at IS NULL AND x.provider=$2
+ ORDER BY r.received_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`,[workspace,provider])).rows[0];
  if(!receipt)return {state:'idle'};
  if(!(await db.query("SELECT id FROM workspaces WHERE id=$1 AND status='active' FOR SHARE",[workspace])).rowCount)return {state:'disabled'};
  const connection=(await db.query("SELECT * FROM meta_connections WHERE id=$1 AND workspace_id=$2 FOR UPDATE",[receipt.connection_id,workspace])).rows[0];
@@ -23,7 +25,7 @@ export async function normalizeFacebookReceipt(db:PoolClient,workspace:string) {
   await db.query("UPDATE meta_webhook_receipts SET processed_at=now(),outcome=$2 WHERE id=$1",[receipt.id,{stale:true}]);
   return {state:'stale'};
  }
- if(connection.provider!=='facebook' || connection.status!=='active')return {state:'waiting_connection'};
+ if(connection.provider!==provider || connection.status!=='active')return {state:'waiting_connection'};
  if(!(await db.query('SELECT id FROM channels WHERE id=$1 AND workspace_id=$2 AND enabled FOR SHARE',[connection.channel_id,workspace])).rowCount)return {state:'disabled'};
  let inserted=0,duplicates=0,skipped=0;
  const events=Array.isArray(receipt.payload.messaging)?receipt.payload.messaging:[];
@@ -36,7 +38,7 @@ export async function normalizeFacebookReceipt(db:PoolClient,workspace:string) {
   if(!contact) {
    const visitor=randomUUID(),conversation=randomUUID();
    // Social visitors have no usable website session; random token is discarded and already expired.
-   await db.query("INSERT INTO visitors(id,workspace_id,channel_id,token_hash,expires_at,profile) VALUES($1,$2,$3,$4,now(),$5)",[visitor,workspace,connection.channel_id,digest(opaque()),{fullName:'Facebook '+event.sender.id}]);
+   await db.query("INSERT INTO visitors(id,workspace_id,channel_id,token_hash,expires_at,profile) VALUES($1,$2,$3,$4,now(),$5)",[visitor,workspace,connection.channel_id,digest(opaque()),{fullName:(provider==='facebook'?'Facebook ':'Instagram ')+event.sender.id}]);
    await db.query('INSERT INTO conversations(id,workspace_id,channel_id,visitor_id) VALUES($1,$2,$3,$4)',[conversation,workspace,connection.channel_id,visitor]);
    await db.query('INSERT INTO meta_contacts(workspace_id,connection_id,external_user_id,conversation_id) VALUES($1,$2,$3,$4)',[workspace,connection.id,event.sender.id,conversation]);
    contact={conversation_id:conversation};
