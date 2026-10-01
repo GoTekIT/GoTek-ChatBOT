@@ -1,3 +1,12 @@
+## Messenger continuation — transport review and team integration
+
+- Branch `codex/meta-messenger-pilot` contains fetched `origin/main` at this check (5 ahead, 0 behind before this change); GitHub PR #8 reports MERGEABLE. This is a point-in-time check, not a guarantee against future concurrent changes. Never push main or force-push.
+- Send adapter now requires a nonempty provider message_id before reporting accepted, treats 5xx/network/missing receipts as unknown, adds a 20s timeout and sends credentials in Authorization rather than payload. No automatic replay of ambiguous sends.
+- Verified: backend typecheck and 5 Meta transport/signature tests pass; diff whitespace check passes.
+- Full build attempted: frontend fails because tsc is unavailable in its dependency installation. Full test suite and real Facebook inbound/outbound/AI takeover acceptance NOT run in this continuation.
+- Still required: runtime App Secret, validated tenant/channel connection mapping, local backend/HTTPS callback restart and verification, dedicated outbound worker scheduling, AI dispatch/fencing, profile enrichment and receipts; do not describe pilot as complete or ready to merge.
+- Next: restore frontend dependencies with the lockfile; finish outbound ownership/receipt contract and worker entrypoint; configure test workspace and server-only Meta secrets without printing or committing them; verify a personal-admin Messenger roundtrip to GoTek Page.
+
 ## Messenger inbound integration evidence — 2026-10-01
 
 - Added `backend/tests/meta-ingestion.test.ts`; executed against the disposable PostgreSQL on 55433 using app-role runtime credentials. PASS 1/1, not skipped.
