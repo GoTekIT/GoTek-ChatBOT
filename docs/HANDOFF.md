@@ -1,3 +1,9 @@
+## Messenger in-flight takeover serialization evidence
+
+- Disposable PostgreSQL integration test now holds the injected send adapter open while a separate transaction attempts takeover. Takeover reaches PostgreSQL lock_timeout (55P03); after dispatch returns its receipt and releases the transaction, takeover succeeds. PASS 1/1 integration fixture plus backend typecheck.
+- This proves database ordering: an already-started send completes before takeover commits. It cannot recall a request already transmitted to Meta. Real provider latency, delivery and UI remain unverified.
+- Still pending: AI inbound scheduling/outbound enqueue, response window enforcement, explicit terminal outcomes, live runtime secrets/mapping and personal-account roundtrip. PR remains draft.
+
 ## Messenger dispatch DB verification
 
 - Extended the disposable PostgreSQL integration fixture to execute the real Meta job claim/dispatch path with an injected provider adapter. PASS 1/1, not skipped, on port 55433.

@@ -42,5 +42,30 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  });
  const stale=await runMetaWorkerOnce(workspace,async()=>{sends++;throw new Error('stale AI must never send');});
  assert.equal(stale.state,'unknown');assert.equal(sends,1);
+
+ // A takeover must wait until an already-started dispatch releases its lock.
+ await transaction(async db=>{
+  await scope(db,workspace);
+  await db.query("UPDATE conversations SET reply_owner='AI_ACTIVE' WHERE id=$1",[conversation]);
+  const version=(await db.query('SELECT owner_version FROM conversations WHERE id=$1',[conversation])).rows[0].owner_version;
+  await enqueueJob(db,workspace,{kind:'meta.message.send',key:randomUUID(),payload:{conversationId:conversation,messageId:message,ownerVersion:version},external:true,maxAttempts:1});
+ });
+ let release!:()=>void,entered!:()=>void;
+ const gate=new Promise<void>(resolve=>{release=resolve;});
+ const started=new Promise<void>(resolve=>{entered=resolve;});
+ const dispatch=runMetaWorkerOnce(workspace,async()=>{entered();await gate;return {status:'accepted',providerMessageId:'race-receipt'};});
+ await started;
+ try{
+  await assert.rejects(transaction(async db=>{
+   await scope(db,workspace);
+   await db.query("SET LOCAL lock_timeout='100ms'");
+   await db.query("UPDATE conversations SET reply_owner='HUMAN_ACTIVE',owner_version=owner_version+1 WHERE id=$1",[conversation]);
+  }),{code:'55P03'});
+ }finally{release();}
+ assert.equal((await dispatch).state,'succeeded');
+ await transaction(async db=>{
+  await scope(db,workspace);
+  assert.equal((await db.query("UPDATE conversations SET reply_owner='HUMAN_ACTIVE',owner_version=owner_version+1 WHERE id=$1 RETURNING id",[conversation])).rowCount,1);
+ });
  await assert.rejects(transaction(db=>receiveMetaWebhook(db,Buffer.from('{}'),signature)),{code:'META_SIGNATURE_INVALID'});
 });
