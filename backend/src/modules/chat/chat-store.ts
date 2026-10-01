@@ -7,6 +7,9 @@ export async function appendMessage(db:PoolClient,input:{workspace:string,conver
  const old=(await db.query('SELECT * FROM messages WHERE conversation_id=$1 AND client_id=$2',[c.id,input.clientId])).rows[0];if(old){if(old.body!==input.body||old.author_type!==input.author||old.visibility!==input.visibility||old.actor_id!==(input.actor??null))throw new HttpError(409,'IDEMPOTENCY_CONFLICT');const existing=(await db.query('SELECT kind AS type,url FROM message_attachments WHERE workspace_id=$1 AND message_id=$2',[input.workspace,old.id])).rows;
  const canonical=(items:Array<{type:string;url:string}>)=>JSON.stringify(items.map(a=>JSON.stringify([a.type,a.url])).sort());
  if(canonical(existing)!==canonical(input.attachments??[]))throw new HttpError(409,'IDEMPOTENCY_CONFLICT');
+ const storedMedia=(await db.query('SELECT media_type AS type,external_media_id AS id FROM meta_media_references WHERE workspace_id=$1 AND message_id=$2',[input.workspace,old.id])).rows;
+ const canonicalMedia=(items:Array<{type:string;id:string}>)=>JSON.stringify([...new Set(items.map(a=>JSON.stringify([a.type,a.id])))].sort());
+ if(canonicalMedia(storedMedia)!==canonicalMedia(input.providerMedia??[]))throw new HttpError(409,'IDEMPOTENCY_CONFLICT');
  return {...old,attachments:existing};}
  if(input.author==='ai'&&(c.reply_owner!=='AI_ACTIVE'||c.owner_version!==input.ownerVersion))throw new HttpError(409,'STALE_REPLY_OWNER');
  if(input.author==='agent'&&input.visibility==='public'&&(c.reply_owner!=='HUMAN_ACTIVE'||c.assigned_to!==input.actor))throw new HttpError(409,'TAKEOVER_REQUIRED');

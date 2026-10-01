@@ -69,6 +69,15 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
   return {status:'accepted',providerMessageId:'fixture-receipt'};
  });
  assert.equal(accepted.state,'succeeded');assert.equal(sends,1);
+ // Multiple connected accounts must never choose a token by recency.
+ const ambiguous=randomUUID();
+ await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Ambiguous','META_OTHER_TOKEN')",[ambiguous,workspace,channel,randomUUID()]);
+ await transaction(async db=>{await scope(db,workspace);await enqueueJob(db,workspace,{kind:'meta.message.send',key:randomUUID(),payload:{conversationId:conversation,messageId:message,ownerVersion:1},external:true,maxAttempts:1});});
+ const blocked=await runMetaWorkerOnce(workspace,async()=>{sends++;throw new Error('Ambiguous mapping must not dispatch');});
+ assert.equal(blocked.state,'dead');assert.equal(sends,1);
+ await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT id FROM jobs WHERE kind='meta.message.send' AND error_code='META_DISPATCH_INVALID'")).rowCount,1);});
+ await admin!.query('DELETE FROM meta_connections WHERE id=$1',[ambiguous]);
+
  await transaction(async db=>{
   await scope(db,workspace);
   await enqueueJob(db,workspace,{kind:'meta.message.send',key:randomUUID(),payload:{conversationId:conversation,messageId:message,ownerVersion:1},external:true,maxAttempts:1});
@@ -76,7 +85,7 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  });
  const stale=await runMetaWorkerOnce(workspace,async()=>{sends++;throw new Error('stale AI must never send');});
  assert.equal(stale.state,'dead');assert.equal(sends,1);
- await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT error_code FROM jobs WHERE state='dead' AND kind='meta.message.send'")).rows[0].error_code,'STALE_REPLY_OWNER');});
+ await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT error_code FROM jobs WHERE state='dead' AND kind='meta.message.send' AND error_code='STALE_REPLY_OWNER'")).rows[0].error_code,'STALE_REPLY_OWNER');});
 
  assert.equal((await runAiWorkerOnce(workspace,async()=>{throw new Error('Stale AI must never invoke provider');})).state,'dead');
  // A takeover must wait until an already-started dispatch releases its lock.
@@ -117,6 +126,16 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  const mediaInput={workspace,conversation,clientId:mediaClient,author:'visitor' as const,visibility:'public' as const,body:'Media retry',attachments:[{type:'image' as const,url:'https://example.test/retry.jpg'}]};
  await transaction(async db=>{await scope(db,workspace);const first=await appendMessage(db,mediaInput);const second=await appendMessage(db,mediaInput);assert.equal(first.id,second.id);assert.deepEqual(second.attachments,mediaInput.attachments);});
  await assert.rejects(transaction(async db=>{await scope(db,workspace);return appendMessage(db,{...mediaInput,attachments:[{type:'image',url:'https://example.test/changed.jpg'}]});}),{code:'IDEMPOTENCY_CONFLICT'});
+ const providerInput={workspace,conversation,clientId:randomUUID(),author:'visitor' as const,visibility:'public' as const,body:'WhatsApp media',providerMedia:[{type:'video' as const,id:'media-fixture-1'}]};
+ await transaction(async db=>{await scope(db,workspace);
+  const first=await appendMessage(db,providerInput);const replay=await appendMessage(db,providerInput);
+  assert.equal(first.id,replay.id);
+  assert.equal((await db.query('SELECT id FROM meta_media_references WHERE message_id=$1',[first.id])).rowCount,1);
+ });
+ for(const providerMedia of [[],[{type:'video' as const,id:'media-fixture-2'}],[{type:'image' as const,id:'media-fixture-1'}]]){
+  await assert.rejects(transaction(async db=>{await scope(db,workspace);return appendMessage(db,{...providerInput,providerMedia});}),{code:'IDEMPOTENCY_CONFLICT'});
+ }
+ await transaction(async db=>{await scope(db,other);assert.equal((await db.query('SELECT id FROM meta_media_references')).rowCount,0);});
  await assert.rejects(transaction(db=>receiveMetaWebhook(db,Buffer.from('{}'),signature)),{code:'META_SIGNATURE_INVALID'});
 });
 
@@ -146,5 +165,17 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
   assert.equal((await db.query('SELECT id FROM meta_identities')).rowCount,2);
   assert.equal((await db.query("SELECT id FROM jobs WHERE kind='ai.reply'")).rowCount,2);
  });
- await transaction(async db=>{await scope(db,other);for(const table of ['messages','conversations','meta_identities','meta_events'])assert.equal((await db.query(`SELECT id FROM ${table}`)).rowCount,0);});
+ const mediaBody={object:'whatsapp_business_account',entry:[{id:'waba-id-not-phone-id',changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'100002'},messages:[{from:'shared-user',id:'wa-image',type:'image',image:{id:'image-id'}},{from:'shared-user',id:'wa-video',type:'video',video:{id:'video-id'}}]}}]}]};
+ const rawMedia=Buffer.from(JSON.stringify(mediaBody));
+ const mediaSig='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(rawMedia).digest('hex');
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,rawMedia,mediaSig))).processed,2);
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,rawMedia,mediaSig))).processed,0);
+ await transaction(async db=>{await scope(db,workspace);
+  const refs=(await db.query('SELECT media_type,external_media_id FROM meta_media_references ORDER BY media_type')).rows;
+  assert.deepEqual(refs,[{media_type:'image',external_media_id:'image-id'},{media_type:'video',external_media_id:'video-id'}]);
+  assert.equal((await db.query('SELECT id FROM messages')).rowCount,4);
+  assert.equal((await db.query("SELECT id FROM jobs WHERE kind='ai.reply'")).rowCount,2);
+  assert.equal((await db.query('SELECT message_id FROM message_attachments')).rowCount,0);
+ });
+ await transaction(async db=>{await scope(db,other);for(const table of ['messages','conversations','meta_identities','meta_events','meta_media_references'])assert.equal((await db.query(`SELECT id FROM ${table}`)).rowCount,0);});
 });
