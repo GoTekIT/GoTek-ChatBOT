@@ -5,7 +5,7 @@ import {randomUUID,createHmac} from 'node:crypto';
 import {pool,scope,transaction} from '../src/core/db';
 import {receiveMetaWebhook} from '../src/modules/meta/messenger';
 import {aiReplyHandler} from '../src/modules/ai/ai-reply-worker';
-import {runMetaWorkerOnce,runMetaProfileWorkerOnce} from '../src/modules/jobs/worker';
+import {runMetaWorkerOnce,runMetaProfileWorkerOnce,runAiWorkerOnce} from '../src/modules/jobs/worker';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 import {appendMessage} from '../src/modules/chat/chat-store';
 const enabled=!!process.env.META_TEST_ADMIN_URL && !!process.env.DB_RUNTIME_FILE;
@@ -78,6 +78,7 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  assert.equal(stale.state,'dead');assert.equal(sends,1);
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT error_code FROM jobs WHERE state='dead' AND kind='meta.message.send'")).rows[0].error_code,'STALE_REPLY_OWNER');});
 
+ assert.equal((await runAiWorkerOnce(workspace,async()=>{throw new Error('Stale AI must never invoke provider');})).state,'dead');
  // A takeover must wait until an already-started dispatch releases its lock.
  await transaction(async db=>{
   await scope(db,workspace);

@@ -243,7 +243,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
     const msgClientId = crypto.randomUUID();
 
     // 1. Send via WebSocket if open (<1ms)
-    const sentViaWs = await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
+    const sentViaWs = activeConv.channel === 'Facebook Messenger' ? false : await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
 
     // 2. Dispatch to parent console state
     onSendMessage(activeConv.id, {
@@ -648,12 +648,12 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 <span className="font-medium text-slate-700 dark:text-slate-300">{activeConv.customerCompany}</span>
                 <span>•</span>
                 <a
-                  href={activeConv.websiteUrl}
+                  href={activeConv.websiteUrl || undefined}
                   target="_blank"
                   rel="noreferrer"
                   className="text-slate-400 hover:text-[#1664ff] dark:hover:text-blue-400 transition-colors"
                 >
-                  {activeConv.websiteUrl}
+                  {activeConv.websiteUrl || 'Website: Chưa cung cấp'}
                 </a>
               </p>
             </div>
@@ -1354,7 +1354,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     mail
                   </span>
                   <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium truncate">
-                    {activeConv.customerEmail}
+                    {activeConv.customerEmail || 'Email: Chưa cung cấp'}
                   </span>
                 </div>
                 <span className="material-symbols-outlined text-slate-400 opacity-0 group-hover:opacity-100 text-[15px] transition-opacity">
@@ -1373,7 +1373,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     call
                   </span>
                   <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium truncate">
-                    {activeConv.customerPhone}
+                    {activeConv.customerPhone || 'Số điện thoại: Chưa cung cấp'}
                   </span>
                 </div>
                 <span className="material-symbols-outlined text-slate-400 opacity-0 group-hover:opacity-100 text-[15px] transition-opacity">
@@ -1384,7 +1384,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
               {/* Location */}
               <div className="flex items-center gap-2.5 p-1.5 text-slate-700 dark:text-slate-300">
                 <span className="material-symbols-outlined text-slate-400 text-[16px]">location_on</span>
-                <span className="text-[12px] font-medium">{activeConv.customerLocation}</span>
+                <span className="text-[12px] font-medium">{activeConv.customerLocation || 'Địa chỉ: Chưa cung cấp'}</span>
               </div>
 
               {/* Website */}
@@ -1392,12 +1392,12 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="material-symbols-outlined text-slate-400 text-[16px]">language</span>
                   <a
-                    href={activeConv.websiteUrl}
+                    href={activeConv.websiteUrl || undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="text-[12px] text-[#1664ff] dark:text-blue-400 hover:underline font-medium truncate"
                   >
-                    {activeConv.websiteUrl}
+                    {activeConv.websiteUrl || 'Website: Chưa cung cấp'}
                   </a>
                 </div>
                 <span className="material-symbols-outlined text-slate-400 text-[15px]">open_in_new</span>

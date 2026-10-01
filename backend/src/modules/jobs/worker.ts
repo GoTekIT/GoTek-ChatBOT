@@ -25,6 +25,15 @@ export async function runWorkerOnce(workspace:string,handlers:Record<string,JobH
  if(!handler){await scoped(db=>finishJob(db,job.id,job.lease_token,{state:'failed',code:'HANDLER_UNAVAILABLE'}));return {state:'unavailable'};}
  try{const result=await handler(job);await scoped(db=>finishJob(db,job.id,job.lease_token,{state:'succeeded',receipt:result.receipt}));return {state:'succeeded'};}
  catch(error){if(error instanceof HttpError&&error.code==='STALE_JOB_LEASE')return {state:'lease_expired'};
+ // An ownership fence rejection happens before inference or message commit.
+ // It is a known cancellation, not an ambiguous provider outcome.
+ if(job.kind==='ai.reply'&&error instanceof HttpError&&error.code==='STALE_REPLY_OWNER'){
+  await scoped(async db=>{
+   await db.query("UPDATE jobs SET max_attempts=attempts WHERE id=$1 AND state='running' AND lease_token=$2 AND lease_until>now()",[job.id,job.lease_token]);
+   await finishJob(db,job.id,job.lease_token,{state:'failed',code:'STALE_REPLY_OWNER'});
+  });
+  return {state:'dead'};
+ }
  // Messenger rejections are terminal: do not retry sends implicitly.
  if(job.kind==='meta.message.send'&&error instanceof HttpError){
   const code=error.code;

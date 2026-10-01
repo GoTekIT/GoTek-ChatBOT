@@ -1,3 +1,19 @@
+## UI Messenger send fix — 2026-10-01
+
+- Found UI WebSocket send bypassed inboxSend and therefore Meta queue. Messenger composer now uses the existing REST path, which enqueues outbound jobs; pilot worker started continuously for the explicit test workspace.
+- Submitted [GoTek UI test] from authenticated GoTek UI. Job succeeded with provider receipt; actual matching message observed in personal Facebook Messenger at 20:40. This is browser-to-provider-to-recipient evidence.
+- Missing contact fields now display Chưa cung cấp; no contact data inferred. Frontend build PASS. Worker is a local process, not a production service; shutdown stops automatic delivery. Historic UI messages lacking jobs were not automatically replayed.
+
+## Authenticated inbox observed — 2026-10-01
+
+- Logged into GoTek Messenger Pilot in Chrome. Observed actual tester name/avatar, Facebook Messenger source label, inbound test messages and prior staff reply in the shared inbox with customer sidebar open. Email/phone/location absent, not inferred.
+- Removed test channel origin from Messenger websiteUrl so example.test is not presented as customer information. Reloaded authenticated inbox: source/name/test message remain, example.test absent. Backend typecheck PASS.
+- This proves existing conversation rendering; realtime arrival without reload, UI send receipt and real AI still require acceptance. Prior API/provider roundtrip evidence remains separate.
+
+## Stale AI job classification — 2026-10-01
+
+- Actual pending pilot AI job was rejected after agent takeover but generic worker classified it unknown. Future ai.reply STALE_REPLY_OWNER outcomes now settle terminal dead with explicit code, without retry or provider invocation. Existing historical unknown job is preserved. Integration exercises queued AI after takeover and passes; backend typecheck PASS. Real model acceptance remains pending.
+
 ## Frontend Messenger type contract — 2026-10-01
 
 - Conversation type includes Facebook Messenger and an empty client tier matching missing profile data. Existing inbox renders channel text directly. Frontend typecheck/build PASS with existing bundle warning; this is source evidence, not authenticated browser acceptance.
