@@ -13,8 +13,9 @@ const incoming=z.object({
 });
 /** Caller has established tenant scope. One receipt per transaction; provider payload never sets tenant scope. */
 export async function normalizeFacebookReceipt(db:PoolClient,workspace:string) {
- const receipt=(await db.query(`SELECT * FROM meta_webhook_receipts WHERE workspace_id=$1 AND processed_at IS NULL
- ORDER BY received_at,id LIMIT 1 FOR UPDATE SKIP LOCKED`,[workspace])).rows[0];
+ const receipt=(await db.query(`SELECT r.* FROM meta_webhook_receipts r JOIN meta_connections x ON x.id=r.connection_id AND x.workspace_id=r.workspace_id
+ WHERE r.workspace_id=$1 AND r.processed_at IS NULL AND x.provider='facebook'
+ ORDER BY r.received_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`,[workspace])).rows[0];
  if(!receipt)return {state:'idle'};
  if(!(await db.query("SELECT id FROM workspaces WHERE id=$1 AND status='active' FOR SHARE",[workspace])).rowCount)return {state:'disabled'};
  const connection=(await db.query("SELECT * FROM meta_connections WHERE id=$1 AND workspace_id=$2 FOR UPDATE",[receipt.connection_id,workspace])).rows[0];

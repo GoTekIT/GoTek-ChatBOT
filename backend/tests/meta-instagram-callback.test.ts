@@ -1,16 +1,17 @@
 import {test,after} from 'node:test';
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHmac} from 'node:crypto';
 import pg from 'pg';
 import request from 'supertest';
 import {createApp} from '../src/app';
-import {pool} from '../src/core/db';
+import {pool,transaction,scope} from '../src/core/db';
+import {normalizeFacebookReceipt} from '../src/modules/meta/normalize';
 import {digest} from '../src/core/security';
 const admin=new pg.Pool({host:process.env.PGHOST||'/tmp',port:Number(process.env.PGPORT)||55432,user:process.env.PGUSER||'gotek_migrator',password:process.env.PGPASSWORD||'gotek_dev_password',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 test('Instagram callback stores only encrypted tenant-bound connection and rejects replay, foreign tenant and revoked session',async()=>{
  const ws=randomUUID(),other=randomUUID(),user=randomUUID(),token=randomUUID(),otherToken=randomUUID();
- const settings={META_INSTAGRAM_APP_ID:'123',META_INSTAGRAM_APP_SECRET:'fixture',META_INSTAGRAM_REDIRECT_URI:'https://example.test/ig/callback',META_GRAPH_VERSION:'v25.0',META_TOKEN_ENCRYPTION_KEY:'cd'.repeat(32)};
+ const settings={META_INSTAGRAM_VERIFY_TOKEN:'ig-verify',META_INSTAGRAM_APP_ID:'123',META_INSTAGRAM_APP_SECRET:'fixture',META_INSTAGRAM_REDIRECT_URI:'https://example.test/ig/callback',META_GRAPH_VERSION:'v25.0',META_TOKEN_ENCRYPTION_KEY:'cd'.repeat(32)};
  const saved=Object.fromEntries(Object.keys(settings).map(k=>[k,process.env[k]])),originalFetch=globalThis.fetch;
  Object.assign(process.env,settings);
  let calls=0,revoke=false;
@@ -46,6 +47,17 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   assert.equal(stored.workspace_id,ws);assert.equal(stored.transport,'instagram');assert.equal(stored.enabled,false);
   assert.equal(stored.token_ciphertext.includes('long-private'),false);assert.ok(new Date(stored.token_expires_at).getTime()>Date.now());
   assert.equal((await callback(state)).status,400);assert.equal(calls,3);
+  const webhook='/integrations/meta/instagram/webhook';
+  assert.equal((await app.get(webhook).query({'hub.mode':'subscribe','hub.verify_token':'ig-verify','hub.challenge':'challenge'})).text,'challenge');
+  assert.equal((await app.get(webhook).query({'hub.mode':'subscribe','hub.verify_token':'wrong','hub.challenge':'challenge'})).status,403);
+  const raw=JSON.stringify({object:'instagram',entry:[{id:'222',workspace_id:other,messaging:[{sender:{id:'333'},recipient:{id:'222'},timestamp:Date.now(),message:{mid:'ig-1',text:'hello'}}]}]});
+  const signature='sha256='+createHmac('sha256','fixture').update(raw).digest('hex');
+  assert.equal((await app.post(webhook).set('Content-Type','application/json').send(raw)).status,403);
+  assert.equal((await app.post(webhook).set('Content-Type','application/json').set('X-Hub-Signature-256',signature).send(raw+' ')).status,403);
+  for(let i=0;i<2;i++)assert.equal((await app.post(webhook).set('Content-Type','application/json').set('X-Hub-Signature-256',signature).send(raw)).status,200);
+  const receipts=await admin.query('SELECT workspace_id,connection_id FROM meta_webhook_receipts WHERE connection_id=$1',[result.body.id]);
+  assert.equal(receipts.rowCount,1);assert.equal(receipts.rows[0].workspace_id,ws);
+  assert.equal((await transaction(async db=>{await scope(db,ws);return normalizeFacebookReceipt(db,ws);})).state,'idle');
   const reconnectState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await callback(reconnectState)).body.id,result.body.id);
   assert.equal((await admin.query('SELECT generation FROM meta_connections WHERE id=$1',[result.body.id])).rows[0].generation,2);
@@ -59,7 +71,7 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   globalThis.fetch=originalFetch;
   for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
   for(const workspace of [ws,other]){
-   for(const table of ['meta_connections','channel_members','channels','audit_events','meta_oauth_attempts','sessions','memberships'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[workspace]);
+   for(const table of ['meta_webhook_receipts','meta_connections','channel_members','channels','audit_events','meta_oauth_attempts','sessions','memberships'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[workspace]);
    await admin.query('DELETE FROM workspaces WHERE id=$1',[workspace]);
   }
   await admin.query('DELETE FROM users WHERE id=$1',[user]);
