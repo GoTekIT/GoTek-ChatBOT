@@ -165,6 +165,18 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
   assert.equal((await db.query('SELECT id FROM meta_identities')).rowCount,2);
   assert.equal((await db.query("SELECT id FROM jobs WHERE kind='ai.reply'")).rowCount,2);
  });
+ const sendNamed=async(name:string,id:string)=>{
+  const raw=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'100002'},contacts:[{wa_id:'shared-user',profile:{name}}],messages:[{from:'shared-user',id,type:'text',text:{body:'Name refresh'}}]}}]}]}));
+  const sig='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(raw).digest('hex');
+  return transaction(db=>receiveMetaWebhook(db,raw,sig));
+ };
+ await sendNamed('Nguyễn An','name-refresh-1');
+ await transaction(async db=>{await scope(db,workspace);
+  assert.equal((await db.query("SELECT profile->>'name' AS name FROM visitors WHERE profile->>'source'='whatsapp_business'")).rows[0].name,'Nguyễn An');
+  await db.query("UPDATE visitors SET profile=jsonb_set(profile,'{name}','\"Staff label\"'::jsonb) WHERE profile->>'source'='whatsapp_business'");
+ });
+ await sendNamed('Provider new name','name-refresh-2');
+ await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT profile->>'name' AS name FROM visitors WHERE profile->>'source'='whatsapp_business'")).rows[0].name,'Staff label');});
  const mediaBody={object:'whatsapp_business_account',entry:[{id:'waba-id-not-phone-id',changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'100002'},messages:[{from:'shared-user',id:'wa-image',type:'image',image:{id:'image-id'}},{from:'shared-user',id:'wa-video',type:'video',video:{id:'video-id'}}]}}]}]};
  const rawMedia=Buffer.from(JSON.stringify(mediaBody));
  const mediaSig='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(rawMedia).digest('hex');
@@ -173,9 +185,29 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
  await transaction(async db=>{await scope(db,workspace);
   const refs=(await db.query('SELECT media_type,external_media_id FROM meta_media_references ORDER BY media_type')).rows;
   assert.deepEqual(refs,[{media_type:'image',external_media_id:'image-id'},{media_type:'video',external_media_id:'video-id'}]);
-  assert.equal((await db.query('SELECT id FROM messages')).rowCount,4);
-  assert.equal((await db.query("SELECT id FROM jobs WHERE kind='ai.reply'")).rowCount,2);
+  assert.equal((await db.query('SELECT id FROM messages')).rowCount,6);
+  assert.equal((await db.query("SELECT id FROM jobs WHERE kind='ai.reply'")).rowCount,4);
   assert.equal((await db.query('SELECT message_id FROM message_attachments')).rowCount,0);
  });
  await transaction(async db=>{await scope(db,other);for(const table of ['messages','conversations','meta_identities','meta_events','meta_media_references'])assert.equal((await db.query(`SELECT id FROM ${table}`)).rowCount,0);});
+});
+
+test('WhatsApp persists each receipt transition once, including reverse arrival order',{skip:!enabled},async()=>{
+ const workspace=randomUUID(),channel=randomUUID(),connection=randomUUID(),phone=randomUUID();
+ process.env.META_WORKSPACE_ID=workspace;process.env.META_APP_SECRET='local-fixture-only';
+ await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[workspace,'Receipt fixture']);
+ await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Receipt fixture','https://example.test','Hi','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
+ await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,channel_kind) VALUES($1,$2,$3,$4,'Fixture','META_FIXTURE_TOKEN','whatsapp_business')",[connection,workspace,channel,phone]);
+ for(const status of ['read','delivered','sent','sent','read']){
+  const raw=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:phone},statuses:[{id:'same-mid',status,recipient_id:'fixture-recipient'}]}}]}]}));
+  const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
+  await transaction(db=>receiveMetaWebhook(db,raw,signature));
+ }
+ await transaction(async db=>{
+  await scope(db,workspace);
+  const receipts=(await db.query('SELECT event_kind,payload FROM meta_events WHERE connection_id=$1 ORDER BY event_kind',[connection])).rows;
+  assert.deepEqual(receipts.map(r=>r.event_kind),['status:delivered','status:read','status:sent']);
+  assert.ok(receipts.every(r=>r.payload.providerMessageId==='same-mid'&&!r.payload.entry));
+  assert.equal((await db.query('SELECT id FROM messages')).rowCount,0);
+ });
 });

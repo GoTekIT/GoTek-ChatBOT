@@ -23,7 +23,7 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
  for(const status of statuses){
   const c=(await db.query(`SELECT id,workspace_id FROM meta_connections WHERE workspace_id=$1 AND external_page_id=$2 AND channel_kind=$3 AND status='connected' FOR UPDATE`,[configuredWorkspace,status.externalAccountId,status.surface])).rows[0];
   if(!c) continue;
-  const inserted=(await db.query('INSERT INTO meta_events(id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.id,status.eventId,'status',body])).rowCount;
+  const inserted=(await db.query('INSERT INTO meta_events(id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.id,status.eventId,'status:'+status.status,status])).rowCount;
   if(inserted) afterCommit.push(()=>realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:message_receipt',status));
  }
  const normalized=normalizeMetaInbound(body);
@@ -39,7 +39,7 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
   const conv=(await db.query("SELECT c.id,c.visitor_id,c.owner_version,c.reply_owner FROM conversations c JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND c.channel_id=$2 AND v.profile->>'metaUserId'=$3 ORDER BY c.updated_at DESC LIMIT 1",[c.workspace_id,c.channel_id,event.senderId])).rows[0];
   let conversation=conv;
   if(!conversation){const visitorId=uuid();conversation={id:uuid(),visitor_id:visitorId,owner_version:1,reply_owner:'AI_ACTIVE'};await db.query('INSERT INTO visitors(id,workspace_id,channel_id,token_hash,profile,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval \'30 days\')',[visitorId,c.workspace_id,c.channel_id,'meta:'+c.id+':'+event.senderId,{...profile,metaUserId:event.senderId}]);await db.query("INSERT INTO conversations(id,workspace_id,channel_id,visitor_id,reply_owner) VALUES($1,$2,$3,$4,'AI_ACTIVE')",[conversation.id,c.workspace_id,c.channel_id,visitorId]);}
-  else if(event.displayName) await db.query("UPDATE visitors SET profile=jsonb_set(profile,'{name}',$1::jsonb),updated_at=now() WHERE id=$2 AND (profile->>'name' IS NULL OR profile->>'name'='Meta user')",[JSON.stringify(event.displayName),conversation.visitor_id]);
+  else if(event.displayName) await db.query("UPDATE visitors SET profile=jsonb_set(profile,'{name}',$1::jsonb) WHERE id=$2 AND (profile->>'name' IS NULL OR profile->>'name'='Meta user')",[JSON.stringify(event.displayName),conversation.visitor_id]);
   if(event.surface!=='whatsapp_business') await enqueueJob(db,c.workspace_id,{kind:'meta.profile.fetch',key:`meta-profile:${c.id}:${event.senderId}:${new Date().toISOString().slice(0,10)}`,payload:{connectionId:c.id,userId:event.senderId},external:false});
   const digest=createHash('sha256').update(`${c.id}:${event.eventId}`).digest('hex');const clientId=`${digest.slice(0,8)}-${digest.slice(8,12)}-4${digest.slice(13,16)}-8${digest.slice(17,20)}-${digest.slice(20,32)}`;
   const attachmentCount=event.attachments.length+event.mediaReferences.length; const bodyText=event.text|| (attachmentCount?`[Đính kèm ${attachmentCount} tệp từ ${event.surface}]`:'');
