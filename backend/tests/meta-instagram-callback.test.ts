@@ -107,9 +107,12 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   const foreignState=new URL((await connect(otherToken)).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await callback(foreignState,otherToken)).status,409);
   assert.equal((await admin.query('SELECT id FROM channels WHERE workspace_id=$1',[other])).rowCount,0);
+  const browserState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
+  const browserCallback=await app.get(base+'/callback').query({state:browserState,code:'fixture-code'}).set('Authorization','Bearer '+token).set('Accept','text/html');
+  assert.equal(browserCallback.status,303);assert.equal(browserCallback.headers.location,'/app/channels');
   const revokedState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;revoke=true;
   assert.equal((await callback(revokedState)).status,401);
-  assert.equal((await admin.query('SELECT generation FROM meta_connections WHERE id=$1',[result.body.id])).rows[0].generation,2);
+  assert.equal((await admin.query('SELECT generation FROM meta_connections WHERE id=$1',[result.body.id])).rows[0].generation,3);
  }finally{
   globalThis.fetch=originalFetch;
   for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}

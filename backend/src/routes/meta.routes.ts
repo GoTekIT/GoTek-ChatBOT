@@ -49,7 +49,9 @@ metaRouter.get('/integrations/meta/facebook/callback',async(req,res)=>{
   return saveFacebookEnrollment(db,actor,grant,key);
  });
  // Temporary API response until Connect UI is integrated. No provider token leaves the server.
- res.set('Referrer-Policy','no-referrer').json({enrollmentId,next:'select_page'});
+ res.set('Referrer-Policy','no-referrer');
+ if(req.get('accept')?.includes('text/html')){res.redirect(303,'/app/channels?meta_enrollment='+encodeURIComponent(enrollmentId));return;}
+ res.json({enrollmentId,next:'select_page'});
 });
 
 metaRouter.get('/integrations/meta/facebook/enrollments/:id/pages',async(req,res)=>{
@@ -128,7 +130,9 @@ metaRouter.get('/integrations/meta/instagram/callback',async(req,res)=>{
     throw new HttpError(403,'META_IDENTITY_CHANGED');
    return persistInstagramConnection(db,actor,grant,account,key,expiresAt);
   });
-  res.set('Referrer-Policy','no-referrer').json(connection);
+  res.set('Referrer-Policy','no-referrer');
+  if(req.get('accept')?.includes('text/html')){res.redirect(303,'/app/channels');return;}
+  res.json(connection);
  }catch(error){
   if((error as {code?:string}).code==='23505')throw new HttpError(409,'META_ASSET_UNAVAILABLE');
   throw error;

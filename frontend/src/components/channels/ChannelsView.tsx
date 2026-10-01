@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import {MetaConnections} from './MetaConnections';
 
-export const ChannelsView: React.FC = () => {
+export const ChannelsView: React.FC<{scope:string;allowed:boolean}> = ({scope,allowed}) => {
   const [channels, setChannels] = useState([
     {
       id: 'web',
@@ -70,6 +71,8 @@ export const ChannelsView: React.FC = () => {
         </div>
       )}
 
+      <MetaConnections key={scope} scope={scope} allowed={allowed} />
+      <p role="note">Các kênh mẫu bên dưới là giao diện minh họa, chưa xác nhận kết nối thực tế.</p>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#c7c4d8]/60 pb-6">
         <div>

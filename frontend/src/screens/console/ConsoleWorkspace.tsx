@@ -210,7 +210,7 @@ export function ConsoleWorkspace({
               <main className="flex-1 overflow-y-auto p-6 space-y-4"><MembersSettings authorization={me} onChange={async () => { await onRefresh?.(); }} /></main>
             )}
 
-            {activeModule === 'channels' && canOpenModule(me, 'channels') && <ChannelsView />}
+            {activeModule === 'channels' && canOpenModule(me, 'channels') && <ChannelsView scope={`${me?.user?.id || ''}:${me?.workspaceId || ''}`} allowed={can(me, 'channels.manage')} />}
             {activeModule === 'analytics' && canOpenModule(me, 'analytics') && <AnalyticsView />}
           </>
         ) : (
