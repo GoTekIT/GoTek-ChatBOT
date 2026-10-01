@@ -7,7 +7,7 @@ import {createApp} from '../src/app';
 import {pool} from '../src/core/db';
 import {digest} from '../src/core/security';
 
-const admin = new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin = new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 
 test('H01 reset challenge is single-use, expires, and revokes existing sessions', async()=>{

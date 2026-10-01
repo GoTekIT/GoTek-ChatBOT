@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import {randomUUID} from 'node:crypto';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 test.after(()=>admin.end());
 test('H11 generation schema enforces lineage, action values and tenant RLS policy',async()=>{
  const user=randomUUID(),a=randomUUID(),b=randomUUID(),source=randomUUID(),group=randomUUID(),generation=randomUUID(),snapshot=randomUUID(),job=randomUUID(),request=randomUUID();

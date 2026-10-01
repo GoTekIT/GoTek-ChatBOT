@@ -1,5 +1,5 @@
 import {test,after} from 'node:test';import assert from 'node:assert/strict';import pg from 'pg';import {randomUUID} from 'node:crypto';import {pool,scope,transaction} from '../src/core/db';import {reserveUsage,reserveAiResponse,settleUsage,usageSummary} from '../src/modules/ai/quota';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
 test('H23 quota concurrency, UNKNOWN holds, receipt idempotency and tenant isolation',async()=>{
  const workspace=randomUUID(),other=randomUUID(),budget=randomUUID();await admin.query('INSERT INTO workspaces(id,name) VALUES($1,$2),($3,$4)',[workspace,'Quota test',other,'Other']);await admin.query("INSERT INTO quota_budgets(id,workspace_id,meter,period_start,period_end,limit_units) VALUES($1,$2,'ai_response',now()-interval '1 day',now()+interval '1 day',1)",[budget,workspace]);
  const run=<T>(fn:(db:pg.PoolClient)=>Promise<T>,tenant=workspace)=>transaction(async db=>{await scope(db,tenant);return fn(db);});

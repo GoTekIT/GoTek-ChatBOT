@@ -6,7 +6,7 @@ import { pool, scope, transaction } from '../src/core/db';
 import { enqueueJob, claimJob, finishJob, recoverStaleJobs } from '../src/modules/jobs/jobs';
 import { runWorkerOnce } from '../src/modules/jobs/worker';
 
-const admin = new pg.Pool({ host: '/tmp', port: 55432, user: 'gotek_migrator', database: 'gotek_chatbot' });
+const admin = new pg.Pool({ host: '127.0.0.1', port: 55432, user: 'gotek_migrator', database: 'gotek_chatbot' });
 after(async () => { await pool.end(); await admin.end(); });
 
 test('H32.02 stale lease becomes UNKNOWN for external work and cannot duplicate side effect', async () => {

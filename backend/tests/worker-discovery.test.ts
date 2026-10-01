@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {runAiWorkerAll} from '../src/modules/jobs/worker';
 import {pool,transaction} from '../src/core/db';
 test('scheduler discovery sees active tenants without granting workspace row access',async()=>{
- const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+ const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
  const prefix=randomUUID().replaceAll('-','').slice(0,12);
  const anchor='ffffffff-ffff-4fff-8fff-'+prefix;
  const fixtures=Array.from({length:105},(_,i)=>'ffffffff-ffff-4fff-9fff-'+i.toString(16).padStart(12,'0'));

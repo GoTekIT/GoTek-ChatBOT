@@ -5,7 +5,7 @@ import pg from 'pg';
 import {randomUUID} from 'node:crypto';
 import {createApp} from '../src/app';
 import {pool} from '../src/core/db';
-const admin = new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin = new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 test('H01 local verification consumes token once and rejects expired tokens',async()=>{
  const agent=request.agent(createApp()),email=`verify-${randomUUID()}@example.test`;

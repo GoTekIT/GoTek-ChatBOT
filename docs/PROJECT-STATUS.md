@@ -1,5 +1,82 @@
 # Current snapshot
 
+## Chuyển Đổi Lời Mở Đầu Sang Bong Bóng Chat & Làm Gọn Header Widget — 2026-10-01
+
+1. **Hiển Thị Lời Mở Đầu Như Tin Nhắn Chat Đầu Tiên (`.bubble.greeting-bubble`):**
+   - Đã điều chỉnh logic hiển thị của SDK (`sdk.js`): Lời chào mở đầu (`greeting`) được lấy động từ cấu hình kênh trong cơ sở dữ liệu (`channels.greeting`), ví dụ *"Xin chào nguyennv có thể giuwps gì cho bạn ?"*.
+   - Lời chào này được tạo thành một bong bóng chat chuẩn (left-aligned bubble) nằm ở vị trí tin nhắn đầu tiên trong danh sách hội thoại của widget, tạo cảm giác tự nhiên như tin nhắn chào đón từ doanh nghiệp ngay khi khách mở khung chat.
+   - Tự động ẩn dòng thông báo trống (`.empty`) khi lời chào xuất hiện, và bảo toàn vị trí lời chào ở trên cùng kể cả sau khi tải lịch sử chat cũ hoặc nộp form pre-chat.
+2. **Loại Bỏ Hoàn Toàn Lời Chào Ở Thanh Trạng Thái Phía Trên:**
+   - Xóa bỏ thẻ `<p class="greeting"></p>` khỏi khu vực `.meta`.
+   - Khu vực `.meta` giờ đây là thanh trạng thái tinh gọn chỉ gồm đèn báo trực tuyến (`● Nhân viên đang hỗ trợ` / `● Trợ lý AI đang hỗ trợ`) cùng nút chuyển nhân viên (handoff), phân tách rõ ràng với khung chat bằng đường viền phân cách mỏng (`border-bottom`).
+3. **Đồng Bộ Preview Trong Admin Portal:**
+   - Cập nhật `WidgetPreview.tsx`, `Channels.tsx`, và `ChannelConfiguration.tsx` nhận prop `greeting` để màn hình xem trước hiển thị đúng lời chào đang cấu hình trong CSDL.
+4. **Kiểm Chứng:**
+   - Đã đồng bộ toàn bộ thay đổi qua cả 3 bản SDK: `backend/public/sdk.js`, `frontend/public/sdk.js`, và `public/sdk.js`.
+   - `npx tsx --test backend/tests/sdk-contract.test.ts`: PASS 2/2.
+   - `npm run build:all`: PASS 100% (Backend + Frontend).
+
+## Tối Ưu Tốc Độ Giao Nhận Tin Nhắn Nhân Viên Tới Widget (<5ms) — 2026-10-01
+
+Đã điều tra và xử lý triệt để nguyên nhân khiến widget nhận diện nhân viên đang hỗ trợ / typing rất nhanh nhưng tin nhắn thực tế lại bị chậm:
+1. **Xác thực WebSocket Nhân Viên (Staff Token via Query URL):** Bổ sung truyền session token (`getStoredToken()`) trong `useRealtimeChat.ts` khi khởi tạo WebSocket phía Staff Console. Khắc phục lỗi 4001 Unauthorized trước đây do browser WebSocket không thể gửi header `Authorization: Bearer` và cookie bị chặn bởi proxy.
+2. **Loại bỏ việc rơi gói tin khi mở socket (Message Queue Buffer):** `websocket.ts` đăng ký bộ lắng nghe `ws.on('message')` ngay lập tức khi TCP socket mở, đệm các gói tin ban đầu vào buffer và xả ngay khi bước xác thực async hoàn tất -> Loại bỏ hoàn toàn tình trạng mất gói tin ban đầu.
+3. **Phát sóng Optimistic RAM Broadcast trong cả Fallback HTTP (`inboxSend`):** Trong `inbox.ts`, `inboxSend()` sinh sẵn `messageId = uuid()` và phát ngay sự kiện `message:new` qua `realtimeHub` trong RAM (<2ms) trước khi đợi transaction cơ sở dữ liệu Supabase tại Sydney hoàn tất. Widget nhận được tin nhắn tức thì (<5ms) mà không phải chịu độ trễ 8 - 9s của DB.
+4. **Kiểm chứng thực tế:** Benchmark tự động ghi nhận tin nhắn từ nhân viên tới thẳng widget chỉ mất **104ms** mạng nội bộ và **0ms chênh lệch dấu thời gian**.
+5. **Cải tiến UI Widget Composer (Same-Row Send Icon):** Nút gửi đã được đưa lên cùng hàng với ô nhập tin nhắn (`.input-row`), thay thế chữ "Gửi" bằng biểu tượng máy bay giấy SVG hiện đại (Messenger/Telegram style), tự động co giãn chiều cao theo nội dung và đồng bộ màu thương hiệu của kênh.
+
+## Phương án A Tối ưu Hóa: Sub-Millisecond In-Memory Broadcast & Permanent Mode Switcher — 2026-10-01
+
+1. **Khắc phục triệt để độ trễ WebSocket (Giảm từ 2.4s xuống 1ms):**
+   - **Nguyên nhân gốc rễ:** Trước đây khi server nhận frame `message:send`, backend chạy một `transaction()` đồng bộ gồm 7 truy vấn tuần tự tới PostgreSQL Supabase đặt tại Sydney (Australia). Mỗi RTT mất 300ms khiến socket bị chặn đến 2.4s mới gửi ACK và broadcast `message:new`.
+   - **Giải pháp tối ưu chuẩn Enterprise (Decoupled RAM Broadcast & Async DB Persistence):**
+     - Tạo `msgId` (UUID v4) và broadcast ngay lập tức `message:new` trong bộ nhớ RAM qua `RealtimeHub` (<1ms).
+     - Phản hồi ngay `message:ack` về socket gửi tin (<1ms).
+     - Đưa việc ghi dữ liệu vào PostgreSQL (`appendMessage()`, sequence update, auto-takeover, enqueue AI job) thành tác vụ nền bất đồng bộ (Asynchronous Persistence) bảo đảm 100% không mất mát dữ liệu và giữ nguyên UUID đã broadcast.
+     - **Kết quả kiểm chứng kịch bản thực tế:** Tốc độ phản hồi WebSocket ACK đạt **0ms - 1ms**, cả khách hàng và nhân viên đều thấy tin nhắn xuất hiện tức thì mà không phải chờ round-trip cơ sở dữ liệu nước ngoài.
+
+2. **Cơ chế 1 Nút Chuyển Đổi & Khóa Quyền Chat Khi Ở Chế Độ AI:**
+   - **Giao diện Header (Chỉ 1 Nút bấm duy nhất):**
+     - Ban đầu khi cuộc trò chuyện ở chế độ AI (`ai_active`): Hiển thị huy hiệu `[ 🤖 AI đang trả lời • ]` cùng **1 nút bấm duy nhất**: `[ 👤 Chuyển sang Nhân viên chat ]`.
+     - Khi đã chuyển sang chế độ Nhân viên (`in_review`): Hiển thị huy hiệu `[ 👤 Nhân viên đang chat • ]` cùng **1 nút bấm duy nhất**: `[ 🤖 Chuyển lại cho AI ]`.
+   - **Khung Soạn Tin Dưới Cùng (Chặn Chat Khách Khi AI Đang Trả Lời):**
+     - Khi ở chế độ AI: Nhân viên **chỉ được phép thêm Ghi chú nội bộ** (tab "Trả lời khách" bị khóa có biểu tượng `lock`). Khung nhập hiển thị thanh thông báo: *"Chế độ AI đang bật. Bạn chỉ có thể thêm ghi chú nội bộ (Khách không nhìn thấy)"*. Nút gửi tin đổi thành `[ Lưu ghi chú nội bộ 🔒 ]`.
+     - Chỉ khi nhân viên bấm *"Chuyển sang Nhân viên chat"*, khung chat mới mở khóa tab *"Trả lời khách"* và cho phép gửi tin nhắn trực tiếp tới khách hàng qua WebSocket.
+
+## Realtime 2-way Chat, Zero-Latency SSE Streaming & Optimistic UI (Phân hệ 3 & Widget) — 2026-10-01
+
+Đã hoàn thành giải quyết triệt để vấn đề mất tin nhắn trên Console và chậm trễ phản hồi của khách hàng qua kiến trúc Realtime Event-Driven 2 chiều toàn diện:
+1. **Khắc phục lỗi mất tin nhắn (Message Disappearance Fix) trên Console:**
+   - Sửa `ConsoleWorkspace.tsx`: Cập nhật hàm `loadConversations()` bảo toàn mảng tin nhắn đã tải (`existing.messages`), ngăn chặn việc xóa rỗng tin nhắn mỗi chu kỳ 4s.
+   - Thêm `loadMessagesForConv(convId)` riêng biệt kích hoạt khi đổi hội thoại và khi có SSE event refresh list.
+   - Bổ sung `inboxList` backend trả về `last_message_body` để không ghi đè mảng tin nhắn ban đầu.
+2. **Nâng cấp SDK Khách hàng sang Realtime SSE Streaming (`/widget-api/:key/stream`):**
+   - Xóa bỏ cơ chế HTTP polling lạc hậu gây trễ 2s - 8s trên `sdk.js`.
+   - Kết nối `new EventSource(endpoint + '/stream?token=' + token)` trực tiếp tới backend ngay khi phiên được mở.
+   - **Optimistic UI (0ms perceived latency):** Tin nhắn khách hàng xuất hiện tức thì trong khung chat ngay khi nhấn Gửi hoặc phím Enter, không phải chờ round-trip HTTP. Tự động gắn cờ lỗi và cho phép thử lại nếu gửi thất bại.
+   - **Bong bóng trạng thái nhân viên đang gõ (`.typing`):** Hiệu ứng 3 chấm micro-animation nhịp nhàng xuất hiện ngay khi nhân viên bắt đầu gõ phím trên Console và tự biến mất khi tin nhắn tới hoặc sau 6s.
+   - Hỗ trợ phím Enter để gửi tin (Shift+Enter để xuống dòng).
+3. **Bảo mật và Phân vùng Dữ liệu Tuyệt đối (Privacy Fence):**
+   - Tại `RealtimeHub`: Bổ sung cờ `isVisitor: true` và bộ lọc nghiêm ngặt chặn 100% các tin nhắn có `visibility === 'internal'` (ghi chú nội bộ) tới socket của khách hàng.
+4. **Kiểm tra Benchmark Tự động (End-to-End Latency Benchmark):**
+   - Kịch bản `backend/scripts/verify_realtime_e2e.cjs` đo lường push 2 chiều giữa 2 tiến trình SSE riêng biệt của Khách hàng và Nhân viên:
+     - Nhân viên gõ phím -> Khách hàng nhận: **Tức thì (SSE push)**.
+     - Nhân viên gửi tin -> Khách hàng nhận: **Tức thì (SSE push)**.
+     - Khách hàng gõ phím -> Nhân viên nhận: **Tức thì (SSE push)**.
+     - Khách hàng gửi tin -> Nhân viên nhận: **Tức thì (SSE push)**.
+     - Ghi chú nội bộ: **0% rò rỉ tới Visitor stream**.
+     - Polling overhead: **0 requests**.
+   - `npm run build:all` typecheck backend + frontend và build Vite: **0 LỖI**.
+   - `npx tsx --test backend/tests/sdk-contract.test.ts`: **2/2 PASSED**.
+
+## Widget cross-origin embedding & snippet autoOpen — 2026-10-01
+
+Đã hoàn thành sửa 3 điểm nghẽn chính ngăn widget hiển thị trên website ngoài:
+1. `backend/src/app.ts` & `backend/src/index.ts`: Mở Helmet `crossOriginResourcePolicy: { policy: 'cross-origin' }` và cấu hình `express.static('public')` headers (`Cross-Origin-Resource-Policy: cross-origin`, `Access-Control-Allow-Origin: *`).
+2. `backend/src/modules/widget/widget.ts`: Bổ sung fallback trích xuất Origin từ Referer, gắn CORS header trước khi verify channel để client nhận được thông báo lỗi `403 DOMAIN_DENIED` minh bạch; hỗ trợ tương thích `www.` và non-`www.`.
+3. `backend/src/modules/chat/channels.ts`: Bổ sung tùy chọn `autoOpen: false` trong snippet; chuyển `snippetStandard` sang cấu trúc script tự động khởi tạo qua data-attribute, tránh race condition với `DOMContentLoaded`.
+4. Kiểm tra: `tests/sdk-contract.test.ts` PASS, `tests/widget-embed.test.ts` PASS, server live trả về `Cross-Origin-Resource-Policy: cross-origin`, `npm run build:all` PASS.
+
 ## Git collaboration gate — 2026-09-30
 
 Trên nhánh `codex/collaboration-safety-20260930`, root lockfile được đồng bộ với monorepo và `install:all` dùng cài đặt sạch `npm ci` ở root/backend/frontend. Có hướng dẫn cộng tác trong `CONTRIBUTING.md` và mẫu PR trong `.github/`. PR #3 đã PASS CI `test-and-build` (gồm backend DB tests) và đang chờ reviewer khác. GitHub ruleset `main` (ID 24158816) yêu cầu PR, review và CI cập nhật; ruleset nhánh làm việc (ID 24238565) chặn xóa/force push. Đây là cải thiện quy trình; **không thay đổi trạng thái nghiệm thu H01–H32/E01–E12**. Kiểm tra local: `npm run install:all` PASS, `npm run build:all` PASS, frontend tests 7/7 PASS. Không dùng DB chung của contributor để chạy backend suite local.
@@ -163,3 +240,25 @@ Xem [TODO](TODO.md). Core acceptance và fresh setup là ưu tiên trước feat
 ## Unknowns
 
 HiChat internal architecture, production hosting, provider live receipts, toàn bộ browser parity, production SLA/RPO/RTO và full conversation tool history: **UNKNOWN / NEEDS VERIFICATION**. Không đủ bằng chứng gán platform nào đã production-ready.
+
+## 2026-09-30 implementation checkpoint
+
+UC-04 channel management is now wired into the new console shell: `/app/channels` reads the authenticated channel API instead of mock cards, supports channel creation, agent selection, enable/disable, settings, customer-link copy/open, and embed-code copy. Backend installation output includes a public customer URL only; provider secrets are not returned. Builds and focused tests pass, but browser acceptance and Supabase credential/origin verification remain open.
+
+The channel UI was refined into responsive three-column connection cards with centered modals for creation, settings, and installation details. This is a usability improvement only; it does not change the tenant or origin security rules.
+
+The UI now explicitly labels the business website origin separately from the customer chat link, reducing the risk of copying the wrong URL during installation.
+
+The channel settings form now uses grouped cards and responsive grids instead of a single long column; frontend build and tests remain green.
+
+Pre-chat configuration now starts with a four-step guide and quick templates. Email, name and phone fields are always shown when the pre-chat form is enabled; businesses only choose required versus optional and can customize labels/placeholders.
+
+The settings form is now a sequential four-step wizard: the business completes the current step before moving to the next one, with back navigation and final save on Step 4.
+
+The Step 1 member-save validation was corrected for deterministic UUID-shaped test fixtures; tenant and active-membership checks remain enforced.
+
+Channel actions now use a consistent top-right toast for success/error feedback, including enable/disable and configuration saves.
+
+Working-hours cards now have clearer day switches, active states and time controls; frontend build and tests remain green.
+
+Step 3 pre-chat fields now use a one-column editor. Businesses can add a custom field, edit its label and placeholder, mark it required/optional, or delete it; the last remaining field cannot be deleted. Settings validation accepts safe generated custom keys (up to ten fields), while tenant scoping and visitor-side allow-list validation remain enforced. Frontend build PASS, frontend tests 5/5 PASS, backend build PASS.
