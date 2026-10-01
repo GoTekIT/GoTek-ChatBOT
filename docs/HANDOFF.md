@@ -235,3 +235,16 @@ Disabled unimplemented Inbox AI rephrase, attachments, CRM tag mutations and rea
 Found logout error was stored but not rendered while authenticated: added dismissible Notice in console shell. Browser actual preview outage then Logout showed explicit connection error and retained authenticated shell; screenshot /Users/ngxuanphu/Downloads/Gotek_AI_chatbot/logout-failure-visible-20261001.png. Restored preview, now exec session36516.
 
 Conversation-specific SSE now closes on lost conversation access (policy throws; hub closes) rather than merely suppressing events. Workspace stream still skips individual inaccessible conversations. Regression DB test added, 2/2 SSE suites PASS; build all PASS; frontend 11/11 PASS. Changes require new CI run. Remaining external acceptance: live Google OAuth/email/provider receipts; no credential, deployment or full WBS acceptance claim. Next: push corrections, verify exact-head CI, consolidate PR evidence and scope audit.
+
+## H30 Meta SaaS implementation started — 2026-10-01
+
+User authorized implement/commit/PR on codex/chatbot-delivery, preserving contributor work. See META-SAAS-IMPLEMENTATION.md for full scope. Added independent modules/meta/security.ts (raw-byte webhook HMAC, AES-GCM token envelope with tenant/asset AAD) and meta-security tests; no endpoint/DB/transport wired yet. User has no Meta App or HTTPS staging and authorized guided browser setup. Meta registration is currently waiting for user acceptance of Platform Terms/Developer Policies and identity/contact verification; no app created or permissions approved. Continue schema/RLS and OAuth lifecycle independently. Keep goal active; do not call utility tests connector acceptance.
+
+Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OAuth attempts and oauth-state.ts helpers. State stored as hash, expires in10min, binds user/session/workspace/provider; atomic consume and channels.manage check. Not yet applied to any DB or wired to callback; DB concurrency/RLS test required next. Current uncommitted files remain independent Meta module + tests + migration + docs; do not claim Connect works. Developer registration still awaits user acceptance; do not click terms automatically.
+
+### Meta foundation verification — 2026-10-01
+- Applied migration 058 only on the isolated remediation cluster (port 55439).
+- Passed 3/3 Meta tests: exact webhook signature, authenticated token encryption, tenant/session/provider-bound single-use OAuth state including concurrent consumption and expiry. Backend typecheck passed.
+- Setup must run from `backend/`: the legacy root `db/migrations` otherwise takes precedence. Use explicit isolated DB_RUNTIME_FILE and normalized socket path; no shared database was used for this verification.
+- Meta creation UI now has Messenger and Instagram use cases selected; app creation and provider approval remain incomplete.
+- Next: configuration and OAuth routes with current identity/permission checks, then asset credentials, webhook receipts, inbox normalization and outbound transport. Helpers are not wired into live routes; no claim of live messaging acceptance.

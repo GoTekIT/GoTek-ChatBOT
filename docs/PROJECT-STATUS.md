@@ -182,3 +182,11 @@ Local browser acceptance: Agent denied direct Knowledge URL; disposable fixture 
 Reload follow-up: session-scoped composer drafts restore after reload with user/workspace and public/internal separation (browser verified). Retry clientId persists before sending and is reused until confirmed; local API double-send readback gives exactly one message. Frontend 11/11 and build pass. CI for these new changes still pending push. Residual fake controls and final acceptance audit remain.
 
 Final review fixes: authenticated logout failure now visibly rendered (browser verified on API outage); conversation SSE closes when its access is revoked (DB policy + hub tests pass). Unimplemented AI rephrase/attachments/tags/reactions disabled explicitly, remain backlog. Build and 11 frontend tests pass; exact-head CI still required.
+
+## H30.01 Meta SaaS — started 2026-10-01
+
+Explicit user authorization starts Facebook/Instagram connector plan. Initial security primitives only; OAuth/webhooks/storage/Inbox/outbox/UI and live Meta verification remain IN PROGRESS. Scope/checkpoint: META-SAAS-IMPLEMENTATION.md. No Meta App or staging domain yet; guided developer registration awaiting user action.
+
+Meta OAuth attempts schema/helpers added (migration058, not applied yet). Pending DB-backed expiry/replay/session/RLS tests and route integration. Full connector still IN PROGRESS.
+
+Meta checkpoint 2026-10-01: foundation tests 3/3 passed on isolated PostgreSQL; migration 058 applied there. Backend typecheck passed. OAuth routes, connections, inbound/outbound and live Meta acceptance remain IN PROGRESS, not delivered.
