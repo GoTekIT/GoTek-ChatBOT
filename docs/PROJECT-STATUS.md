@@ -1,3 +1,7 @@
+## Messenger customer search — 2026-10-01
+
+- Inbox search now includes provider profile.name in addition to widget fullName, so Facebook customers are searchable by their returned name. Authenticated local API search found the actual pilot conversation; backend typecheck PASS. Browser acceptance and real AI configuration remain pending.
+
 ## Messenger profile evidence — 2026-10-01
 
 - Live Meta v26.0 User Profile request returned first/last name and HTTPS avatar for the consenting tester. Inbound now enqueues a daily idempotent profile fetch; a separate worker pass updates scoped identity/visitor rows and inbox uses provider avatar. No email/phone inference.
