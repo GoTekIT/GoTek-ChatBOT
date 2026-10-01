@@ -292,3 +292,9 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 ### Callback HTTP verification
 - Added meta-callback.test.ts with real Express + isolated PostgreSQL, provider fetch stubbed: Connect state, invalid/replayed state, successful encrypted enrollment/Page projection, consent denial consumed once, and session revoked during exchange preventing new enrollment. Passed; backend typecheck passed.
 - Provider calls remain simulated; not live Meta approval/acceptance. Page selection/activation, expiry cleanup, final Connect UI, Instagram and webhook/outbox remain next work.
+
+### Facebook Page selection checkpoint
+- Added migration062 channel transport discriminator (website default), restricted public-key RLS lookup to website channels, and blocked widget installation endpoint for social channels.
+- Selection POST re-discovers the requested Page using enrollment's server token, revalidates identity/enrollment, persists encrypted Page credentials, assigns connecting staff, consumes enrollment, and audits. New connections/reconnections stay pending and channel disabled until subscription activation exists. Global asset uniqueness failures return generic META_ASSET_UNAVAILABLE.
+- Extended callback HTTP/isolated DB test: unauthorized Page 403, valid selection201, replay400, encrypted credential + disabled Facebook channel, widget-install409. Passed; backend typecheck passed.
+- Reconnection/concurrent cross-tenant selection tests and widget RLS regression tests still required; next implement subscription activation then webhook ingress. No live provider validation or messaging acceptance.

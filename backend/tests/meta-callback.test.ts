@@ -43,15 +43,24 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   const pages=await app.get(base+'/enrollments/'+result.body.enrollmentId+'/pages').set('Authorization','Bearer '+token);
   assert.equal(pages.status,200);assert.deepEqual(pages.body.assets,[{id:'789',name:'Test Page'}]);
   assert.equal(JSON.stringify(pages.body).includes('private-'),false);
+  const selectionPath=base+'/enrollments/'+result.body.enrollmentId+'/select';
+  assert.equal((await app.post(selectionPath).set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({assetId:'999'})).status,403);
+  const selected=await app.post(selectionPath).set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({assetId:'789'});
+  assert.equal(selected.status,201);assert.equal(selected.body.status,'pending');
+  assert.equal((await app.post(selectionPath).set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({assetId:'789'})).status,400);
+  const stored=(await admin.query('SELECT c.transport,c.enabled,m.token_ciphertext FROM channels c JOIN meta_connections m ON m.channel_id=c.id WHERE c.id=$1',[selected.body.channelId])).rows[0];
+  assert.equal(stored.transport,'facebook');assert.equal(stored.enabled,false);assert.equal(stored.token_ciphertext.includes('private-page-token'),false);
+  assert.equal((await app.get('/api/channels/'+selected.body.channelId+'/installation').set('Authorization','Bearer '+token)).status,409);
   const deniedState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await app.get(base+'/callback').query({state:deniedState,error:'access_denied'}).set('Authorization','Bearer '+token)).status,400);
   const before=calls;assert.equal((await callback(deniedState)).status,400);assert.equal(calls,before);
   const revokedState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   revoke=true;assert.equal((await callback(revokedState)).status,401);
-  assert.equal((await admin.query('SELECT id FROM meta_enrollments WHERE workspace_id=$1',[ws])).rowCount,1);
+  assert.equal((await admin.query('SELECT id FROM meta_enrollments WHERE workspace_id=$1',[ws])).rowCount,0);
  } finally {
   globalThis.fetch=originalFetch;
   for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
+  for(const table of ['meta_connections','channel_members','channels','audit_events'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
   for(const table of ['meta_enrollments','meta_oauth_attempts','sessions','memberships'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
   await admin.query('DELETE FROM workspaces WHERE id=$1',[ws]);
   await admin.query('DELETE FROM users WHERE id=$1',[user]);

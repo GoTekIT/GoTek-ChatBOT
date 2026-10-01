@@ -70,3 +70,29 @@ metaRouter.get('/integrations/meta/facebook/enrollments/:id/pages',async(req,res
  });
  res.json({assets:publicFacebookAssets(batch.assets),after:batch.after});
 });
+
+import {persistFacebookPage} from '../modules/meta/select-page';
+import {z} from 'zod';
+metaRouter.post('/integrations/meta/facebook/enrollments/:id/select',async(req,res)=>{
+ const input=z.object({assetId:z.string().regex(/^\d+$/).max(100),after:z.string().min(1).max(4096).optional()}).strict().parse(req.body);
+ const id=String(req.params.id),config=metaConfig('facebook'),key=metaEncryptionKey();
+ const original=await transaction(async db=>{
+  const actor=await identity(db,req);
+  return {actor,grant:await readFacebookEnrollment(db,actor,id,key)};
+ });
+ const batch=await discoverFacebookPages(config,original.grant.token,input.after);
+ const asset=batch.assets.find(candidate=>candidate.id===input.assetId);
+ if(!asset)throw new HttpError(403,'META_ASSET_NOT_AUTHORIZED');
+ try {
+  const result=await transaction(async db=>{
+   const actor=await identity(db,req);
+   if(actor.user_id!==original.actor.user_id || actor.workspace_id!==original.actor.workspace_id || actor.token_hash!==original.actor.token_hash)
+    throw new HttpError(403,'META_IDENTITY_CHANGED');
+   return persistFacebookPage(db,actor,id,asset,key);
+  });
+  res.status(201).json(result);
+ } catch(error) {
+  if((error as {code?:string}).code==='23505')throw new HttpError(409,'META_ASSET_UNAVAILABLE');
+  throw error;
+ }
+});

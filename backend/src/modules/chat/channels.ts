@@ -7,10 +7,11 @@ export async function createChannel(db:PoolClient,actor:Actor,body:unknown){requ
  const active=(await db.query('SELECT user_id FROM memberships WHERE workspace_id=$1 AND active AND user_id=ANY($2::uuid[]) FOR SHARE',[actor.workspace_id,payload.agents])).rowCount;if(active!==payload.agents.length)throw new HttpError(400,'INVALID_CHANNEL_MEMBER');
  const key=uuid();await db.query('INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[key,actor.workspace_id,payload.name,payload.origin,payload.greeting,payload.color,opaque(),input.requestId,payload]);
  for(const user of payload.agents)await db.query('INSERT INTO channel_members(workspace_id,channel_id,user_id) VALUES($1,$2,$3)',[actor.workspace_id,key,user]);await audit(db,actor.workspace_id,actor.user_id,'channel.created',key);return {id:key};}
-export async function listChannels(db:PoolClient,actor:Actor){return (await db.query(`SELECT c.id,c.name,c.origin,c.greeting,c.color,c.enabled FROM channels c WHERE c.workspace_id=$1 AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.channel_id=c.id AND m.user_id=$3)) ORDER BY c.created_at`,[actor.workspace_id,['Owner','Admin'].includes(actor.role),actor.user_id])).rows;}
+export async function listChannels(db:PoolClient,actor:Actor){return (await db.query(`SELECT c.id,c.name,c.origin,c.greeting,c.color,c.enabled,c.transport FROM channels c WHERE c.workspace_id=$1 AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.channel_id=c.id AND m.user_id=$3)) ORDER BY c.created_at`,[actor.workspace_id,['Owner','Admin'].includes(actor.role),actor.user_id])).rows;}
 export async function channelInstallation(db:PoolClient,actor:Actor,id:string){
- requireRole(actor.role); const row=(await db.query('SELECT id,name,origin,public_key,enabled FROM channels WHERE id=$1 AND workspace_id=$2',[id,actor.workspace_id])).rows[0];
+ requireRole(actor.role); const row=(await db.query('SELECT id,name,origin,public_key,enabled,transport FROM channels WHERE id=$1 AND workspace_id=$2',[id,actor.workspace_id])).rows[0];
  if(!row) throw new HttpError(404,'CHANNEL_NOT_FOUND');
+ if(row.transport!=='website')throw new HttpError(409,'CHANNEL_HAS_NO_WIDGET');
  const base=(process.env.APP_ORIGIN||'http://127.0.0.1:4317').replace(/\/$/,'');
  const esc=(v:string)=>JSON.stringify(v).replace(/</g,'\\u003c');
  return {id:row.id,name:row.name,origin:row.origin,enabled:row.enabled,publicKey:row.public_key,snippet:`<script src="${base}/sdk.js"></script>\n<script>window.gotekSDK.run({websiteToken:${esc(row.public_key)},baseUrl:${esc(base)}});</script>`};
