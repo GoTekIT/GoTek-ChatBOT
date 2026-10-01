@@ -15,3 +15,11 @@ test('WhatsApp routes by phone number and preserves media IDs rather than invent
 test('unknown products, status callbacks and malformed arrays cannot become messages',()=>{
  for(const value of [null,{}, {object:'threads',entry:[{id:'account',messaging:[messaging]}]}, {object:'page',entry:[{id:'account',messaging:{}}]}, {object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{statuses:[{id:'m'}]}}]}]}])assert.deepEqual(normalizeMetaInbound(value),[]);
 });
+
+test('WhatsApp profile name belongs only to an unambiguous matching sender',()=>{
+ const normalize=(contacts:unknown[])=>normalizeMetaInbound({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'123'},contacts,messages:[{from:'sender',id:'mid',type:'text',text:{body:'Hi'}}]}}]}]})[0];
+ assert.equal(normalize([{wa_id:'other',profile:{name:'Wrong'}},{wa_id:'sender',profile:{name:' Nguyễn An '}}]).displayName,'Nguyễn An');
+ assert.equal(normalize([{wa_id:'other',profile:{name:'Wrong'}}]).displayName,undefined);
+ assert.equal(normalize([{wa_id:'sender',profile:{name:'A'}},{wa_id:'sender',profile:{name:'B'}}]).displayName,undefined);
+ assert.equal(normalize([{wa_id:'sender',profile:{name:42}}]).displayName,undefined);
+});

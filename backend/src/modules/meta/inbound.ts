@@ -8,6 +8,7 @@ export type NormalizedMetaInbound = {
   senderId: string;
   eventId: string;
   text: string;
+  displayName?: string;
   attachments: MetaAttachment[];
   mediaReferences: Array<{type:'image'|'video'|'audio'|'file';id:string}>;
 };
@@ -40,7 +41,9 @@ export function normalizeMetaInbound(input:unknown):NormalizedMetaInbound[]{
      if(['image','video','audio','file'].includes(mediaType)&&str(media.id))mediaReferences.push({type:mediaType as 'image'|'video'|'audio'|'file',id:str(media.id)});
      const text=(kind==='text'?str(object(message.text).body):str(media.caption)).trim();
      if(!text&&!mediaReferences.length)continue;
-     out.push({surface,externalAccountId:account,senderId,eventId,text,attachments:[],mediaReferences});
+     const matches=list(value.contacts).map(object).filter(contact=>str(contact.wa_id)===senderId);
+     const displayName=matches.length===1?str(object(matches[0].profile).name).trim().slice(0,300):'';
+     out.push({surface,externalAccountId:account,senderId,eventId,text,attachments:[],mediaReferences,...(displayName?{displayName}:{})});
     }
    }
   }else{
