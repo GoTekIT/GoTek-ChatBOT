@@ -4,6 +4,7 @@ import pg from 'pg';
 import {randomUUID,createHmac} from 'node:crypto';
 import {pool,scope,transaction} from '../src/core/db';
 import {receiveMetaWebhook} from '../src/modules/meta/messenger';
+import {aiReplyHandler} from '../src/modules/ai/ai-reply-worker';
 import {runMetaWorkerOnce} from '../src/modules/jobs/worker';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 import {appendMessage} from '../src/modules/chat/chat-store';
@@ -20,8 +21,23 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
  const results=await Promise.all([transaction(db=>receiveMetaWebhook(db,raw,signature)),transaction(db=>receiveMetaWebhook(db,raw,signature))]);
  assert.equal(results.reduce((n,r)=>n+r.processed,0),1);
- await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query('SELECT * FROM messages')).rowCount,1);assert.equal((await db.query('SELECT * FROM meta_events WHERE processed_at IS NOT NULL')).rowCount,1);});
+ await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query('SELECT * FROM messages')).rowCount,1);assert.equal((await db.query("SELECT * FROM jobs WHERE kind='ai.reply'")).rowCount,1);assert.equal((await db.query('SELECT * FROM meta_events WHERE processed_at IS NOT NULL')).rowCount,1);});
  await transaction(async db=>{await scope(db,other);for(const table of ['messages','meta_events','meta_connections','meta_identities'])assert.equal((await db.query(`SELECT * FROM ${table}`)).rowCount,0);});
+ const provider=randomUUID(),model=randomUUID();
+ await admin!.query("INSERT INTO providers(id,name,adapter,secret_ref,enabled) VALUES($1,$2,'local','FIXTURE_AI',true)",[provider,provider]);
+ await admin!.query("INSERT INTO models(id,provider_id,name,capabilities,enabled) VALUES($1,$2,'fixture',ARRAY['chat'],true)",[model,provider]);
+ await admin!.query("INSERT INTO model_grants(id,workspace_id,model_id,capability,active) VALUES($1,$2,$3,'chat',true)",[randomUUID(),workspace,model]);
+ await admin!.query("INSERT INTO quota_budgets(id,workspace_id,meter,period_start,period_end,limit_units) VALUES($1,$2,'ai_response',now()-interval '1 minute',now()+interval '1 day',10)",[randomUUID(),workspace]);
+ await transaction(async db=>{
+  await scope(db,workspace);
+  const source=(await db.query("SELECT id,conversation_id FROM messages WHERE author_type='visitor'")).rows[0];
+  const job={workspace_id:workspace,payload:{conversationId:source.conversation_id,messageId:source.id,ownerVersion:1}};
+  const reply=aiReplyHandler(db,async()=>'Generated Messenger fixture');
+  await reply(job);await reply(job);
+  assert.equal((await db.query("SELECT * FROM jobs WHERE kind='meta.message.send'")).rowCount,1);
+  // Keep the following dispatch cases isolated from this generated fixture job.
+  await db.query("UPDATE jobs SET state='succeeded',receipt_id='fixture-only' WHERE kind='meta.message.send'");
+ });
  let conversation='',message='';
  await transaction(async db=>{
   await scope(db,workspace);

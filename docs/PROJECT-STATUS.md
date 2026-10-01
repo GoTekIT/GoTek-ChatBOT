@@ -1,3 +1,10 @@
+## Messenger AI queue integration
+
+- Inbound public Messenger text enqueues one grounded ai.reply job while AI_ACTIVE, in the same transaction as message ingestion. Concurrent webhook duplicates produce one AI job.
+- Normal successful AI commit enqueues a Meta send job atomically with the reply, including ownerVersion and a message-based idempotency key. DB integration verifies repeated AI handling creates only one outbound job.
+- Disposable PostgreSQL fixture PASS 1/1; backend typecheck PASS. Fixture uses a local fake model with grounding requirement omitted to exercise commit; it does not prove real model/knowledge acceptance. Fallback/handoff delivery is not yet integrated.
+- Remaining: response-window policy, fallback send semantics, real App Secret/tenant/Page runtime provisioning and live tester roundtrip. PR stays Draft; no main push.
+
 ## Messenger in-flight takeover serialization evidence
 
 - Disposable PostgreSQL integration test now holds the injected send adapter open while a separate transaction attempts takeover. Takeover reaches PostgreSQL lock_timeout (55P03); after dispatch returns its receipt and releases the transaction, takeover succeeds. PASS 1/1 integration fixture plus backend typecheck.

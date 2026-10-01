@@ -6,6 +6,7 @@ import {z} from 'zod';
 import {uuid,HttpError} from '../../core/security';
 import {createHash} from 'node:crypto';
 import {appendMessage} from '../chat/chat-store';
+import {enqueueJob} from '../jobs/jobs';
 import {realtimeHub} from '../chat/realtime';
 
 export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:string|undefined){
@@ -29,7 +30,7 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
     // cannot append the same visitor message twice after a partial failure.
     const digest=createHash('sha256').update(`${c.id}:${mid}`).digest('hex');
     const clientId=`${digest.slice(0,8)}-${digest.slice(8,12)}-4${digest.slice(13,16)}-8${digest.slice(17,20)}-${digest.slice(20,32)}`;
-    const msg=await appendMessage(db,{workspace:c.workspace_id,conversation:conversation.id,clientId,author:'visitor',visibility:'public',body:event.message.text});realtimeHub.broadcastToConversation(conversation.id,'message:new',msg);realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:visitor_message',{conversationId:conversation.id,source:'facebook_messenger',messageSnippet:event.message.text.slice(0,100),createdAt:msg.created_at});
+    const msg=await appendMessage(db,{workspace:c.workspace_id,conversation:conversation.id,clientId,author:'visitor',visibility:'public',body:event.message.text});if(conversation.reply_owner==='AI_ACTIVE')await enqueueJob(db,c.workspace_id,{kind:'ai.reply',key:`conversation:${conversation.id}:message:${msg.id}`,payload:{conversationId:conversation.id,messageId:msg.id,ownerVersion:conversation.owner_version,requireGrounded:true},external:false});realtimeHub.broadcastToConversation(conversation.id,'message:new',msg);realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:visitor_message',{conversationId:conversation.id,source:'facebook_messenger',messageSnippet:event.message.text.slice(0,100),createdAt:msg.created_at});
    } await db.query('UPDATE meta_events SET processed_at=now() WHERE connection_id=$1 AND external_event_id=$2',[c.id,String(mid)]);processed++;
   }
  } return {accepted:true,processed};
