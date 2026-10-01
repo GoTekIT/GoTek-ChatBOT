@@ -191,12 +191,12 @@ export async function inboxTakeover(db:PoolClient,a:Actor,id:string,body?:unknow
 
 export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown,afterCommit:Array<()=>void>=[]){
   await access(db,a,id);
-  const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal'])}).strict().parse(body);
+  const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal']),media:z.object({type:z.enum(['image','video','audio','file']),url:z.string().url().max(8192)}).optional()}).strict().parse(body);
   // Serialize retries before checking current connector availability. A committed
   // request remains replayable after disconnect without creating a new send job.
   await db.query('SELECT id FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,a.workspace_id]);
   const existing=(await db.query('SELECT id FROM messages WHERE workspace_id=$1 AND conversation_id=$2 AND client_id=$3',[a.workspace_id,id,data.clientId])).rowCount;
-  if(existing) return appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id});
+  if(existing) return appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,attachments:data.media?[data.media]:[]});
   let meta: {id:string;page_access_token_ref:string;recipient_id:string} | undefined;
   if(data.visibility==='public') {
     const visitor=(await db.query("SELECT v.profile FROM conversations c JOIN visitors v ON v.id=c.visitor_id WHERE c.id=$1 AND c.workspace_id=$2",[id,a.workspace_id])).rows[0];
@@ -207,7 +207,7 @@ export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown,aft
     }
   }
   const msgId = uuid();
-  const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId});
+  const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId,attachments:data.media?[data.media]:[]});
   if(data.visibility==='public'){
 
     if(meta?.recipient_id) await enqueueJob(db,a.workspace_id,{kind:'meta.message.send',key:`meta-send:${id}:${data.clientId}`,payload:{conversationId:id,messageId:message.id,recipientId:meta.recipient_id,tokenRef:meta.page_access_token_ref},external:true,maxAttempts:3});

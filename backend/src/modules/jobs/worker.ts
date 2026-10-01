@@ -6,7 +6,7 @@ import {transactionalAiReplyHandler, type AiProviderInvoke} from '../../modules/
 import {workspacePrompt} from '../../modules/ai/workspace-prompt';
 import {invokeProvider,invokeProviderDetailed} from '../../modules/ai/provider-transport';
 import {fetchMetaProfile} from '../../modules/meta/profile';
-import {sendMetaText} from '../../modules/meta/send';
+import {sendMetaText,sendMetaMedia} from '../../modules/meta/send';
 export type JobHandler=(job:{id:string,workspace_id:string,kind:string,payload:Record<string,unknown>})=>Promise<{receipt:string}>;
 /** Explicit tenant assigned by trusted scheduler, never from a public HTTP body. */
 export async function runWorkerOnce(workspace:string,handlers:Record<string,JobHandler>){
@@ -145,7 +145,10 @@ export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaTex
    }
    const live=await db.query("SELECT id FROM jobs WHERE id=$1 AND workspace_id=$2 AND state='running' AND lease_token=$3 AND lease_until>clock_timestamp()+interval '21 seconds' FOR UPDATE",[job.id,workspace,(job as typeof job&{lease_token:string}).lease_token]);
    if(!live.rowCount)throw new HttpError(409,'STALE_JOB_LEASE');
-   const result=await send({recipientId:row.recipient,text:row.body,pageAccessTokenRef:row.page_access_token_ref,channelKind:row.channel_kind,externalAccountId:row.external_page_id});
+   const media=(await db.query("SELECT kind,url FROM message_attachments WHERE workspace_id=$1 AND message_id=$2 ORDER BY created_at LIMIT 1",[workspace,job.payload.messageId])).rows[0];
+   const result=media
+    ? await sendMetaMedia({recipientId:row.recipient,mediaType:media.kind,mediaUrl:media.url,caption:row.body,pageAccessTokenRef:row.page_access_token_ref,channelKind:row.channel_kind,externalAccountId:row.external_page_id})
+    : await send({recipientId:row.recipient,text:row.body,pageAccessTokenRef:row.page_access_token_ref,channelKind:row.channel_kind,externalAccountId:row.external_page_id});
    if(result.status!=='accepted')throw new HttpError(502,result.errorCode||'META_DELIVERY_UNKNOWN');
    await db.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,provider_message_id,status)
      VALUES(gen_random_uuid(),$1,$2,$3,'accepted') ON CONFLICT(workspace_id,message_id) DO UPDATE SET provider_message_id=EXCLUDED.provider_message_id,status='accepted',updated_at=now()`,[workspace,job.payload.messageId,result.providerMessageId]);
