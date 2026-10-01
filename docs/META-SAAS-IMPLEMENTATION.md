@@ -42,3 +42,7 @@ New `backend/src/modules/meta/config.ts` requires explicit configuration and has
 - Missing/malformed configuration returns stable `META_NOT_CONFIGURED`, without secret details.
 
 Reference: Meta-maintained Instagram collection https://www.postman.com/meta/instagram/folder/6raa77c/instagram-api-with-instagram-login and Messenger conversations collection https://www.postman.com/meta/messenger-platform-api/folder/22794852-255610cd-47f5-4f4d-b3fa-71aec360be9a . Verify the Facebook Login for Business configuration against the actual app dashboard before live acceptance.
+
+## Instagram send contract reference (2026-10-01)
+
+Meta-maintained collection: https://www.postman.com/meta/instagram/request/scob1z4/text-message and https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api?entity=request-23987686-fc851f39-7194-4522-a475-2cea8de46d16 . Instagram Login uses graph.instagram.com with account token, recipient.id and message.text; adapter only accepts a matching recipient_id plus message_id as API acceptance. This is not delivery/read proof. Internal transport implemented with fixtures, not activated before tenant-bound connection, scope/window and outbox integration.
