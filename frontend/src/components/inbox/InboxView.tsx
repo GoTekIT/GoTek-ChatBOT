@@ -73,6 +73,10 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Enter can fire repeatedly before the async provider/API round trip returns.
+  // Keep a synchronous lock so one composer action creates one client id.
+  const sendingRef = useRef(false);
+  const [isSending, setIsSending] = useState(false);
 
   const activeConv = conversations.find((c) => c.id === selectedConvId) || conversations[0];
   const isStaffActive = Boolean(
@@ -230,7 +234,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   };
 
   const handleSend = async () => {
-    if (!messageText.trim() || !activeConv) return;
+    if (sendingRef.current || !messageText.trim() || !activeConv) return;
     const text = messageText;
     const isInternal = !isStaffActive || composerMode === 'internal';
 
@@ -240,24 +244,33 @@ export const InboxView: React.FC<InboxViewProps> = ({
       return;
     }
 
+    sendingRef.current = true;
+    setIsSending(true);
+
     const msgClientId = crypto.randomUUID();
 
-    // 1. Send via WebSocket if open (<1ms)
-    const sentViaWs = activeConv.channel === 'Facebook Messenger' ? false : await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
+    try {
+      // 1. Send via WebSocket if open (<1ms)
+      const isMetaChannel = ['Facebook Messenger', 'Instagram', 'WhatsApp', 'Threads'].includes(activeConv.channel);
+      const sentViaWs = isMetaChannel ? false : await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
 
-    // 2. Dispatch to parent console state
-    const saved = await onSendMessage(activeConv.id, {
+      // 2. Dispatch to parent console state
+      const saved = await onSendMessage(activeConv.id, {
       clientId: msgClientId,
       senderType: isInternal ? 'internal_note' : 'agent',
       senderName: 'Alex Rivera (Staff Lead)',
       senderAvatar:
         'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
       content: text,
-    }, sentViaWs);
+      }, sentViaWs);
 
-    if (!saved) return;
-    setMessageText('');
-    textareaRef.current?.focus();
+      if (!saved) return;
+      setMessageText('');
+      textareaRef.current?.focus();
+    } finally {
+      sendingRef.current = false;
+      setIsSending(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1276,7 +1289,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={handleSend}
-                disabled={!messageText.trim()}
+                disabled={!messageText.trim() || isSending}
                 className={`px-4 py-1.5 rounded-xl text-[13px] font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                   !isStaffActive || composerMode === 'internal'
                     ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20'
