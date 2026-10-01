@@ -122,11 +122,6 @@ export async function deleteKnowledgeItem(db: PoolClient, actor: any, id: string
   throw new HttpError(404, 'NOT_FOUND');
  }
 
- // Safety guard: cannot delete published knowledge (protects AI answers and audit trail)
- if (item.published_version_id !== null) {
-  throw new HttpError(409, 'CANNOT_DELETE_PUBLISHED_KNOWLEDGE');
- }
-
  // Safety guard: cannot delete if referenced in active citation sources
  const citations = (
   await db.query(

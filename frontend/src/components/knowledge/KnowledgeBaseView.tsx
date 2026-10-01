@@ -231,15 +231,20 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
     await handlePublish(item, nextAudience);
   };
 
-  // Delete draft knowledge item (never published)
-  const handleDeleteDraft = async (item: KnowledgeItem) => {
-    if (!confirm(`Bạn có chắc chắn muốn xoá bản nháp "${item.title}"? Thao tác này không thể hoàn tác.`)) {
+  // Delete knowledge item (Draft, Ready, or Published)
+  const handleDeleteItem = async (item: KnowledgeItem) => {
+    const isPub = item.published_version_id !== null;
+    const confirmMsg = isPub
+      ? `Bạn có chắc chắn muốn xoá tài liệu "${item.title}"? Dữ liệu này sẽ được gỡ bỏ hoàn toàn khỏi AI Chatbot và hệ thống.`
+      : `Bạn có chắc chắn muốn xoá bản nháp "${item.title}"? Thao tác này không thể hoàn tác.`;
+
+    if (!confirm(confirmMsg)) {
       return;
     }
     setActionBusyId(item.id);
     try {
       await api(`/knowledge/items/${item.id}`, 'DELETE');
-      showNotification(`Đã xoá bản nháp "${item.title}".`);
+      showNotification(`Đã xoá thành công "${item.title}".`);
       if (detailItem?.id === item.id) {
         setDetailItem(null);
       }
@@ -256,36 +261,36 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
     }
   };
 
-  // Bulk delete selected drafts
-  const handleBulkDeleteDrafts = async () => {
-    const selectedDrafts = items.filter(
-      (item) => selectedIds.has(item.id) && item.published_version_id === null
-    );
-
-    if (selectedDrafts.length === 0) {
-      showNotification('Không có bản nháp nào chưa xuất bản trong số các mục đã chọn.');
-      return;
-    }
+  // Bulk delete selected items
+  const handleBulkDelete = async () => {
+    const selectedItems = items.filter((item) => selectedIds.has(item.id));
+    if (selectedItems.length === 0) return;
 
     if (
       !confirm(
-        `Bạn có chắc chắn muốn xoá ${selectedDrafts.length} bản nháp đã chọn? Thao tác này không thể hoàn tác.`
+        `Bạn có chắc chắn muốn xoá ${selectedItems.length} tài liệu đã chọn? Thao tác này không thể hoàn tác.`
       )
     ) {
       return;
     }
 
     let successCount = 0;
-    for (const draft of selectedDrafts) {
+    let failCount = 0;
+    for (const itm of selectedItems) {
       try {
-        await api(`/knowledge/items/${draft.id}`, 'DELETE');
+        await api(`/knowledge/items/${itm.id}`, 'DELETE');
         successCount++;
       } catch (err) {
-        console.error(`Lỗi khi xoá ${draft.id}:`, err);
+        failCount++;
+        console.error(`Lỗi khi xoá ${itm.id}:`, err);
       }
     }
 
-    showNotification(`Đã xoá thành công ${successCount} bản nháp.`);
+    if (failCount > 0) {
+      showNotification(`Đã xoá ${successCount} tài liệu (${failCount} mục không thể xoá).`);
+    } else {
+      showNotification(`Đã xoá thành công ${successCount} tài liệu.`);
+    }
     setSelectedIds(new Set());
     await loadData();
   };
@@ -696,10 +701,10 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
         <div className="flex items-center gap-2 text-[#464555] self-end lg:self-auto text-xs">
           {selectedIds.size > 0 && (
             <button
-              onClick={handleBulkDeleteDrafts}
+              onClick={handleBulkDelete}
               className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1.5 hover:bg-rose-100 transition-colors shadow-2xs"
               type="button"
-              title="Xoá các bản nháp chưa xuất bản trong số các mục đã chọn"
+              title="Xoá các tài liệu đã chọn"
             >
               <span className="material-symbols-outlined text-[16px]">delete</span>
               <span>Xoá {selectedIds.size} mục đã chọn</span>
@@ -900,54 +905,71 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
                             </span>
                           ) : (
                             <>
-                              {/* 1. Action for DRAFT -> Activate / Process */}
-                              {item.state === 'DRAFT' && (
+                              {/* 1. Action for DRAFT (Chưa kích hoạt) */}
+                              {!isPublished && item.state === 'DRAFT' && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleProcess(item); }}
                                   className="px-2.5 py-1 text-xs font-semibold text-white bg-[#3525cd] hover:bg-[#281bb5] rounded-lg transition-all shadow-2xs flex items-center gap-1 active:scale-[0.98]"
                                   type="button"
-                                  title="Chuẩn bị tài liệu sẵn sàng cho AI xuất bản"
+                                  title="Kích hoạt tài liệu sẵn sàng cho AI xuất bản"
                                 >
                                   <span className="material-symbols-outlined text-[13px]">bolt</span>
                                   <span>Kích hoạt</span>
                                 </button>
                               )}
 
-                              {/* 2. Actions for READY -> Publish Public or Internal */}
-                              {item.state === 'READY' && (
+                              {/* 2. Actions for READY (Sẵn sàng, chưa xuất bản) -> Công khai hoặc Nội bộ */}
+                              {!isPublished && item.state === 'READY' && (
                                 <>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handlePublish(item, 'PUBLIC'); }}
                                     className="px-2.5 py-1 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-2xs flex items-center gap-1 active:scale-[0.98]"
                                     type="button"
-                                    title="Xuất bản để AI Chatbot phục vụ khách hàng"
+                                    title="Xuất bản công khai để AI Chatbot phục vụ khách hàng"
                                   >
-                                    <span className="material-symbols-outlined text-[13px]">send</span>
-                                    <span>Xuất bản</span>
+                                    <span className="material-symbols-outlined text-[13px]">public</span>
+                                    <span>Công khai</span>
                                   </button>
 
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handlePublish(item, 'INTERNAL'); }}
-                                    className="px-2 py-1 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition-colors"
+                                    className="px-2.5 py-1 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition-colors flex items-center gap-1"
                                     type="button"
                                     title="Chỉ xuất bản cho nội bộ nhân viên"
                                   >
+                                    <span className="material-symbols-outlined text-[13px]">lock</span>
                                     <span>Nội bộ</span>
                                   </button>
                                 </>
                               )}
 
-                              {/* 3. Action for already published items: Switch Audience */}
-                              {isPublished && (
+                              {/* 3. Action for PUBLISHED: Chỉ hiển thị duy nhất nút chuyển đổi trạng thái */}
+                              {isPublished && item.audience === 'PUBLIC' && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleToggleAudience(item); }}
-                                  className="px-2 py-1 text-xs font-medium text-[#464555] hover:text-[#131b2e] hover:bg-[#eaedff] border border-[#c7c4d8] rounded-lg transition-colors"
+                                  className="px-2.5 py-1 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition-colors flex items-center gap-1 active:scale-[0.98]"
                                   type="button"
-                                  title="Chuyển đổi giữa Công khai và Nội bộ"
+                                  title="Chuyển sang chế độ Nội bộ (không cho AI trả lời khách)"
                                 >
-                                  {item.audience === 'PUBLIC' ? 'Đổi Nội bộ' : 'Đổi Công khai'}
+                                  <span className="material-symbols-outlined text-[13px]">lock</span>
+                                  <span>Đổi Nội bộ</span>
                                 </button>
                               )}
+
+                              {isPublished && item.audience === 'INTERNAL' && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleToggleAudience(item); }}
+                                  className="px-2.5 py-1 text-xs font-medium text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors flex items-center gap-1 active:scale-[0.98]"
+                                  type="button"
+                                  title="Chuyển sang chế độ Công khai (cho phép AI trả lời khách)"
+                                >
+                                  <span className="material-symbols-outlined text-[13px]">public</span>
+                                  <span>Đổi Công khai</span>
+                                </button>
+                              )}
+
+                              {/* Separator */}
+                              <div className="h-4 w-px bg-[#c7c4d8]/60 mx-0.5"></div>
 
                               {/* View Detail button */}
                               <button
@@ -979,17 +1001,15 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
                                 <span className="material-symbols-outlined text-[17px]">history</span>
                               </button>
 
-                              {/* Delete Draft button (Only for unpublished items) */}
-                              {!isPublished && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleDeleteDraft(item); }}
-                                  className="p-1.5 text-[#777587] hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                  type="button"
-                                  title="Xoá bản nháp này"
-                                >
-                                  <span className="material-symbols-outlined text-[17px]">delete</span>
-                                </button>
-                              )}
+                              {/* Delete button (Hiển thị cho tất cả tài liệu) */}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }}
+                                className="p-1.5 text-[#777587] hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                type="button"
+                                title={isPublished ? "Xoá tài liệu này" : "Xoá bản nháp này"}
+                              >
+                                <span className="material-symbols-outlined text-[17px]">delete</span>
+                              </button>
                             </>
                           )}
                         </div>
@@ -1123,44 +1143,62 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
             <div className="px-6 py-3.5 bg-[#f8f9ff] border-t border-[#c7c4d8]/60 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 {/* Actions from detail modal */}
-                {detailItem.state === 'DRAFT' && (
+                {!detailItem.published_version_id && detailItem.state === 'DRAFT' && (
                   <button
                     onClick={() => handleProcess(detailItem)}
-                    className="px-3 py-1.5 text-xs font-semibold text-white bg-[#3525cd] hover:bg-[#281bb5] rounded-lg shadow-2xs flex items-center gap-1"
+                    className="px-3 py-1.5 text-xs font-semibold text-white bg-[#3525cd] hover:bg-[#281bb5] rounded-lg shadow-2xs flex items-center gap-1 active:scale-[0.98]"
                     type="button"
+                    title="Kích hoạt tài liệu sẵn sàng cho AI xuất bản"
                   >
                     <span className="material-symbols-outlined text-[14px]">bolt</span>
-                    <span>Kích hoạt cho AI</span>
+                    <span>Kích hoạt</span>
                   </button>
                 )}
 
-                {detailItem.state === 'READY' && (
+                {!detailItem.published_version_id && detailItem.state === 'READY' && (
                   <>
                     <button
                       onClick={() => handlePublish(detailItem, 'PUBLIC')}
-                      className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs flex items-center gap-1"
+                      className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs flex items-center gap-1 active:scale-[0.98]"
                       type="button"
+                      title="Xuất bản công khai để AI Chatbot phục vụ khách hàng"
                     >
-                      <span className="material-symbols-outlined text-[14px]">send</span>
-                      <span>Xuất bản công khai</span>
+                      <span className="material-symbols-outlined text-[14px]">public</span>
+                      <span>Công khai</span>
                     </button>
                     <button
                       onClick={() => handlePublish(detailItem, 'INTERNAL')}
-                      className="px-2.5 py-1.5 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg"
+                      className="px-2.5 py-1.5 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg flex items-center gap-1"
                       type="button"
+                      title="Chỉ xuất bản cho nội bộ nhân viên"
                     >
-                      <span>Xuất bản nội bộ</span>
+                      <span className="material-symbols-outlined text-[14px]">lock</span>
+                      <span>Nội bộ</span>
                     </button>
                   </>
                 )}
 
-                {detailItem.published_version_id && (
+                {detailItem.published_version_id && detailItem.audience === 'PUBLIC' && (
                   <button
                     onClick={() => handleToggleAudience(detailItem)}
-                    className="px-3 py-1.5 text-xs font-medium text-[#464555] hover:text-[#131b2e] hover:bg-[#eaedff] border border-[#c7c4d8] rounded-lg"
+                    className="px-3 py-1.5 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg flex items-center gap-1 active:scale-[0.98]"
                     type="button"
+                    title="Chuyển sang chế độ Nội bộ (không cho AI trả lời khách)"
                   >
-                    {detailItem.audience === 'PUBLIC' ? 'Chuyển thành Nội bộ' : 'Chuyển thành Công khai'}
+                    <span className="material-symbols-outlined text-[14px]">lock</span>
+                    <span>Đổi Nội bộ</span>
+                  </button>
+                )}
+
+                {detailItem.published_version_id && detailItem.audience === 'INTERNAL' && (
+                  <button
+                    onClick={() => handleToggleAudience(detailItem)}
+                    className="px-3 py-1.5 text-xs font-medium text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg flex items-center gap-1 active:scale-[0.98]"
+                    type="button"
+                    title="Chuyển sang chế độ Công khai (cho phép AI trả lời khách)"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">public</span>
+                    <span>Đổi Công khai</span>
                   </button>
                 )}
 
@@ -1187,20 +1225,18 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
                   type="button"
                 >
                   <span className="material-symbols-outlined text-[14px]">history</span>
-                  <span>Lịch sử phiên bản</span>
+                  <span>Lịch sử</span>
                 </button>
 
-                {!detailItem.published_version_id && (
-                  <button
-                    onClick={() => handleDeleteDraft(detailItem)}
-                    className="px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-1 transition-colors"
-                    type="button"
-                    title="Xoá bản nháp này"
-                  >
-                    <span className="material-symbols-outlined text-[14px]">delete</span>
-                    <span>Xoá bản nháp</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => handleDeleteItem(detailItem)}
+                  className="px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-1 transition-colors"
+                  type="button"
+                  title="Xoá tài liệu này"
+                >
+                  <span className="material-symbols-outlined text-[14px]">delete</span>
+                  <span>Xoá tài liệu</span>
+                </button>
               </div>
 
               <button
