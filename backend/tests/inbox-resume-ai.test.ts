@@ -10,9 +10,11 @@ test('explicit resume checks ownership/version and audits only successful transi
   {role:'Agent',assigned:'other',version:3,owner:'HUMAN_ACTIVE',error:'FORBIDDEN'},
   {role:'Owner',assigned:'actor',version:2,owner:'HUMAN_ACTIVE',error:'STALE_REPLY_OWNER'},
   {role:'Owner',assigned:null,version:3,owner:'AI_ACTIVE',error:'INVALID_STATE'},
+  ...['facebook','instagram',null].map(transport=>({role:'Owner',assigned:'actor',version:3,owner:'HUMAN_ACTIVE',transport,error:'META_OUTBOUND_NOT_READY'})),
  ]){
   let writes=0,audits=0;
   const db:any={release(){},query:async(sql:string)=>{
+   if(sql.startsWith('SELECT h.transport'))return {rows:'transport' in scenario && scenario.transport===null?[]:[{transport:'transport' in scenario?scenario.transport:'website'}]};
    if(sql.startsWith('SELECT * FROM conversations'))return {rows:[{channel_id:id}]};
    if(sql.startsWith('SELECT reply_owner'))return {rows:[{reply_owner:scenario.owner,owner_version:3,assigned_to:scenario.assigned}]};
    if(sql.startsWith('UPDATE conversations')){writes++;return {rows:[{id,reply_owner:'AI_ACTIVE',owner_version:4,assigned_to:null}]};}

@@ -206,3 +206,5 @@ Internal Facebook text send adapter added; not enabled in Inbox pending durable 
 Meta durable outbound schema/enqueue added and tested for ownership/window/idempotency. Not enabled in Inbox; dispatch worker and delivery state integration still pending.
 Outbound claim and bounded worker added with generation/ownership/window fences; fixture tests and typecheck passed. Worker is not scheduled and real provider dispatch remains unverified.
 Inbox message API now exposes durable Meta delivery status/provider receipt fields; this does not prove delivery/read and UI still needs explicit state handling.
+
+CI follow-up: run 36816158888 failed one legacy AI-resume unit fixture (194/195 passed): missing channel transport in mocked SQL result. Updated fixture to website and added Facebook/Instagram/missing-channel rejection cases with zero writes/audits. Production gate remains fail-closed. Targeted test and backend typecheck PASS; full CI rerun pending push. Meta integration remains IN PROGRESS.

@@ -337,3 +337,5 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 ### Outbound delivery visibility
 - Existing Inbox message pagination now includes `delivery_status` and `provider_message_id` from the durable Meta outbox when present. This preserves queued/dispatching/accepted/unknown/cancelled semantics instead of implying a local insert was delivered.
 - No UI claim of delivery has been added; client must render unknown as reconciliation-required and accepted as provider acceptance only.
+
+CI follow-up: run 36816158888 failed one legacy AI-resume unit fixture (194/195 passed): missing channel transport in mocked SQL result. Updated fixture to website and added Facebook/Instagram/missing-channel rejection cases with zero writes/audits. Production gate remains fail-closed. Targeted test and backend typecheck PASS; full CI rerun pending push. Meta integration remains IN PROGRESS.
