@@ -1,3 +1,7 @@
+## Live browser media acceptance — 2026-10-01
+
+- Uploaded a generated 1-second MP4 through the authenticated GoTek Page Messenger conversation. Facebook showed “Bạn đã gửi, Có một video đính kèm” and “Đã gửi”; webhook persisted a `video` attachment in the tenant-scoped pilot database at 2026-10-01 14:19:36 UTC. Real image and video browser receipts are now evidenced. AI media understanding, production uptime, and external-customer acceptance remain pending.
+
 ## Attachment retry integrity
 
 - appendMessage now compares persisted attachment type/URL sets on idempotent retry and returns attachments consistently. Changed media under the same client ID rejects with IDEMPOTENCY_CONFLICT. Integration plus parser tests PASS 4/4; backend typecheck PASS. Real browser media acceptance still pending.
