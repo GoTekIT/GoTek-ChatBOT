@@ -6,6 +6,7 @@ import request from 'supertest';
 import {createApp} from '../src/app';
 import {pool,transaction,scope} from '../src/core/db';
 import {normalizeFacebookReceipt,normalizeInstagramReceipt} from '../src/modules/meta/normalize';
+import {claimInstagramReply,claimFacebookReply,completeMetaReply} from '../src/modules/meta/outbox';
 import {digest} from '../src/core/security';
 const admin=new pg.Pool({host:process.env.PGHOST||'/tmp',port:Number(process.env.PGPORT)||55432,user:process.env.PGUSER||'gotek_migrator',password:process.env.PGPASSWORD||'gotek_dev_password',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
@@ -73,6 +74,17 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   assert.equal((await app.post(webhook).set('Content-Type','application/json').set('X-Hub-Signature-256',repeatedSignature).send(repeated)).status,200);
   assert.equal((await normalize()).duplicates,1);
   assert.equal((await admin.query('SELECT id FROM messages WHERE workspace_id=$1',[ws])).rowCount,1);
+  const conversationId=inbox.body[0].id;
+  await admin.query("UPDATE conversations SET reply_owner='HUMAN_ACTIVE',assigned_to=$1,owner_version=owner_version+1 WHERE id=$2",[user,conversationId]);
+  const clientId=randomUUID(),sendPath='/api/conversations/'+conversationId+'/messages';
+  const send=()=>app.post(sendPath).set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({clientId,body:'Instagram reply',visibility:'public'});
+  const queued=await send();assert.equal(queued.status,200);assert.equal(queued.body.delivery_status,'queued');
+  assert.equal((await send()).body.id,queued.body.id);
+  assert.equal(await transaction(async db=>{await scope(db,ws);return claimFacebookReply(db,ws);}),null);
+  const claimed=await transaction(async db=>{await scope(db,ws);return claimInstagramReply(db,ws);});
+  assert.equal(claimed?.state,'dispatching');assert.equal(claimed?.recipient_id,'333');
+  await transaction(async db=>{await scope(db,ws);return completeMetaReply(db,ws,claimed!.id,{status:'unknown'});});
+  assert.equal(await transaction(async db=>{await scope(db,ws);return claimInstagramReply(db,ws);}),null);
   const reconnectState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await callback(reconnectState)).body.id,result.body.id);
   assert.equal((await admin.query('SELECT generation FROM meta_connections WHERE id=$1',[result.body.id])).rows[0].generation,2);
@@ -86,7 +98,7 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   globalThis.fetch=originalFetch;
   for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
   for(const workspace of [ws,other]){
-   for(const table of ['meta_inbound_messages','meta_contacts','messages','conversations','visitors','meta_webhook_receipts','meta_connections','channel_members','channels','audit_events','meta_oauth_attempts','sessions','memberships'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[workspace]);
+   for(const table of ['meta_outbox','meta_inbound_messages','meta_contacts','messages','conversations','visitors','meta_webhook_receipts','meta_connections','channel_members','channels','audit_events','meta_oauth_attempts','sessions','memberships'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[workspace]);
    await admin.query('DELETE FROM workspaces WHERE id=$1',[workspace]);
   }
   await admin.query('DELETE FROM users WHERE id=$1',[user]);

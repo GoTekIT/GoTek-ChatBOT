@@ -46,9 +46,9 @@ export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown){
  let socialMessage;
  if(data.visibility==='public') {
   const channel=(await db.query('SELECT h.transport FROM channels h JOIN conversations c ON c.channel_id=h.id AND c.workspace_id=h.workspace_id WHERE c.workspace_id=$1 AND c.id=$2',[a.workspace_id,id])).rows[0];
-  if(channel?.transport==='facebook') {
-   const {enqueueFacebookReply}=await import('../meta/outbox');
-   socialMessage=await enqueueFacebookReply(db,a,id,{clientId:data.clientId,body:data.body});
+  if(channel?.transport==='facebook'||channel?.transport==='instagram') {
+   const {enqueueFacebookReply,enqueueInstagramReply}=await import('../meta/outbox');
+   socialMessage=await (channel.transport==='instagram'?enqueueInstagramReply:enqueueFacebookReply)(db,a,id,{clientId:data.clientId,body:data.body});
   } else if(channel?.transport!=='website')throw new HttpError(409,'META_OUTBOUND_NOT_READY');
  }
  const message=socialMessage || await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id});
