@@ -58,7 +58,7 @@ export async function getKnowledge(db:PoolClient,actor:any,id:string){
  requireRole(actor.role);const itemId=z.string().uuid().parse(id);
  const item=(await db.query(`SELECT ${projection},i.published_at,i.published_by FROM knowledge_items i JOIN knowledge_versions v ON v.id=i.draft_version_id AND v.workspace_id=i.workspace_id WHERE i.workspace_id=$1 AND i.id=$2`,[actor.workspace_id,itemId])).rows[0];
  if(!item)throw new HttpError(404,'NOT_FOUND');
- const versions=(await db.query(`SELECT id,version_no,title,content,state,created_by,created_at,processed_at FROM knowledge_versions WHERE workspace_id=$1 AND item_id=$2 ORDER BY version_no DESC,id DESC`,[actor.workspace_id,itemId])).rows;
+ const versions=(await db.query(`SELECT id,version_no,title,content,state,first_published_at,created_by,created_at,processed_at FROM knowledge_versions WHERE workspace_id=$1 AND item_id=$2 ORDER BY version_no DESC,id DESC`,[actor.workspace_id,itemId])).rows;
  return {...item,versions};
 }
 
@@ -98,3 +98,77 @@ export async function importKnowledgeFile(db:PoolClient,actor:any,body:unknown){
  if(!rows.length)throw new HttpError(400,'EMPTY_KNOWLEDGE_FILE');
  return importKnowledgeBatch(db,actor,{items:rows});
 }
+
+/**
+ * Permanently delete a draft knowledge item if it has never been published.
+ * Enforces FR-KNOW-05/06: Never allows deleting knowledge that was published or has active citations.
+ */
+export async function deleteKnowledgeItem(db: PoolClient, actor: any, id: string) {
+ requireRole(actor.role);
+ const itemId = z.string().uuid().parse(id);
+
+ // Lock item to prevent concurrent publication
+ const item = (
+  await db.query(
+   `SELECT id, revision, published_version_id, draft_version_id 
+    FROM knowledge_items 
+    WHERE workspace_id = $1 AND id = $2 
+    FOR UPDATE`,
+   [actor.workspace_id, itemId]
+  )
+ ).rows[0];
+
+ if (!item) {
+  throw new HttpError(404, 'NOT_FOUND');
+ }
+
+ // Safety guard: cannot delete if referenced in active citation sources
+ const citations = (
+  await db.query(
+   `SELECT 1 FROM active_citation_sources 
+    WHERE workspace_id = $1 AND source_type = 'KNOWLEDGE' AND source_key = $2
+    LIMIT 1`,
+   [actor.workspace_id, itemId]
+  )
+ ).rowCount;
+
+ if (citations) {
+  throw new HttpError(409, 'CANNOT_DELETE_CITED_KNOWLEDGE');
+ }
+
+ // 1. Break circular FK in knowledge_items
+ await db.query(
+  `UPDATE knowledge_items 
+   SET draft_version_id = NULL, published_version_id = NULL 
+   WHERE workspace_id = $1 AND id = $2`,
+  [actor.workspace_id, itemId]
+ );
+
+ // 2. Remove web source links if any
+ await db.query(
+  `DELETE FROM web_source_generation_parts WHERE workspace_id = $1 AND knowledge_item_id = $2`,
+  [actor.workspace_id, itemId]
+ );
+ await db.query(
+  `DELETE FROM web_snapshot_knowledge WHERE workspace_id = $1 AND knowledge_item_id = $2`,
+  [actor.workspace_id, itemId]
+ );
+
+ // 3. Remove versions (cascades to knowledge_chunks automatically)
+ await db.query(
+  `DELETE FROM knowledge_versions WHERE workspace_id = $1 AND item_id = $2`,
+  [actor.workspace_id, itemId]
+ );
+
+ // 4. Remove the knowledge item itself
+ await db.query(
+  `DELETE FROM knowledge_items WHERE workspace_id = $1 AND id = $2`,
+  [actor.workspace_id, itemId]
+ );
+
+ // 5. Audit log
+ await audit(db, actor.workspace_id, actor.user_id, 'knowledge.deleted', itemId);
+
+ return { success: true, id: itemId };
+}
+

@@ -24,8 +24,9 @@ React 19 + Vite 6; Express 5 + TypeScript; PostgreSQL 16 qua `pg`, SQL migration
 ```sh
 git clone https://github.com/GoTekIT/GoTek-ChatBOT.git
 cd GoTek-ChatBOT
-git checkout codex/chatbot-delivery
-npm ci
+git fetch origin
+git switch -c feature/UC-014-my-task origin/main
+npm run install:all
 ```
 
 Chuẩn bị PostgreSQL theo [DEVELOPMENT](docs/DEVELOPMENT.md), sau đó:
@@ -64,6 +65,10 @@ Xem chi tiết hướng dẫn lập trình và cấu trúc dự án tại: **[C�
 | `npm run worker:web` | Web refresh worker, cần workspace env |
 
 Không có script lint. Xem [TESTING](docs/TESTING.md) trước khi chạy test.
+
+## Team collaboration
+
+Before editing or merging, follow [CONTRIBUTING.md](CONTRIBUTING.md). Work in a separate branch/checkout and use a reviewed PR into `main`.
 
 ## Documentation map
 
@@ -488,6 +493,4 @@ This protocol is why the current core work can proceed in multiple tracks withou
 - [Portable project-context skill](.ai/skills/project-context/SKILL.md)
 
 The exact next task after this documentation pause is P0.2 live-provider receipt acceptance when an authorized test account is available. Until the pause is explicitly lifted in `docs/HANDOFF.md`, only documentation/evidence corrections should be made; do not claim new feature completion.
-
-
 

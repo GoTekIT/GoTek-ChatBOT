@@ -35,7 +35,21 @@ const messages: Record<string, string> = {
   VALIDATION: 'Vui lòng kiểm tra các trường bên dưới.',
   INTERNAL: 'Chưa thể xử lý. Vui lòng thử lại.',
   INCORRECT_CURRENT_PASSWORD: 'Mật khẩu hiện tại không chính xác.',
-  USER_NOT_FOUND: 'Không tìm thấy thông tin tài khoản người dùng.'
+  USER_NOT_FOUND: 'Không tìm thấy thông tin tài khoản người dùng.',
+  DOCUMENT_TOO_LARGE: 'Tập tin vượt quá giới hạn 2MB.',
+  DOCUMENT_TEXT_TOO_LARGE: 'Nội dung văn bản vượt quá 120.000 ký tự.',
+  INVALID_DOCUMENT: 'Tập tin không hợp lệ hoặc bị hỏng.',
+  EMPTY_DOCUMENT: 'Tập tin không có nội dung văn bản.',
+  UNSUPPORTED_DOCUMENT_FORMAT: 'Chỉ hỗ trợ tập tin văn bản .pdf hoặc .docx.',
+  FILE_REQUIRED: 'Vui lòng chọn tập tin cần nhập.',
+  ALREADY_DRAFT: 'Phiên bản này đã là bản nháp hiện tại.',
+  ROLLBACK_UNAVAILABLE: 'Chỉ có thể khôi phục phiên bản đã từng được xuất bản.',
+  NO_PUBLISHED_SOURCE: 'Chưa có phiên bản nào được xuất bản.',
+  INVALID_STATE: 'Trạng thái phiên bản không hợp lệ cho thao tác này.',
+  INACTIVE_ITEM: 'Mục tri thức đang bị tắt.',
+  CANNOT_DELETE_PUBLISHED_KNOWLEDGE: 'Không thể xoá tài liệu đã xuất bản cho AI. Hãy chuyển sang nội bộ hoặc tắt kích hoạt.',
+  CANNOT_DELETE_CITED_KNOWLEDGE: 'Tài liệu đang được trích dẫn trong hội thoại AI và không thể xoá.',
+  AI_KNOWLEDGE_NOT_FOUND: 'Không tìm thấy thông tin phù hợp trong dữ liệu của doanh nghiệp.'
 };
 
 export class ApiError extends Error {
@@ -70,15 +84,20 @@ export function removeStoredToken(): void {
   }
 }
 
-export async function api(path: string, method = 'GET', body?: unknown) {
+export async function api(path: string, method = 'GET', body?: unknown, customHeaders?: Record<string, string>) {
   let res: Response;
   const token = getStoredToken();
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'X-Gotek-Request': '1'
+    'X-Gotek-Request': '1',
+    ...(customHeaders || {})
   };
 
-  if (token) {
+  if (!isFormData && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (token && !headers['Authorization']) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
@@ -87,7 +106,7 @@ export async function api(path: string, method = 'GET', body?: unknown) {
       method,
       headers,
       credentials: 'include',
-      body: body === undefined ? undefined : JSON.stringify(body)
+      body: isFormData ? (body as FormData) : (body === undefined ? undefined : JSON.stringify(body))
     });
   } catch {
     throw new Error('Không thể kết nối. Kiểm tra mạng và thử lại.');

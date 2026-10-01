@@ -107,9 +107,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             >
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[16px] text-[#3525cd]">menu_book</span>
-                <span className="font-semibold text-[#131b2e]">Go to Knowledge Base & RAG</span>
+                <span className="font-semibold text-[#131b2e]">Kho tri thức AI & RAG</span>
               </span>
-              <span className="text-[10px] text-[#777587] font-mono">Module 3</span>
+              <span className="text-[10px] text-[#777587]">Tri thức</span>
             </button>
             <button
               style={{display: canOpenModule(authorization, 'settings') ? undefined : 'none'}}
