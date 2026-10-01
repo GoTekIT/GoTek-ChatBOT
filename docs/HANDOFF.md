@@ -1,3 +1,9 @@
+## Live realtime recovery — 2026-10-01
+
+- Browser send from personal Messenger initially did not reach DB because the temporary tunnel process had stopped. Created a new tunnel and Meta accepted the replacement callback. A new tagged message then appeared in the already-open authenticated GoTek inbox without reload.
+- UI outbound matching message was also observed in personal Messenger. Both directions have live browser evidence, but uptime depends on local backend, worker and tunnel; not a deployed service.
+- Real AI model/knowledge configuration, response-window enforcement, receipt UI and remaining connector requirements are still pending. Do not mark pilot complete.
+
 ## UI Messenger send fix — 2026-10-01
 
 - Found UI WebSocket send bypassed inboxSend and therefore Meta queue. Messenger composer now uses the existing REST path, which enqueues outbound jobs; pilot worker started continuously for the explicit test workspace.
