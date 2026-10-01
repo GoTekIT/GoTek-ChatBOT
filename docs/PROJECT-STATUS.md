@@ -1,3 +1,7 @@
+## Messenger send acknowledgement wording — 2026-10-01
+
+- Composer awaits REST result before clearing draft. API failure keeps draft and removes the optimistic message; server persisted messages can still reconcile through realtime/reload after ambiguous transport failure. Messenger REST success says queued, not delivered; duplicate composer success toast removed. Frontend build verification required below; delivery/read receipt UI remains pending.
+
 ## Live realtime recovery — 2026-10-01
 
 - Browser send from personal Messenger initially did not reach DB because the temporary tunnel process had stopped. Created a new tunnel and Meta accepted the replacement callback. A new tagged message then appeared in the already-open authenticated GoTek inbox without reload.

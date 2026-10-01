@@ -317,13 +317,18 @@ export function ConsoleWorkspace({
           body: message.content,
           visibility: message.senderType === 'internal_note' ? 'internal' : 'public',
         });
-        showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : 'Đã gửi phản hồi tới khách hàng');
+        showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : (conversations.find(c => c.id === convId)?.channel === 'Facebook Messenger' ? 'Đã xếp hàng gửi tới Messenger' : 'Đã gửi phản hồi tới khách hàng'));
       } catch (err: any) {
-        showGlobalToast(`Lỗi gửi tin: ${err.message || 'Chưa gửi được'}`);
+        setConversations(prev => prev.map(c => c.id !== convId ? c : {
+          ...c, messages: c.messages.filter(m => m.id !== clientUuid),
+        }));
+        showGlobalToast(`Lỗi gửi tin: ${err.message || 'Chưa xác nhận được kết quả gửi'}`);
+        return false;
       }
     } else {
       showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : (sentViaWs ? 'Đã gửi qua WebSocket ⚡' : 'Đã gửi phản hồi thành công'));
     }
+    return true;
   };
 
   const handleTakeover = async (convId: string) => {

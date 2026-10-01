@@ -8,7 +8,7 @@ interface InboxViewProps {
   conversations: Conversation[];
   selectedConvId: string;
   setSelectedConvId: (id: string) => void;
-  onSendMessage: (convId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>, sentViaWs?: boolean) => void;
+  onSendMessage: (convId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>, sentViaWs?: boolean) => Promise<boolean>;
   onTakeover: (convId: string) => void;
   onResolve: (convId: string) => void;
   onResumeAi?: (convId: string) => void;
@@ -246,7 +246,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
     const sentViaWs = activeConv.channel === 'Facebook Messenger' ? false : await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
 
     // 2. Dispatch to parent console state
-    onSendMessage(activeConv.id, {
+    const saved = await onSendMessage(activeConv.id, {
       clientId: msgClientId,
       senderType: isInternal ? 'internal_note' : 'agent',
       senderName: 'Alex Rivera (Staff Lead)',
@@ -255,7 +255,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
       content: text,
     }, sentViaWs);
 
-    showToast(isInternal ? 'Đã lưu ghi chú nội bộ 🔒 (Khách không nhìn thấy)' : (sentViaWs ? 'Đã gửi qua WebSocket ⚡' : 'Đã gửi phản hồi'));
+    if (!saved) return;
     setMessageText('');
     textareaRef.current?.focus();
   };
