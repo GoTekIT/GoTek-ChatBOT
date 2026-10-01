@@ -132,6 +132,25 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   assert.equal(await claim(),null); // Unknown outcomes must never be automatically resent.
   const unknownMessages=await app.get(sendPath).set('Authorization','Bearer '+token);
   assert.ok(unknownMessages.body.some((m:any)=>m.delivery_status==='unknown'&&m.provider_message_id===null));
+  // A lost HTTP acknowledgement remains recoverable after ownership changes, without a new send.
+  await admin.query("UPDATE conversations SET assigned_to=NULL,owner_version=owner_version+1 WHERE id=$1",[conversation.id]);
+  assert.equal((await enqueue(clientId)).id,queued.id);
+  await assert.rejects(enqueue(randomUUID()),/TAKEOVER_REQUIRED/);
+  await admin.query('UPDATE conversations SET assigned_to=$1 WHERE id=$2',[user,conversation.id]);
+  // A queued reply must be cancelled if the actor loses membership before dispatch.
+  await enqueue(randomUUID());
+  await admin.query('UPDATE memberships SET active=false WHERE workspace_id=$1 AND user_id=$2',[ws,user]);
+  assert.equal((await claim())?.state,'cancelled');
+  await admin.query('UPDATE memberships SET active=true WHERE workspace_id=$1 AND user_id=$2',[ws,user]);
+  // A reconnect generation invalidates already queued work.
+  await enqueue(randomUUID());
+  await admin.query('UPDATE meta_connections SET generation=generation+1 WHERE id=$1',[selected.body.id]);
+  assert.equal((await claim())?.state,'cancelled');
+  // Ownership changing while queued also fences dispatch.
+  await enqueue(randomUUID());
+  await admin.query('UPDATE conversations SET owner_version=owner_version+1 WHERE id=$1',[conversation.id]);
+  assert.equal((await claim())?.state,'cancelled');
+  assert.equal(await claim(),null);
   const deniedState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await app.get(base+'/callback').query({state:deniedState,error:'access_denied'}).set('Authorization','Bearer '+token)).status,400);
   const before=calls;assert.equal((await callback(deniedState)).status,400);assert.equal(calls,before);
