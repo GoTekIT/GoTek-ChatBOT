@@ -270,3 +270,15 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 - Mounted GET /api/integrations/meta/connections and POST /api/integrations/meta/connections/:id/disconnect through the existing API CSRF/no-store and transactional identity middleware; channels.manage required.
 - Extended DB integration test to call real Express endpoints: unauthenticated/revoked session 401, Agent 403, missing CSRF header 403, Owner list/disconnect 200, credential exclusion, repeat-disconnect single audit/generation change.
 - Targeted HTTP/DB suite passed. These routes manage existing records only; OAuth callback/asset enrollment and provider webhook unsubscription are still pending. Local disconnect is not Meta permission revocation.
+
+### Facebook Page discovery checkpoint
+- Added modules/meta/facebook-assets.ts and tests/meta-facebook-assets.test.ts. Fetches one bounded /me/accounts page using Authorization header and appsecret_proof; messaging/manage task filter; validates provider response; returns internal credentials separately from explicit id/name-only UI projection.
+- Pagination follows only bounded cursor values on fixed Graph origin, never provider paging.next URLs. Cursor repetition is rejected. Caller still needs encrypted candidate persistence and scope validation before activation.
+- Two fixture-based tests passed; backend typecheck passed. No live token/API call made. Reference for fields/tasks: Meta-maintained Postman Get Access Tokens of Pages You Manage collection.
+- OAuth token exchange remains pending authoritative contract verification (Meta docs currently unavailable to fetch), along with encrypted enrollment storage/callback and Instagram discovery. New code does not mean Connect is usable yet.
+
+### Facebook token exchange adapter checkpoint
+- Added facebook-oauth.ts and tests: server-only code exchange, credentials in request body, validated token/expiry, /me/permissions verification requiring granted pages_show_list/pages_messaging/pages_manage_metadata/pages_read_engagement. Missing messaging consent fails closed.
+- Facebook asset + exchange fixture tests 4/4 passed, backend typecheck passed. Adapter not mounted to callback yet; live Graph acceptance remains UNKNOWN.
+- Reference fallback: Meta archived SDK source https://github.com/facebookarchive/facebook-php-sdk/blob/master/src/base_facebook.php supports the server-side exchange parameter contract, but is historical evidence, not proof of compatibility with the selected current Graph version. Current official docs fetch remains unavailable. Validate against actual Meta App before release.
+- Next: encrypted expiring enrollment repository bound to original identity/session; callback must consume state in a committed transaction before exchange and revalidate identity before persistence. Follow with asset selection and activation, webhook/outbox and Instagram adapter.

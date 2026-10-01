@@ -194,3 +194,5 @@ OAuth configuration helper: 2/2 unit tests and backend typecheck passed; live pr
 Meta HTTP boundary added: configuration/transport tests 5/5 passed, backend typecheck passed. Provider token exchange and all end-to-end acceptance remain pending.
 Meta connection schema/helper and query-log redaction added. Two targeted tests passed on isolated DB; typecheck passed. No Connect callback or messaging transport exposed yet. Local disconnect is not provider-side revocation.
 Meta list/local-disconnect HTTP endpoints mounted and verified for Owner/Agent/session/CSRF behavior with isolated database. Connect/enrollment and messaging remain incomplete.
+Facebook Page discovery helper added with safe UI projection and bounded pagination; 2/2 fixture tests and typecheck passed. Provider-approved live connection is not verified.
+Facebook code-exchange/permission-validation adapter implemented with fixture tests (asset + OAuth 4/4 passed). Not connected to callback; live version compatibility still NEEDS VERIFICATION.
