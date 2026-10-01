@@ -317,6 +317,7 @@ export function ConsoleWorkspace({
           clientId: clientUuid,
           body: message.content,
           visibility: message.senderType === 'internal_note' ? 'internal' : 'public',
+          ...(message.attachments?.[0] ? {media: message.attachments[0]} : {}),
         });
         showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : (['Facebook Messenger','Instagram','WhatsApp','Threads'].includes(conversations.find(c => c.id === convId)?.channel || '') ? 'Đã xếp hàng gửi qua nền tảng; chưa xác nhận khách đã nhận' : 'Đã lưu phản hồi'));
       } catch (err: any) {
