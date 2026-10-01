@@ -1,3 +1,18 @@
+## Inbox original-connection validation
+
+- Public Meta replies now reject an identity binding mismatch before message persistence or job enqueue; worker independently checks again at dispatch. Existing committed request IDs retain replay behavior.
+- Chat-store database regression passes with a connected replacement account and unchanged message count; backend typecheck passes.
+
+## Original account dispatch binding
+
+- Worker checks existing visitor token_hash binding (meta:connection-id:sender-id) before dispatch; a replacement account on the same channel cannot send an old conversation. Inbound conversation lookup uses this binding rather than sender ID alone. No migration or legacy data rewrite.
+- Meta integration 4/4 passes, including original disconnected plus replacement connected with zero transport calls; backend build passed. Inbox enqueue still needs matching early rejection; unbound legacy identities fail closed.
+
+## Outbound receipt shape validation
+
+- sendMetaText reads messages[0].id only for WhatsApp and message_id for Messenger/Instagram. Empty or mismatched successful-response receipts remain unknown. Redirects are rejected rather than replaying POST across a redirect.
+- Transport tests 9/9 and backend typecheck pass. Mock responses do not prove live provider acceptance.
+
 ## Active inbox retry identity
 
 - InboxView retains request IDs for unconfirmed sends by conversation/body/visibility, including switching conversations or editing back to the original text. Successful confirmation releases the ID so intentional repeat messages remain possible.

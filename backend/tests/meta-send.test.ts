@@ -34,3 +34,20 @@ test('unsupported channels and missing WhatsApp account cannot dispatch to Messe
 test('Threads publishing uses public post API and returns container receipt',async()=>{process.env.THREADS_FIXTURE_TOKEN='secret';let url='';const result=await (await import('../src/modules/meta/threads')).publishThreadsText({text:'hello Threads',tokenRef:'THREADS_FIXTURE_TOKEN',replyToId:'post-1',fetchImpl:async(u,init)=>{url=String(u);assert.equal(new Headers(init?.headers).get('authorization'),'Bearer secret');return new Response(JSON.stringify({id:'threads-post-1'}),{status:200});}});assert.equal(result.status,'accepted');assert.equal(result.providerPostId,'threads-post-1');assert.match(url,/reply_to_id=post-1/);delete process.env.THREADS_FIXTURE_TOKEN;});
 
 test('Meta media resolver exchanges provider ID server-side without exposing token',async()=>{process.env.META_MEDIA_FIXTURE='secret';const result=await (await import('../src/modules/meta/media')).resolveMetaMedia({mediaId:'media-1',tokenRef:'META_MEDIA_FIXTURE',fetchImpl:async(url,init)=>{assert.match(String(url),/media-1/);assert.equal(new Headers(init?.headers).get('authorization'),'Bearer secret');return new Response(JSON.stringify({url:'https://cdn.example.test/media',mime_type:'image/jpeg'}),{status:200});}});assert.deepEqual(result,{status:'accepted',url:'https://cdn.example.test/media',mimeType:'image/jpeg'});delete process.env.META_MEDIA_FIXTURE;});
+
+test('a success response with a different platform receipt is unknown, never accepted',async()=>{
+ process.env.META_FIXTURE_TOKEN='fixture';
+ try {
+  for(const [channelKind,body] of [
+   ['whatsapp_business',{message_id:'messenger-id'}],
+   ['facebook_messenger',{messages:[{id:'whatsapp-id'}]}],
+   ['instagram_messaging',{message_id:'   '}],
+  ] as const){
+   const result=await sendMetaText({channelKind,externalAccountId:'123',recipientId:'recipient',text:'hello',pageAccessTokenRef:'META_FIXTURE_TOKEN',fetchImpl:async(_url,init)=>{
+    assert.equal(init?.redirect,'error');
+    return new Response(JSON.stringify(body),{status:200});
+   }});
+   assert.deepEqual(result,{status:'unknown',errorCode:'META_RECEIPT_MISSING'});
+  }
+ }finally{delete process.env.META_FIXTURE_TOKEN;}
+});
