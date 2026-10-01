@@ -205,3 +205,4 @@ Facebook subscription activation endpoint added with provider confirmation and g
 Internal Facebook text send adapter added; not enabled in Inbox pending durable outbox and dispatch checks. Unknown outcomes are not retried automatically.
 Meta durable outbound schema/enqueue added and tested for ownership/window/idempotency. Not enabled in Inbox; dispatch worker and delivery state integration still pending.
 Outbound claim and bounded worker added with generation/ownership/window fences; fixture tests and typecheck passed. Worker is not scheduled and real provider dispatch remains unverified.
+Inbox message API now exposes durable Meta delivery status/provider receipt fields; this does not prove delivery/read and UI still needs explicit state handling.

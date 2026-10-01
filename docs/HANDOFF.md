@@ -333,3 +333,7 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 - Added scripts/meta-outbound-worker.ts, bounded single explicit META_WORKSPACE_ID job, production-rejected, decrypts server token then calls Facebook adapter and records accepted/unknown. It is not scheduled or enabled by default.
 - Fixture callback flow includes concurrent claim and stale window cancellation; passed with typecheck. Worker process itself not run against real provider.
 - Inbox still has no public Meta send route; dispatcher needs UI/status integration and reconciliation tooling. Unknown outcomes require human/provider reconciliation before any retry.
+
+### Outbound delivery visibility
+- Existing Inbox message pagination now includes `delivery_status` and `provider_message_id` from the durable Meta outbox when present. This preserves queued/dispatching/accepted/unknown/cancelled semantics instead of implying a local insert was delivered.
+- No UI claim of delivery has been added; client must render unknown as reconciliation-required and accepted as provider acceptance only.
