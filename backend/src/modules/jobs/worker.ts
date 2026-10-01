@@ -25,8 +25,8 @@ export async function runWorkerOnce(workspace:string,handlers:Record<string,JobH
  if(!handler){await scoped(db=>finishJob(db,job.id,job.lease_token,{state:'failed',code:'HANDLER_UNAVAILABLE'}));return {state:'unavailable'};}
  try{const result=await handler(job);await scoped(db=>finishJob(db,job.id,job.lease_token,{state:'succeeded',receipt:result.receipt}));return {state:'succeeded'};}
  catch(error){if(error instanceof HttpError&&error.code==='STALE_JOB_LEASE')return {state:'lease_expired'};
- // An ownership fence rejection happens before inference or message commit.
- // It is a known cancellation, not an ambiguous provider outcome.
+ // Ownership rejection cancels publishing, including after an inference race.
+ // Keep any provider dispatch/usage uncertainty separately; never retry this reply.
  if(job.kind==='ai.reply'&&error instanceof HttpError&&error.code==='STALE_REPLY_OWNER'){
   await scoped(async db=>{
    await db.query("UPDATE jobs SET max_attempts=attempts WHERE id=$1 AND state='running' AND lease_token=$2 AND lease_until>now()",[job.id,job.lease_token]);
@@ -110,10 +110,10 @@ export async function runMetaProfileWorkerOnce(workspace:string,fetchProfile:typ
  return runWorkerOnce(workspace,{'meta.profile.fetch':async job=>{
   return transaction(async db=>{
    await scope(db,workspace);
-   const connection=(await db.query("SELECT id,channel_id,page_access_token_ref FROM meta_connections WHERE id=$1 AND workspace_id=$2 AND status='connected' FOR SHARE",[String(job.payload.connectionId),workspace])).rows[0];
+   const connection=(await db.query("SELECT id,channel_id,page_access_token_ref,channel_kind FROM meta_connections WHERE id=$1 AND workspace_id=$2 AND status='connected' FOR SHARE",[String(job.payload.connectionId),workspace])).rows[0];
    if(!connection)throw new HttpError(409,'META_CONNECTION_NOT_READY');
    const userId=String(job.payload.userId);
-   const profile=await fetchProfile(userId,connection.page_access_token_ref);
+   const profile=await fetchProfile(userId,connection.page_access_token_ref,fetch,connection.channel_kind);
    await db.query('UPDATE meta_identities SET profile=profile||$1::jsonb,updated_at=now() WHERE connection_id=$2 AND workspace_id=$3 AND external_user_id=$4',[profile,connection.id,workspace,userId]);
    await db.query("UPDATE visitors SET profile=profile||$1::jsonb WHERE workspace_id=$2 AND channel_id=$3 AND profile->>'metaUserId'=$4",[profile,workspace,connection.channel_id,userId]);
    return {receipt:'meta-profile:updated'};
