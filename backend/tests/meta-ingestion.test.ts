@@ -31,6 +31,19 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  const results=await Promise.all([transaction(db=>receiveMetaWebhook(db,raw,signature)),transaction(db=>receiveMetaWebhook(db,raw,signature))]);
  assert.equal(results.reduce((n,r)=>n+r.processed,0),1);
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query('SELECT * FROM messages')).rowCount,1);assert.equal((await db.query("SELECT * FROM jobs WHERE kind='ai.reply'")).rowCount,1);assert.equal((await db.query('SELECT * FROM meta_events WHERE processed_at IS NOT NULL')).rowCount,1);});
+ const mixed=Buffer.from(JSON.stringify({object:'page',entry:[{id:page,messaging:[{sender:{id:'fixture-user'},recipient:{id:page},message:{mid:'fixture-mid',text:'Messenger integration fixture'}}]},{id:'unrelated-page',messaging:[{sender:{id:'private-other-user'},recipient:{id:'unrelated-page'},message:{mid:'other-mid',text:'must-not-be-retained'}}]}]}));
+ // Fresh event, same sender: isolate persisted payload even for batched accounts.
+ const mixedBody=JSON.parse(mixed.toString());mixedBody.entry[0].messaging[0].message.mid='mixed-mid';
+ const mixedRaw=Buffer.from(JSON.stringify(mixedBody));
+ await assert.rejects(transaction(async db=>{
+  await receiveMetaWebhook(db,mixedRaw,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(mixedRaw).digest('hex'));
+  const payload=(await db.query("SELECT payload FROM meta_events WHERE external_event_id='mixed-mid'")).rows[0].payload;
+  assert.equal(payload.externalAccountId,page);
+  assert.equal(payload.text,'Messenger integration fixture');
+  assert.equal(JSON.stringify(payload).includes('must-not-be-retained'),false);
+  assert.equal(payload.entry,undefined);
+  throw new Error('isolated payload fixture rollback');
+ }),/isolated payload fixture rollback/);
  await transaction(async db=>{await scope(db,other);for(const table of ['messages','meta_events','meta_connections','meta_identities'])assert.equal((await db.query(`SELECT * FROM ${table}`)).rowCount,0);});
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT id FROM jobs WHERE kind='meta.profile.fetch'")).rowCount,1);});
  assert.equal((await runMetaProfileWorkerOnce(workspace,async(user,ref)=>{
