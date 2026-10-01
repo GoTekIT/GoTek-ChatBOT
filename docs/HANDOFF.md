@@ -1,3 +1,13 @@
+## Active inbox retry identity
+
+- InboxView retains request IDs for unconfirmed sends by conversation/body/visibility, including switching conversations or editing back to the original text. Successful confirmation releases the ID so intentional repeat messages remain possible.
+- Frontend tests 10/10 and build pass. Retention is in memory for the mounted inbox; reload persistence and browser E2E remain unverified.
+
+## Webhook payload isolation
+
+- New inbound meta_events rows retain only their normalized message event, not the entire signed envelope. A batch containing another Page no longer copies that Page data into the current connection event. Previously persisted rows are unchanged.
+- Meta database integration 4/4 and backend typecheck passed; regression includes a signed two-Page envelope and checks stored payload isolation.
+
 ## Committed reply replay after disconnect
 
 - inboxSend locks the conversation before connector inspection (consistent with dispatch lock ordering). Existing client IDs are validated by appendMessage and returned without another job or realtime callback, even if the connection is now unavailable. New replies still fail closed.

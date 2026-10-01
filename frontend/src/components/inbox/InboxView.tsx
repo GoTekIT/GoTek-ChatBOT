@@ -1,3 +1,4 @@
+import {SendAttempts} from './send-attempts';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -76,6 +77,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   // Enter can fire repeatedly before the async provider/API round trip returns.
   // Keep a synchronous lock so one composer action creates one client id.
   const sendingRef = useRef(false);
+  const attemptsRef = useRef(new SendAttempts());
   const [isSending, setIsSending] = useState(false);
 
   const activeConv = conversations.find((c) => c.id === selectedConvId) || conversations[0];
@@ -247,7 +249,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
     sendingRef.current = true;
     setIsSending(true);
 
-    const msgClientId = crypto.randomUUID();
+    const visibility = isInternal ? 'internal' : 'public';
+    const msgClientId = attemptsRef.current.begin(activeConv.id,text,visibility);
 
     try {
       // 1. Send via WebSocket if open (<1ms)
@@ -265,6 +268,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
       }, sentViaWs);
 
       if (!saved) return;
+      attemptsRef.current.confirmed(activeConv.id,text,visibility,msgClientId);
       setMessageText('');
       textareaRef.current?.focus();
     } finally {
