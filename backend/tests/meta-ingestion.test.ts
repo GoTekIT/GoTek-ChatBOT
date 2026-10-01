@@ -103,5 +103,19 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
   await scope(db,workspace);
   assert.equal((await db.query("UPDATE conversations SET reply_owner='HUMAN_ACTIVE',owner_version=owner_version+1 WHERE id=$1 RETURNING id",[conversation])).rowCount,1);
  });
+ const media=Buffer.from(JSON.stringify({object:'page',entry:[{id:page,messaging:[{sender:{id:'fixture-user'},recipient:{id:page},message:{mid:'media-fixture',attachments:[{type:'image',payload:{url:'https://example.test/image.jpg'}},{type:'video',payload:{url:'https://example.test/video.mp4'}}]}}]}]}));
+ const mediaSignature='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(media).digest('hex');
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,media,mediaSignature))).processed,1);
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,media,mediaSignature))).processed,0);
+ await transaction(async db=>{
+  await scope(db,workspace);
+  const rows=(await db.query('SELECT kind FROM message_attachments ORDER BY kind')).rows;
+  assert.deepEqual(rows.map(r=>r.kind),['image','video']);
+ });
+ await transaction(async db=>{await scope(db,other);assert.equal((await db.query('SELECT * FROM message_attachments')).rowCount,0);});
+ const mediaClient=randomUUID();
+ const mediaInput={workspace,conversation,clientId:mediaClient,author:'visitor' as const,visibility:'public' as const,body:'Media retry',attachments:[{type:'image' as const,url:'https://example.test/retry.jpg'}]};
+ await transaction(async db=>{await scope(db,workspace);const first=await appendMessage(db,mediaInput);const second=await appendMessage(db,mediaInput);assert.equal(first.id,second.id);assert.deepEqual(second.attachments,mediaInput.attachments);});
+ await assert.rejects(transaction(async db=>{await scope(db,workspace);return appendMessage(db,{...mediaInput,attachments:[{type:'image',url:'https://example.test/changed.jpg'}]});}),{code:'IDEMPOTENCY_CONFLICT'});
  await assert.rejects(transaction(db=>receiveMetaWebhook(db,Buffer.from('{}'),signature)),{code:'META_SIGNATURE_INVALID'});
 });

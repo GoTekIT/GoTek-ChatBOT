@@ -1,3 +1,13 @@
+## Attachment retry integrity
+
+- appendMessage now compares persisted attachment type/URL sets on idempotent retry and returns attachments consistently. Changed media under the same client ID rejects with IDEMPOTENCY_CONFLICT. Integration plus parser tests PASS 4/4; backend typecheck PASS. Real browser media acceptance still pending.
+
+## Messenger media integration corrections
+
+- Corrected attachment type-to-kind persistence mapping and forwarded attachments through the frontend realtime message mapper. Added migration 061 enforcing matching message/attachment workspace IDs; applied transactionally to pilot test DB.
+- Signed image+video webhook integration now proves persistence, duplicate suppression and tenant-isolated reads. Parser + integration: 4/4 PASS; backend/frontend builds PASS (existing bundle-size warning).
+- Real image/video browser receipt, expired media handling, attachment-aware idempotency at appendMessage boundary, and migration-runner reconciliation remain pending. No complete media acceptance claimed. Full test suite not run.
+
 ## Messenger attachments — parser only, integration pending
 
 - Added `backend/src/modules/meta/attachments.ts` to normalize bounded HTTPS image/video/audio/file references and reject malformed, executable or credential-bearing URLs. No media is downloaded by this parser.
