@@ -1,6 +1,6 @@
 import type { Server as HttpServer, IncomingMessage } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { pool, transaction } from '../../core/db.js';
+import { pool, transaction, scope } from '../../core/db.js';
 import { digest, uuid } from '../../core/security.js';
 import { realtimeHub } from './realtime.js';
 import { appendMessage, takeover } from './chat-store.js';
@@ -91,45 +91,13 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
             const msgId = uuid();
             const nowIso = new Date().toISOString();
 
-            // 1. OPTIMISTIC IN-MEMORY BROADCAST (<2ms perceived latency)
-            const immediateMessage = {
-              id: msgId,
-              workspace_id: clientCtx.workspaceId,
-              conversation_id: convId,
-              client_id: msgClientId,
-              clientId: msgClientId,
-              sequence: 0,
-              author_type: author,
-              actor_id: actor ?? null,
-              visibility,
-              body,
-              created_at: nowIso,
-            };
-
-            // Send immediate confirmation (ACK) back to sender
-            ws.send(JSON.stringify({
-              type: 'message:ack',
-              clientId: msgClientId,
-              id: msgId,
-              createdAt: nowIso,
-            }));
-
-            // Broadcast real-time message event to all conversation participants instantly
-            realtimeHub.broadcastToConversation(convId, 'message:new', immediateMessage);
-
-            // Broadcast summary to workspace inbox
-            realtimeHub.broadcastToWorkspace(clientCtx.workspaceId, clientCtx.isVisitor ? 'inbox:visitor_message' : 'inbox:message_sent', {
-              conversationId: convId,
-              messageSnippet: body.slice(0, 100),
-              author,
-              visibility,
-              createdAt: nowIso,
-            });
-
-            // 2. ASYNCHRONOUS DATABASE PERSISTENCE (100% History Durability)
+            // 1. ASYNCHRONOUS DATABASE PERSISTENCE & BROADCAST
             void (async () => {
               try {
                 await transaction(async (db) => {
+                  // Scope transaction to current tenant workspace for RLS isolation
+                  await scope(db, clientCtx.workspaceId);
+
                   // Verify conversation ownership
                   const c = (await db.query(
                     'SELECT id, reply_owner, owner_version, status, assigned_to FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',
@@ -162,6 +130,39 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                     author,
                     actor,
                     visibility,
+                  });
+
+                  // Send confirmation ACK back to sender with confirmed sequence
+                  ws.send(JSON.stringify({
+                    type: 'message:ack',
+                    clientId: msgClientId,
+                    id: msgId,
+                    sequence: savedMessage.sequence,
+                    createdAt: savedMessage.created_at,
+                  }));
+
+                  // Broadcast real-time message event with real sequence
+                  realtimeHub.broadcastToConversation(convId, 'message:new', {
+                    id: msgId,
+                    workspace_id: clientCtx.workspaceId,
+                    conversation_id: convId,
+                    client_id: msgClientId,
+                    clientId: msgClientId,
+                    sequence: savedMessage.sequence,
+                    author_type: author,
+                    actor_id: actor ?? null,
+                    visibility,
+                    body,
+                    created_at: savedMessage.created_at,
+                  });
+
+                  // Broadcast summary to workspace inbox
+                  realtimeHub.broadcastToWorkspace(clientCtx.workspaceId, clientCtx.isVisitor ? 'inbox:visitor_message' : 'inbox:message_sent', {
+                    conversationId: convId,
+                    messageSnippet: body.slice(0, 100),
+                    author,
+                    visibility,
+                    createdAt: savedMessage.created_at,
                   });
 
                   // If visitor and AI is active, enqueue AI job
@@ -242,7 +243,8 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                     c.status, c.reply_owner, c.owner_version
              FROM visitors v
              JOIN conversations c ON c.visitor_id = v.id AND c.workspace_id = v.workspace_id
-             WHERE v.token_hash = $1 AND v.expires_at > now()`,
+             WHERE v.token_hash = $1 AND v.expires_at > now()
+             ORDER BY c.created_at DESC LIMIT 1`,
             [digest(token)]
           )).rows[0];
 

@@ -52,7 +52,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
     const name=prof.fullName?.trim()||prof.name?.trim()||'Khách vãng lai';
     const email=prof.emailAddress?.trim()||prof.email?.trim()||'';
     const phone=prof.phoneNumber?.trim()||prof.phone?.trim()||'';
-    const company=prof.company?.trim()||(email.includes('@')?email.split('@')[1].split('.')[0].toUpperCase()+' Corporate':'Techcombank Corporate');
+    const company=prof.company?.trim()||(email.includes('@')?email.split('@')[1].split('.')[0].toUpperCase():'');
 
     let uiStatus:'handoff'|'ai_active'|'in_review'|'resolved'='ai_active';
     if(r.status==='resolved')uiStatus='resolved';
@@ -85,22 +85,22 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       customerCompany:company,
       customerEmail:email,
       customerPhone:phone,
-      customerLocation:prof.location||'Hanoi, Vietnam',
+      customerLocation:prof.location||'',
       customerAvatar:avatar,
-      clientTier:'Enterprise Prospect',
-      websiteUrl:r.website_url||'https://gotek.vn',
+      clientTier:prof.tier||'',
+      websiteUrl:r.website_url||'',
       lastMessageSnippet:r.last_message_body||'Bắt đầu cuộc trò chuyện mới...',
       lastMessageTime:timeStr,
       channel:r.channel_type==='slack'?'Slack App':r.channel_type==='email'?'Email':'Widget',
       status:uiStatus,
       assignedTo:r.assigned_to||undefined,
       ownerVersion:r.owner_version,
-      activeUrl:prof.activeUrl||'/pricing/enterprise-contact',
-      sessionDuration:'08m 45s',
-      deviceInfo:prof.deviceInfo||'MacOS • Chrome',
-      ragMatchScore:'94% Match',
+      activeUrl:prof.activeUrl||'',
+      sessionDuration:prof.sessionDuration||'',
+      deviceInfo:prof.deviceInfo||'',
+      ragMatchScore:r.rag_score ? `${r.rag_score}% Match` : '',
       ragCitations:[],
-      crmTags:['Enterprise Deal','🔥 Lead Hot','Yêu cầu NDA'],
+      crmTags:Array.isArray(prof.tags)?prof.tags:[],
       messages: r.last_message_body ? [{
         id: `last-${r.id}`,
         sequence: 1,
@@ -143,11 +143,11 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
     } else if(m.author_type==='agent'){
       if(m.visibility==='internal'){
         senderType='internal_note';
-        senderName=staffMap[m.actor_id]?`${staffMap[m.actor_id]} (Tier 3)`:'Alex Rivera (Tier 3)';
+        senderName=staffMap[m.actor_id]?`${staffMap[m.actor_id]}`:'Nhân viên';
         senderRole='Chỉ nhân viên xem được';
       } else {
         senderType='agent';
-        senderName=staffMap[m.actor_id]?`${staffMap[m.actor_id]} (Staff Agent)`:'Alex Rivera (Staff Agent)';
+        senderName=staffMap[m.actor_id]?`${staffMap[m.actor_id]}`:'Nhân viên';
         senderRole='Chuyên viên Hỗ trợ';
       }
     }
@@ -191,25 +191,24 @@ export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown){
   await access(db,a,id);
   const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal'])}).strict().parse(body);
   const msgId = uuid();
-  const nowIso = new Date().toISOString();
 
-  // 1. Instant in-memory broadcast (<2ms) so visitor widget never lags behind
+  // 1. Persist to DB first to ensure durability, monotonic sequence, and proper error handling
+  const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId});
+
+  // 2. Broadcast with real persisted sequence, ID, and timestamp
   realtimeHub.broadcastToConversation(id, 'message:new', {
-    id: msgId,
+    id: message.id,
     workspace_id: a.workspace_id,
     conversation_id: id,
-    client_id: data.clientId,
-    clientId: data.clientId,
-    sequence: 0,
+    client_id: message.client_id,
+    clientId: message.client_id,
+    sequence: message.sequence,
     author_type: 'agent',
     actor_id: a.user_id,
-    visibility: data.visibility,
-    body: data.body,
-    created_at: nowIso,
+    visibility: message.visibility,
+    body: message.body,
+    created_at: message.created_at,
   });
-
-  // 2. Persist with exact same messageId for 100% durability and consistency
-  const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId});
 
   realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:message_sent', {
     conversationId: id,
@@ -265,8 +264,14 @@ export async function inboxResumeAi(db:PoolClient,a:Actor,id:string,body:unknown
 }
 
 export async function inboxAssign(db:PoolClient,a:Actor,id:string,body:unknown){
-  await access(db,a,id);
-  const data=z.object({assignedTo:z.string().uuid()}).parse(body);
+  const c = await access(db,a,id);
+  const data=z.object({
+    assignedTo:z.string().uuid(),
+    version:z.number().int().positive().optional()
+  }).parse(body);
+
+  const version = data.version ?? c.owner_version;
+  if (c.owner_version !== version) throw new HttpError(409, 'STALE_REPLY_OWNER');
 
   const member=(await db.query(`SELECT m.user_id FROM memberships m WHERE m.workspace_id=$1 AND m.user_id=$2 AND m.active`,[a.workspace_id,data.assignedTo])).rows[0];
   if(!member)throw new HttpError(400,'INVALID_ASSIGNEE');
@@ -299,7 +304,7 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
   const name=prof.fullName?.trim()||prof.name?.trim()||'Khách vãng lai';
   const email=prof.emailAddress?.trim()||prof.email?.trim()||'';
   const phone=prof.phoneNumber?.trim()||prof.phone?.trim()||'';
-  const company=prof.company?.trim()||(email.includes('@')?email.split('@')[1].split('.')[0].toUpperCase()+' Corporate':'Techcombank Corporate');
+  const company=prof.company?.trim()||(email.includes('@')?email.split('@')[1].split('.')[0].toUpperCase():'');
 
   let uiStatus:'handoff'|'ai_active'|'in_review'|'resolved'='ai_active';
   if(c.status==='resolved')uiStatus='resolved';
@@ -314,22 +319,22 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
     customerCompany:company,
     customerEmail:email,
     customerPhone:phone,
-    customerLocation:prof.location||'Hanoi, Vietnam',
+    customerLocation:prof.location||'',
     customerAvatar:avatar,
-    clientTier:'Enterprise Prospect',
-    websiteUrl:channelRow?.origin||'https://gotek.vn',
-    lastMessageSnippet:messages[messages.length-1]?.content||'Bắt đầu cuộc trò chuyện...',
-    lastMessageTime:'1m ago',
+    clientTier:prof.tier||'',
+    websiteUrl:channelRow?.origin||'',
+    lastMessageSnippet:messages[messages.length-1]?.content||'',
+    lastMessageTime:messages[messages.length-1]?.timestamp||'Vừa xong',
     channel:channelRow?.widget_mode==='slack'?'Slack App':channelRow?.widget_mode==='email'?'Email':'Widget',
     status:uiStatus,
     assignedTo:c.assigned_to||undefined,
     ownerVersion:c.owner_version,
-    activeUrl:prof.activeUrl||'/pricing/enterprise-contact',
-    sessionDuration:'08m 45s',
-    deviceInfo:prof.deviceInfo||'MacOS • Chrome',
-    ragMatchScore:'94% Match',
+    activeUrl:prof.activeUrl||'',
+    sessionDuration:prof.sessionDuration||'',
+    deviceInfo:prof.deviceInfo||'',
+    ragMatchScore:'',
     ragCitations:[],
-    crmTags:['Enterprise Deal','🔥 Lead Hot','Yêu cầu NDA'],
+    crmTags:Array.isArray(prof.tags)?prof.tags:[],
     messages:messages
   };
 }

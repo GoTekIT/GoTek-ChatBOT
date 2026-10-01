@@ -50,8 +50,8 @@ export function ConsoleWorkspace({
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
 
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConvId, setSelectedConvId] = useState<string>('');
   const selectedConvIdRef = useRef<string>(selectedConvId);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
@@ -259,54 +259,6 @@ export function ConsoleWorkspace({
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3200);
   };
-
-  // Real Database Loading for Conversations, Messages, Staff, and Knowledge Documents
-  const loadConversations = async () => {
-    try {
-      const list = await api('/conversations');
-      setConversations((prev) => {
-        const mapped = list.map((c: any) => {
-          const existing = prev.find((p) => p.id === c.id);
-          return mapDbConversation(c, existing?.messages || []);
-        });
-        return mapped;
-      });
-      if (list.length > 0) {
-        setSelectedConvId((prev) => (prev && list.some((c: any) => c.id === prev) ? prev : list[0].id));
-      }
-    } catch (e) {
-      console.error('Failed to load conversations from db:', e);
-    }
-  };
-
-  useEffect(() => {
-    void loadConversations();
-    const interval = setInterval(loadConversations, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedConvId) return;
-    let alive = true;
-    const fetchMessages = async () => {
-      try {
-        const rawMsgs = await api(`/conversations/${selectedConvId}/messages`);
-        if (!alive) return;
-        const mappedMsgs = rawMsgs.map(mapDbMessage);
-        setConversations((prev) =>
-          prev.map((c) => (c.id === selectedConvId ? { ...c, messages: mappedMsgs } : c))
-        );
-      } catch (e) {
-        console.error('Failed to fetch messages:', e);
-      }
-    };
-    void fetchMessages();
-    const interval = setInterval(fetchMessages, 3000);
-    return () => {
-      alive = false;
-      clearInterval(interval);
-    };
-  }, [selectedConvId]);
 
   useEffect(() => {
     api('/members')

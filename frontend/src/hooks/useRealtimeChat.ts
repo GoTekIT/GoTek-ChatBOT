@@ -95,6 +95,7 @@ export function useRealtimeChat({
     // Connect to Backend SSE endpoint for real database conversations
     const streamUrl = `/api/conversations/${encodeURIComponent(conversationId)}/stream`;
     let eventSource: EventSource | null = null;
+    let ws: WebSocket | null = null;
     let isCleanedUp = false;
 
     // Connect via Full-Duplex WebSocket
@@ -113,7 +114,7 @@ export function useRealtimeChat({
         ws?.send(JSON.stringify({ type: 'subscribe', conversationId }));
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = (event: MessageEvent) => {
         if (isCleanedUp) return;
         try {
           const payload = JSON.parse(event.data);
