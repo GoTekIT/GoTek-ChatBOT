@@ -1,0 +1,8 @@
+import {HttpError} from '../../core/security';
+export type MetaMediaResolution={status:'accepted'|'failed'|'unknown';url?:string;mimeType?:string;errorCode?:string};
+/** Resolve a provider media ID server-side. The access token is never returned or logged. */
+export async function resolveMetaMedia(input:{mediaId:string;tokenRef:string;fetchImpl?:typeof fetch}):Promise<MetaMediaResolution>{
+ const token=process.env[input.tokenRef]; if(!token)return {status:'failed',errorCode:'META_TOKEN_NOT_CONFIGURED'};
+ if(!/^[A-Za-z0-9_.:-]{1,256}$/.test(input.mediaId))return {status:'failed',errorCode:'META_MEDIA_ID_INVALID'};
+ try{const response=await (input.fetchImpl||fetch)(`https://graph.facebook.com/v20.0/${encodeURIComponent(input.mediaId)}`,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)});const body=await response.json().catch(()=>null);if(!response.ok)return {status:response.status>=500?'unknown':'failed',errorCode:`META_HTTP_${response.status}`};if(typeof body?.url!=='string'||!body.url.startsWith('https://'))return {status:'unknown',errorCode:'META_MEDIA_URL_MISSING'};return {status:'accepted',url:body.url,mimeType:typeof body.mime_type==='string'?body.mime_type:undefined};}catch{return {status:'unknown',errorCode:'META_NETWORK_UNKNOWN'};}
+}
