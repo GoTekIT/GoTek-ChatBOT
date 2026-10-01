@@ -1,7 +1,10 @@
 import {Router} from 'express';
 import {transaction} from '../core/db';
 import {receiveMetaWebhook,verifyMetaWebhook} from '../modules/meta/messenger';
+import {META_CONNECTORS} from '../modules/meta/connectors';
 export const metaRouter=Router();
+// Public capability catalogue: never includes credentials or workspace data.
+metaRouter.get('/meta/connectors',(_req,res)=>res.json({connectors:META_CONNECTORS}));
 metaRouter.get('/meta/webhook',(req,res)=>{res.type('text/plain').send(verifyMetaWebhook(String(req.query['hub.mode']||''),String(req.query['hub.verify_token']||''),String(req.query['hub.challenge']||'')));});
 metaRouter.post('/meta/webhook',(req,res,next)=>{
  const raw=(req as any).rawBody as Buffer|undefined;
