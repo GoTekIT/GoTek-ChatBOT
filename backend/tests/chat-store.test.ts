@@ -36,6 +36,11 @@ test('H03 message ordering/idempotency, takeover fencing, note boundary and tena
  assert.equal(effects.length,1);
  await assert.rejects(run(db=>inboxSend(db,actor,c,{clientId:randomUUID(),body:'Must not silently save offline Meta reply',visibility:'public'})),{code:'META_CONNECTION_UNAVAILABLE'});
  assert.equal((await run(db=>db.query('SELECT id FROM messages WHERE conversation_id=$1',[c]))).rowCount,4);
+ const replacementConnection=randomUUID();
+ await admin.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Replacement','META_FIXTURE_TOKEN')",[replacementConnection,w,ch,randomUUID()]);
+ await assert.rejects(run(db=>inboxSend(db,actor,c,{clientId:randomUUID(),body:'Wrong account',visibility:'public'})),{code:'META_CONNECTION_UNAVAILABLE'});
+ assert.equal((await run(db=>db.query('SELECT id FROM messages WHERE conversation_id=$1',[c]))).rowCount,4);
+ await admin.query('DELETE FROM meta_connections WHERE id=$1',[replacementConnection]);
  await admin.query("UPDATE visitors SET profile='{}'::jsonb WHERE id=$1",[v]);
  const replacement=randomUUID();
  await admin.query('INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,$3,$4,$5)',[replacement,replacement+'@example.test','Replacement','0900000000','disabled-test-identity']);

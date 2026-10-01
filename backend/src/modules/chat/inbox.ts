@@ -201,8 +201,8 @@ export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown,aft
   if(data.visibility==='public') {
     const visitor=(await db.query("SELECT v.profile FROM conversations c JOIN visitors v ON v.id=c.visitor_id WHERE c.id=$1 AND c.workspace_id=$2",[id,a.workspace_id])).rows[0];
     if(visitor?.profile?.metaUserId) {
-      const routes=(await db.query("SELECT mc.id,mc.page_access_token_ref,v.profile->>'metaUserId' AS recipient_id FROM conversations c JOIN visitors v ON v.id=c.visitor_id JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id WHERE c.id=$1 AND c.workspace_id=$2 AND mc.status='connected' AND mc.channel_kind IN ('facebook_messenger','instagram_messaging','whatsapp_business') FOR SHARE OF mc",[id,a.workspace_id])).rows;
-      if(routes.length!==1) throw new HttpError(409,'META_CONNECTION_UNAVAILABLE');
+      const routes=(await db.query("SELECT mc.id,mc.page_access_token_ref,v.token_hash AS identity_binding,v.profile->>'metaUserId' AS recipient_id FROM conversations c JOIN visitors v ON v.id=c.visitor_id JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id WHERE c.id=$1 AND c.workspace_id=$2 AND mc.status='connected' AND mc.channel_kind IN ('facebook_messenger','instagram_messaging','whatsapp_business') FOR SHARE OF mc",[id,a.workspace_id])).rows;
+      if(routes.length!==1 || routes[0].identity_binding!==`meta:${routes[0].id}:${routes[0].recipient_id}`) throw new HttpError(409,'META_CONNECTION_UNAVAILABLE');
       meta=routes[0];
     }
   }

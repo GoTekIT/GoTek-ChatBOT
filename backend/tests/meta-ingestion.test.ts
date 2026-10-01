@@ -90,6 +90,11 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  const blocked=await runMetaWorkerOnce(workspace,async()=>{sends++;throw new Error('Ambiguous mapping must not dispatch');});
  assert.equal(blocked.state,'dead');assert.equal(sends,1);
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT id FROM jobs WHERE kind='meta.message.send' AND error_code='META_DISPATCH_INVALID'")).rowCount,1);});
+ await admin!.query("UPDATE meta_connections SET status='disconnected' WHERE id=$1",[connection]);
+ await transaction(async db=>{await scope(db,workspace);await enqueueJob(db,workspace,{kind:'meta.message.send',key:randomUUID(),payload:{conversationId:conversation,messageId:message,ownerVersion:1},external:true,maxAttempts:1});});
+ const switched=await runMetaWorkerOnce(workspace,async()=>{sends++;throw new Error('Replacement account must not dispatch old conversation');});
+ assert.equal(switched.state,'dead');assert.equal(sends,1);
+ await admin!.query("UPDATE meta_connections SET status='connected' WHERE id=$1",[connection]);
  await admin!.query('DELETE FROM meta_connections WHERE id=$1',[ambiguous]);
 
  await transaction(async db=>{
