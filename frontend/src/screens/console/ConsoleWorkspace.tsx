@@ -318,7 +318,7 @@ export function ConsoleWorkspace({
           body: message.content,
           visibility: message.senderType === 'internal_note' ? 'internal' : 'public',
         });
-        showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : (conversations.find(c => c.id === convId)?.channel === 'Facebook Messenger' ? 'Đã xếp hàng gửi tới Messenger' : 'Đã gửi phản hồi tới khách hàng'));
+        showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : (['Facebook Messenger','Instagram','WhatsApp','Threads'].includes(conversations.find(c => c.id === convId)?.channel || '') ? 'Đã xếp hàng gửi qua nền tảng; chưa xác nhận khách đã nhận' : 'Đã lưu phản hồi'));
       } catch (err: any) {
         setConversations(prev => prev.map(c => c.id !== convId ? c : {
           ...c, messages: c.messages.filter(m => m.id !== clientUuid),
