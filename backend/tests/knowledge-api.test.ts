@@ -92,8 +92,14 @@ test('H10 knowledge draft API persists edits, isolates tenants and enforces live
  const fileImport=(await send(a,'/api/knowledge/import-file',{filename:'faq.json',content:JSON.stringify([{title:'JSON FAQ',content:'JSON answer'}]),categoryId:category.id}).expect(200)).body; assert.equal(fileImport.imported,1); assert.equal(fileImport.state,'DRAFT');
  const bytes=(await a.post('/api/knowledge/import-bytes').set('X-Gotek-Request','1').set('Content-Type','text/plain').set('X-Gotek-Filename','notes.txt').send('Uploaded bytes').expect(200)).body; assert.equal(bytes.imported,1); assert.equal(bytes.state,'DRAFT');
  const quoted=(await send(a,'/api/knowledge/import-file',{filename:'quoted.csv',content:'title,content\n"FAQ, sản phẩm","Câu trả lời, có dấu phẩy"',categoryId:category.id}).expect(200)).body; assert.equal(quoted.imported,1);
+ await b.delete('/api/knowledge/items/' + bytes.items[0].id).set('X-Gotek-Request','1').expect(404);
+ await a.delete('/api/knowledge/items/' + bytes.items[0].id).set('X-Gotek-Request','1').expect(200);
+ await a.get('/api/knowledge/items/' + bytes.items[0].id).expect(404);
  const processed=(await a.post(`/api/knowledge/items/${created.id}/process`).set('X-Gotek-Request','1').send({requestId:randomUUID(),expectedRevision:updated.revision,versionId:updated.draft_version_id}).expect(200)).body;
  const chunks=await a.get(`/api/knowledge/versions/${processed.versionId}/chunks`).query({query:'nội dung'}).expect(200); assert.ok(Array.isArray(chunks.body));
+ await a.post(`/api/knowledge/items/${created.id}/publish`).set('X-Gotek-Request','1').send({requestId:randomUUID(),expectedRevision:processed.revision,versionId:processed.versionId,audience:'PUBLIC'}).expect(200);
+ await a.delete('/api/knowledge/items/' + created.id).set('X-Gotek-Request','1').expect(200);
+ await a.get('/api/knowledge/items/' + created.id).expect(404);
  await a.post('/api/knowledge/import-bytes').set('X-Gotek-Request','1').set('Content-Type','text/plain').send('Missing filename').expect(400);
  await send(a,'/api/knowledge/import-file',{filename:'faq.exe',content:'blocked',categoryId:category.id}).expect(415);
  await send(a,'/api/knowledge/import-file',{filename:'faq.csv',content:'wrong,columns\nonly-one',categoryId:category.id}).expect(400);
