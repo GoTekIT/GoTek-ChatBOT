@@ -3,4 +3,14 @@ import {transaction} from '../core/db';
 import {receiveMetaWebhook,verifyMetaWebhook} from '../modules/meta/messenger';
 export const metaRouter=Router();
 metaRouter.get('/meta/webhook',(req,res)=>{res.type('text/plain').send(verifyMetaWebhook(String(req.query['hub.mode']||''),String(req.query['hub.verify_token']||''),String(req.query['hub.challenge']||'')));});
-metaRouter.post('/meta/webhook',(req,res,next)=>{const raw=(req as any).rawBody as Buffer|undefined;transaction(db=>receiveMetaWebhook(db,raw||Buffer.from('{}'),req.get('x-hub-signature-256')||undefined)).then(result=>res.status(200).json(result)).catch(next);});
+metaRouter.post('/meta/webhook',(req,res,next)=>{
+ const raw=(req as any).rawBody as Buffer|undefined;
+ const afterCommit:Array<()=>void>=[];
+ transaction(db=>receiveMetaWebhook(db,raw||Buffer.from('{}'),req.get('x-hub-signature-256')||undefined,afterCommit))
+  .then(result=>{
+   // Persistence has committed. A realtime listener failure must not turn a
+   // durable receipt into a webhook failure and trigger unnecessary redelivery.
+   for(const publish of afterCommit){try{publish();}catch{console.warn('META_REALTIME_PUBLISH_FAILED');}}
+   res.status(200).json(result);
+  }).catch(next);
+});

@@ -19,6 +19,14 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Fixture','META_FIXTURE_TOKEN')",[connection,workspace,channel,page]);
  const raw=Buffer.from(JSON.stringify({object:'page',entry:[{id:page,messaging:[{sender:{id:'fixture-user'},recipient:{id:page},message:{mid:'fixture-mid',text:'Messenger integration fixture'}}]}]}));
  const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
+ const effects:Array<()=>void>=[];
+ await assert.rejects(transaction(async db=>{
+  await receiveMetaWebhook(db,raw,signature,effects);
+  assert.equal(effects.length,1);
+  throw new Error('fixture rollback');
+ }),/fixture rollback/);
+ // Rolled-back notifications are discarded rather than published.
+ effects.length=0;
  const results=await Promise.all([transaction(db=>receiveMetaWebhook(db,raw,signature)),transaction(db=>receiveMetaWebhook(db,raw,signature))]);
  assert.equal(results.reduce((n,r)=>n+r.processed,0),1);
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query('SELECT * FROM messages')).rowCount,1);assert.equal((await db.query("SELECT * FROM jobs WHERE kind='ai.reply'")).rowCount,1);assert.equal((await db.query('SELECT * FROM meta_events WHERE processed_at IS NOT NULL')).rowCount,1);});

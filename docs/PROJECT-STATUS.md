@@ -1,3 +1,9 @@
+## Messenger realtime commit boundary
+
+- Webhook ingestion buffers realtime publication callbacks; HTTP route invokes them only after transaction commit. Publication failure uses a fixed safe log code and does not change an already durable ACK into a retry response.
+- Disposable DB test rolls back an ingestion with a pending notification, discards effects, then successfully reprocesses the event. Existing dedupe/AI/dispatch guards still pass. Integration PASS 1/1 and backend typecheck PASS.
+- Notification callbacks are in-memory, not a durable realtime outbox; process failure after commit still requires inbox reload to recover view. Live browser/provider acceptance remains pending.
+
 ## Messenger terminal rejection classification
 
 - Meta worker records known validation/ownership/credential/HTTP 4xx rejection as terminal dead with the precise safe error code. Caps remaining attempts at current attempts during lease-checked settlement to avoid automatic resends.
