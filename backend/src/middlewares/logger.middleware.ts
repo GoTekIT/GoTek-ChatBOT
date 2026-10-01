@@ -6,7 +6,9 @@ import type {Request, Response, NextFunction} from 'express';
  */
 export function requestLogger(req: Request, res: Response, next: NextFunction) {
   const start = Date.now();
-  const {method, originalUrl} = req;
+  const {method} = req;
+  // OAuth codes, state, webhook verify tokens and other query credentials must never enter logs.
+  const requestPath = req.originalUrl.split('?')[0].replace(/[\r\n\x00-\x1f\x7f]/g, '');
   const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
 
   res.on('finish', () => {
@@ -26,7 +28,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
     console.log(
-      `[HTTP] ${timestamp} | ${method.padEnd(6)} | ${color}${status} ${res.statusMessage || ''}${reset} | ${duration.toString().padStart(4)}ms | ${originalUrl} | IP: ${clientIp}`
+      `[HTTP] ${timestamp} | ${method.padEnd(6)} | ${color}${status} ${res.statusMessage || ''}${reset} | ${duration.toString().padStart(4)}ms | ${requestPath} | IP: ${clientIp}`
     );
   });
 

@@ -258,3 +258,10 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 - Added `backend/src/modules/meta/http.ts`: fixed HTTPS provider host allowlist, redirects rejected, 10-second abort deadline, 1 MiB streamed response limit, object-only JSON, sanitized stable errors, no automatic retries.
 - Configuration + HTTP suites: 5/5 passed; backend typecheck passed. Tests cover forbidden endpoints, malformed/oversized responses, provider errors without secret disclosure, timeout and single-attempt behavior.
 - Official Meta business-login/manual-flow pages returned HTTP 429 during verification; token exchange contract has NOT been accepted or wired based on memory. Continue with official source/dashboard verification and callback implementation.
+
+### Meta connection storage and logging checkpoint — 2026-10-01
+- Added migration 059_meta_connections.sql with tenant RLS, workspace/channel composite FK, global provider/asset uniqueness, generation fencing and credential erasure constraint for disconnected records. Applied on isolated DB 55439 only.
+- Added API-safe list projection and Owner/Admin-only idempotent local disconnect helper; caller must derive identity in transaction. Disconnect clears credential/scopes, increments generation once and audits once. Worker enforcement and provider-side unsubscription remain pending, so no end-to-end claim.
+- Fixed request logger to omit query strings before OAuth callback activation; regression test covers code/state, webhook verify token and inbox search privacy.
+- 2/2 connection/logger tests passed and backend typecheck passed. No routes wired yet. New files are tests/meta-connections.test.ts, tests/request-logger.test.ts, modules/meta/connections.ts and migration059.
+- Next: verify token-exchange contract, persist selected authorized assets, route mounting and integration tests; then webhook/outbox workers and UI. Keep PR Draft.

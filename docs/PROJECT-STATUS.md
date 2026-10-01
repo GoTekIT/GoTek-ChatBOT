@@ -192,3 +192,4 @@ Meta OAuth attempts schema/helpers added (migration058, not applied yet). Pendin
 Meta checkpoint 2026-10-01: foundation tests 3/3 passed on isolated PostgreSQL; migration 058 applied there. Backend typecheck passed. OAuth routes, connections, inbound/outbound and live Meta acceptance remain IN PROGRESS, not delivered.
 OAuth configuration helper: 2/2 unit tests and backend typecheck passed; live provider setup and route wiring remain pending.
 Meta HTTP boundary added: configuration/transport tests 5/5 passed, backend typecheck passed. Provider token exchange and all end-to-end acceptance remain pending.
+Meta connection schema/helper and query-log redaction added. Two targeted tests passed on isolated DB; typecheck passed. No Connect callback or messaging transport exposed yet. Local disconnect is not provider-side revocation.
