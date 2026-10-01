@@ -16,7 +16,7 @@ export const normalizeFacebookReceipt=(db:PoolClient,workspace:string)=>normaliz
 export const normalizeInstagramReceipt=(db:PoolClient,workspace:string)=>normalizeMetaReceipt(db,workspace,'instagram');
 async function normalizeMetaReceipt(db:PoolClient,workspace:string,provider:'facebook'|'instagram') {
  const receipt=(await db.query(`SELECT r.* FROM meta_webhook_receipts r JOIN meta_connections x ON x.id=r.connection_id AND x.workspace_id=r.workspace_id
- WHERE r.workspace_id=$1 AND r.processed_at IS NULL AND x.provider=$2
+ WHERE r.workspace_id=$1 AND r.processed_at IS NULL AND x.provider=$2 AND x.status='active'
  ORDER BY r.received_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`,[workspace,provider])).rows[0];
  if(!receipt)return {state:'idle'};
  if(!(await db.query("SELECT id FROM workspaces WHERE id=$1 AND status='active' FOR SHARE",[workspace])).rowCount)return {state:'disabled'};
@@ -33,6 +33,9 @@ async function normalizeMetaReceipt(db:PoolClient,workspace:string,provider:'fac
   const parsed=incoming.safeParse(raw);
   if(!parsed.success || parsed.data.message.is_echo || parsed.data.recipient.id!==connection.asset_id || parsed.data.sender.id===connection.asset_id) {skipped++;continue;}
   const event=parsed.data;
+  // Serialize retries for the same provider message before checking/inserting the
+  // idempotency row. This also covers the same mid arriving in separate receipts.
+  await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`${connection.id}:${event.message.mid}`]);
   if((await db.query('SELECT 1 FROM meta_inbound_messages WHERE connection_id=$1 AND external_message_id=$2',[connection.id,event.message.mid])).rowCount){duplicates++;continue;}
   let contact=(await db.query('SELECT conversation_id FROM meta_contacts WHERE connection_id=$1 AND external_user_id=$2',[connection.id,event.sender.id])).rows[0];
   if(!contact) {
@@ -45,7 +48,8 @@ async function normalizeMetaReceipt(db:PoolClient,workspace:string,provider:'fac
   }
   const message=await appendMessage(db,{workspace,conversation:contact.conversation_id,clientId:randomUUID(),author:'visitor',visibility:'public',body:event.message.text});
   const timestamp=new Date(event.timestamp);
-  await db.query('INSERT INTO meta_inbound_messages(workspace_id,connection_id,external_message_id,message_id,provider_timestamp) VALUES($1,$2,$3,$4,$5)',[workspace,connection.id,event.message.mid,message.id,timestamp]);
+  const inbound=await db.query('INSERT INTO meta_inbound_messages(workspace_id,connection_id,external_message_id,message_id,provider_timestamp) VALUES($1,$2,$3,$4,$5) ON CONFLICT(connection_id,external_message_id) DO NOTHING RETURNING id',[workspace,connection.id,event.message.mid,message.id,timestamp]);
+  if(!inbound.rowCount) { duplicates++; continue; }
   // Out-of-order delivery must never move the messaging window backwards. Future provider times are capped.
   await db.query('UPDATE meta_contacts SET last_inbound_at=greatest(last_inbound_at,least($3::timestamptz,now())) WHERE connection_id=$1 AND external_user_id=$2',[connection.id,event.sender.id,timestamp]);
   afterCommit(db,()=>realtimeHub.broadcastToConversation(contact.conversation_id,'message:new',message));

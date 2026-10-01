@@ -182,7 +182,7 @@ export class AuthController {
     if (!claims.sub || !claims.email || claims.email_verified !== 'true' || claims.aud !== expectedClientId) {
       throw new HttpError(401, 'INVALID_GOOGLE_CREDENTIAL');
     }
-    const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {headers: {Authorization: `Bearer ${data.credential}`}});
+    const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {headers: {Authorization: `Bearer ${data.credential}`}, signal: AbortSignal.timeout(10000)});
     if (!profileResponse.ok) throw new HttpError(401, 'INVALID_GOOGLE_CREDENTIAL');
     const profile = await profileResponse.json() as {email?: string; name?: string; sub?: string; picture?: string};
     if (profile.sub !== claims.sub || (profile.email && profile.email !== claims.email)) {
