@@ -39,8 +39,8 @@ metaWebhookRouter.post('/'+provider+'/webhook',raw({type:'application/json',limi
    const current=await db.query("SELECT id FROM meta_connections WHERE id=$1 AND workspace_id=$2 AND generation=$3 AND status IN ('pending','active') FOR SHARE",[mapping.connection_id,mapping.workspace_id,mapping.generation]);
    if(!current.rowCount)continue;
    const body=JSON.stringify(entry),hash=createHash('sha256').update(body).digest('hex');
-   await db.query(`INSERT INTO meta_webhook_receipts(id,workspace_id,connection_id,generation,payload_hash,payload)
-    VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(connection_id,generation,payload_hash) DO NOTHING`,
+   await db.query(`INSERT INTO meta_webhook_receipts(id,workspace_id,connection_id,generation,payload_hash,payload,waiting_until)
+    VALUES($1,$2,$3,$4,$5,$6,now()+interval '24 hours') ON CONFLICT(connection_id,generation,payload_hash) DO NOTHING`,
     [randomUUID(),mapping.workspace_id,mapping.connection_id,mapping.generation,hash,body]);
   }
  });

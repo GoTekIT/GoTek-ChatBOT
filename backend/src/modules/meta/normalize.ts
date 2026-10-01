@@ -59,3 +59,10 @@ async function normalizeMetaReceipt(db:PoolClient,workspace:string,provider:'fac
  await db.query('UPDATE meta_webhook_receipts SET processed_at=now(),outcome=$2 WHERE id=$1',[receipt.id,{inserted,duplicates,skipped,unsupportedEnvelope:!Array.isArray(receipt.payload.messaging)}]);
  return {state:'processed',inserted,duplicates,skipped};
 }
+
+export async function expireWaitingMetaReceipts(db:PoolClient,workspace:string) {
+ const result=await db.query(`UPDATE meta_webhook_receipts SET processed_at=now(),outcome=$2
+  WHERE workspace_id=$1 AND processed_at IS NULL AND waiting_until IS NOT NULL AND waiting_until<now()
+  RETURNING id`,[workspace,{expired:'waiting_connection'}]);
+ return {expired:result.rowCount};
+}
