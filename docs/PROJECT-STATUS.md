@@ -1,3 +1,10 @@
+## Messenger pilot worker entrypoint — continuation
+
+- Added `backend/scripts/meta-worker.ts` and `npm run worker:meta --prefix backend -- --once`. Run from backend with the appropriate env; `GOTEK_WORKER_WORKSPACE` must be a UUID matching `META_WORKSPACE_ID`, and `META_ENABLE_TEST_SEND=true` is required. Production is rejected; no scheduler is automatically started.
+- Restored frontend dependencies using npm ci without changing the lockfile. `npm run build:all` now PASSES (existing large-bundle warning).
+- Transport and signature tests previously passed 5/5. No live worker delivery performed. Ownership/window/receipt integration remains incomplete; do not enable this worker for customer traffic.
+- Next: finish dispatch ownership fencing, provision the approved pilot tenant/connection and App Secret, then run a controlled personal-admin/Page roundtrip. Prior missing-tsc blocker is resolved.
+
 ## Messenger continuation — transport review and team integration
 
 - Branch `codex/meta-messenger-pilot` contains fetched `origin/main` at this check (5 ahead, 0 behind before this change); GitHub PR #8 reports MERGEABLE. This is a point-in-time check, not a guarantee against future concurrent changes. Never push main or force-push.

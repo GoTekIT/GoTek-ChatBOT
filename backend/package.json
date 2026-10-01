@@ -14,7 +14,8 @@
     "db:restore-drill": "tsx scripts/restore-drill.ts",
     "worker:ai": "tsx scripts/ai-worker.ts",
     "worker:embedding": "tsx scripts/embed-knowledge.ts",
-    "worker:web": "tsx scripts/web-refresh-worker.ts"
+    "worker:web": "tsx scripts/web-refresh-worker.ts",
+    "worker:meta": "tsx scripts/meta-worker.ts"
   },
   "dependencies": {
     "@getbrevo/brevo": "^6.0.3",
