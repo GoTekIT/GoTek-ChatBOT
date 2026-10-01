@@ -78,6 +78,11 @@ test('Instagram callback stores only encrypted tenant-bound connection and rejec
   await admin.query("UPDATE conversations SET reply_owner='HUMAN_ACTIVE',assigned_to=$1,owner_version=owner_version+1 WHERE id=$2",[user,conversationId]);
   const clientId=randomUUID(),sendPath='/api/conversations/'+conversationId+'/messages';
   const send=()=>app.post(sendPath).set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({clientId,body:'Instagram reply',visibility:'public'});
+  await admin.query("UPDATE meta_connections SET token_expires_at=now()-interval '1 second' WHERE id=$1",[result.body.id]);
+  const expired=await send();assert.equal(expired.status,409);assert.equal(expired.body.error,'META_RECONNECT_REQUIRED');
+  assert.equal((await admin.query('SELECT id FROM meta_outbox WHERE workspace_id=$1',[ws])).rowCount,0);
+  assert.equal((await admin.query("SELECT id FROM messages WHERE workspace_id=$1 AND author_type='agent'",[ws])).rowCount,0);
+  await admin.query("UPDATE meta_connections SET token_expires_at=now()+interval '1 hour' WHERE id=$1",[result.body.id]);
   const queued=await send();assert.equal(queued.status,200);assert.equal(queued.body.delivery_status,'queued');
   assert.equal((await send()).body.id,queued.body.id);
   assert.equal(await transaction(async db=>{await scope(db,ws);return claimFacebookReply(db,ws);}),null);

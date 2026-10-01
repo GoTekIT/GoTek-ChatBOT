@@ -20,6 +20,7 @@ async function enqueueMetaReply(db:PoolClient,actor:Actor,conversationId:string,
   return previous;
  }
  if(!connection || connection.status!=='active' || !connection.granted_scopes.includes(provider==='facebook'?'pages_messaging':'instagram_business_manage_messages'))throw new HttpError(409,'META_RECONNECT_REQUIRED');
+ if(!connection.token_ciphertext || (connection.token_expires_at && new Date(connection.token_expires_at).getTime()<=Date.now()))throw new HttpError(409,'META_RECONNECT_REQUIRED');
  if(current.reply_owner!=='HUMAN_ACTIVE'||current.assigned_to!==actor.user_id)throw new HttpError(409,'TAKEOVER_REQUIRED');
  const contact=(await db.query(`SELECT external_user_id FROM meta_contacts WHERE workspace_id=$1 AND connection_id=$2
  AND conversation_id=$3 AND last_inbound_at>now()-interval '24 hours'`,[actor.workspace_id,connection.id,conversationId])).rows[0];
