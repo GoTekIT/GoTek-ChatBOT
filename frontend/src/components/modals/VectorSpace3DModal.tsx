@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { api } from '../../api/api';
 import * as THREE from 'three';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -18,7 +19,7 @@ interface VectorNodeData {
   excerpt: string;
 }
 
-const SAMPLE_NODES: VectorNodeData[] = [
+const nodes: VectorNodeData[] = [
   {
     id: 'node-1',
     title: 'Thoả thuận Bảo mật NDA Techcombank',
@@ -83,7 +84,7 @@ const SAMPLE_NODES: VectorNodeData[] = [
 
 export const VectorSpace3DModal: React.FC<VectorSpace3DModalProps> = ({ isOpen, onClose }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const [selectedNode, setSelectedNode] = useState<VectorNodeData | null>(SAMPLE_NODES[0]);
+  const [selectedNode, setSelectedNode] = useState<VectorNodeData | null>(nodes[0]);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -143,7 +144,7 @@ export const VectorSpace3DModal: React.FC<VectorSpace3DModalProps> = ({ isOpen, 
 
     const nodeMeshes: { mesh: THREE.Mesh; data: VectorNodeData }[] = [];
 
-    SAMPLE_NODES.forEach((node) => {
+    nodes.forEach((node) => {
       const geo = new THREE.SphereGeometry(0.16, 32, 32);
       const mat = new THREE.MeshBasicMaterial({
         color: new THREE.Color(node.color),
@@ -168,8 +169,8 @@ export const VectorSpace3DModal: React.FC<VectorSpace3DModalProps> = ({ isOpen, 
 
     // 4. Connecting Vector Synapses lines
     const linePositions: number[] = [];
-    SAMPLE_NODES.forEach((n1, i) => {
-      SAMPLE_NODES.forEach((n2, j) => {
+    nodes.forEach((n1, i) => {
+      nodes.forEach((n2, j) => {
         if (i < j) {
           linePositions.push(...n1.position);
           linePositions.push(...n2.position);
@@ -264,7 +265,7 @@ export const VectorSpace3DModal: React.FC<VectorSpace3DModalProps> = ({ isOpen, 
         mount.removeChild(renderer.domElement);
       }
     };
-  }, [isOpen]);
+  }, [isOpen, nodes]);
 
   if (!isOpen) return null;
 

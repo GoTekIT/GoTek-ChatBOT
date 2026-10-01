@@ -49,29 +49,18 @@ async def create_chat_completion(request: ChatCompletionRequest):
     if not request.messages:
         raise HTTPException(status_code=400, detail="Messages array cannot be empty")
 
-    # Format messages into conversation string for llm_service
-    formatted_convo = []
-    system_instruction = ""
-    for msg in request.messages:
-        if msg.role.lower() == "system":
-            system_instruction += f"{msg.content}\n"
-        else:
-            role_label = "Khách hàng" if msg.role.lower() == "user" else "Trợ lý CSKH"
-            formatted_convo.append(f"{role_label}: {msg.content}")
-
-    prompt = ""
-    if system_instruction:
-        prompt += f"[Chỉ dẫn hệ thống]:\n{system_instruction.strip()}\n\n"
-    prompt += "\n".join(formatted_convo)
+    # Prepare messages payload adhering to OpenAI and multi-tier standards
+    messages_payload = [{"role": msg.role, "content": msg.content} for msg in request.messages]
 
     try:
         reply_text = await call_llm(
-            prompt=prompt,
+            messages=messages_payload,
             temperature=request.temperature or 0.2,
-            max_tokens=request.max_tokens or 1024
+            preferred_model=request.model
         )
 
-        approx_prompt_tokens = max(1, len(prompt) // 4)
+        total_prompt_chars = sum(len(m.get("content", "")) for m in messages_payload)
+        approx_prompt_tokens = max(1, total_prompt_chars // 4)
         approx_completion_tokens = max(1, len(reply_text) // 4)
 
         return ChatCompletionResponse(

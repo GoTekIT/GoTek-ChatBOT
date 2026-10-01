@@ -51,7 +51,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const activeConv = conversations.find((c) => c.id === selectedConvId) || conversations[0];
+  const activeConv = conversations.find((c) => c.id === selectedConvId) || conversations[0] || null;
 
   // =========================================================================
   // REALTIME CHAT HOOK (SSE Server-Sent Events Connection)
@@ -86,7 +86,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   // Auto-scroll to latest message when conversation or messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeConv?.id, activeConv?.messages.length]);
+  }, [activeConv?.id, activeConv?.messages?.length]);
 
   // Subtle Resizer Dragging: Queue
   useEffect(() => {
@@ -196,16 +196,14 @@ export const InboxView: React.FC<InboxViewProps> = ({
     if (composerMode === 'internal') {
       onSendMessage(activeConv.id, {
         senderType: 'internal_note',
-        senderName: 'Alex Rivera (Staff Lead)',
+        senderName: 'Ghi chú nội bộ',
         content: messageText,
       });
       showToast('Đã lưu ghi chú nội bộ');
     } else {
       onSendMessage(activeConv.id, {
         senderType: 'agent',
-        senderName: 'Alex Rivera (Staff Lead)',
-        senderAvatar:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
+        senderName: 'Nhân viên hỗ trợ',
         content: messageText,
       });
     }
@@ -275,7 +273,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
     showToast('Đã gỡ nhãn CRM');
   };
 
-  const currentTags = activeTags[activeConv?.id] || activeConv?.crmTags || [];
+  const currentTags = activeConv ? (activeTags[activeConv.id] || activeConv.crmTags || []) : [];
 
   return (
     <div ref={containerRef} className="flex-1 flex overflow-hidden relative h-full bg-[#f8f9fb] dark:bg-[#080c14] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(22,100,255,0.05),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(22,100,255,0.1),rgba(0,0,0,0))] text-[#1f2329] dark:text-slate-100 select-text transition-colors duration-300">
@@ -565,7 +563,22 @@ export const InboxView: React.FC<InboxViewProps> = ({
       </AnimatePresence>
 
       {/* ================= COLUMN 2: CHAT CANVAS & THREAD (Fluid Edge-to-Edge) ================= */}
-      <main className="flex-1 h-full flex flex-col bg-[#f8f9fb] dark:bg-[#080c14] relative overflow-hidden min-w-[380px] transition-colors">
+      {!activeConv ? (
+        <main className="flex-1 h-full flex flex-col items-center justify-center p-8 text-center bg-[#f8f9fb] dark:bg-[#080c14] text-slate-500">
+          <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-[#1664ff] dark:text-blue-400 flex items-center justify-center mb-4 border border-blue-200/60 dark:border-blue-800/60 shadow-xs">
+            <span className="material-symbols-outlined text-[32px]">forum</span>
+          </div>
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
+            {conversations.length === 0 ? 'Hộp thư chưa có hội thoại nào' : 'Chọn một cuộc hội thoại'}
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
+            {conversations.length === 0
+              ? 'Tất cả tin nhắn gửi từ Web Widget hoặc các kênh tích hợp sẽ tự động hiển thị tại đây theo thời gian thực từ cơ sở dữ liệu.'
+              : 'Chọn một hội thoại từ danh sách bên trái để xem nội dung trao đổi và tiếp quản hỗ trợ.'}
+          </p>
+        </main>
+      ) : (
+        <main className="flex-1 h-full flex flex-col bg-[#f8f9fb] dark:bg-[#080c14] relative overflow-hidden min-w-[380px] transition-colors">
         {/* Thread Header Bar - Seamless and Clean */}
         <header className="h-14 px-6 bg-white dark:bg-[#0d131f]/90 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between shrink-0 z-10 transition-colors">
           {/* Customer Summary Info */}
@@ -1184,9 +1197,10 @@ export const InboxView: React.FC<InboxViewProps> = ({
           </div>
         </footer>
       </main>
+      )}
 
       {/* ================= RESIZE HANDLE 2: SUBTLE SPLITTER ================= */}
-      {isDossierOpen && (
+      {isDossierOpen && activeConv && (
         <div
           onMouseDown={() => setIsDraggingDossier(true)}
           className={`w-1 h-full cursor-col-resize hover:bg-[#1664ff]/40 active:bg-[#1664ff] transition-colors z-20 select-none shrink-0 ${
@@ -1197,6 +1211,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
       )}
 
       {/* ================= COLUMN 3: CUSTOMER DOSSIER (Bento Glassmorphism & Spring Expand/Collapse) ================= */}
+      {activeConv && (
       <motion.aside
         initial={false}
         animate={{
@@ -1433,6 +1448,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
           </div>
         </div>
       </motion.aside>
+      )}
     </div>
   );
 };

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { ConsoleModule, SettingsSubTab, KnowledgeDocument, StaffMember, Conversation, ChatMessage } from '../../types';
-import { INITIAL_DOCUMENTS, INITIAL_CONVERSATIONS } from '../../data/mockData';
 import { TopNav } from '../../components/TopNav';
 import { Sidebar } from '../../components/Sidebar';
 import { InboxView } from '../../components/inbox/InboxView';
@@ -13,6 +12,65 @@ import { ChannelsView } from '../../components/channels/ChannelsView';
 import { AnalyticsView } from '../../components/analytics/AnalyticsView';
 import { CommandPalette } from '../../components/modals/CommandPalette';
 import { navigate } from '../../hooks/usePath';
+import { api } from '../../api/api';
+
+function mapDbConversation(c: any, messages: ChatMessage[] = []): Conversation {
+  return {
+    id: c.id,
+    customerName: `Khách vãng lai #${c.id.slice(0, 6)}`,
+    customerCompany: `Kênh: ${c.channel_name || 'Website Live Widget'}`,
+    customerEmail: '—',
+    customerPhone: '—',
+    customerLocation: 'Việt Nam',
+    customerAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    clientTier: 'Enterprise Prospect',
+    websiteUrl: c.channel_name || 'Website Live Widget',
+    lastMessageSnippet: c.last_message || (c.status === 'open' ? 'Hội thoại đang mở' : 'Hội thoại đã kết thúc'),
+    lastMessageTime: c.last_message_at 
+      ? new Date(c.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : c.updated_at 
+      ? new Date(c.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : 'Vừa xong',
+    unreadCount: 0,
+    channel: 'Widget',
+    status: c.reply_owner === 'HANDOFF_PENDING' 
+      ? 'handoff' 
+      : c.reply_owner === 'AI_ACTIVE' 
+      ? 'ai_active' 
+      : c.status === 'resolved' 
+      ? 'resolved' 
+      : 'in_review',
+    assignedTo: c.assigned_to || undefined,
+    slaCountdown: '< 2m',
+    slaUrgent: c.reply_owner === 'HANDOFF_PENDING',
+    activeUrl: 'https://gotek.vn',
+    sessionDuration: '—',
+    deviceInfo: 'Web Browser',
+    ragMatchScore: '100%',
+    ragCitations: [],
+    crmTags: [],
+    messages,
+  };
+}
+
+function mapDbMessage(m: any): ChatMessage {
+  const isInternal = m.visibility === 'internal';
+  const isVisitor = m.author_type === 'visitor';
+  const isAi = m.author_type === 'ai';
+  return {
+    id: m.id,
+    senderType: isInternal ? 'internal_note' : isVisitor ? 'customer' : isAi ? 'ai' : 'agent',
+    senderName: isInternal ? 'Ghi chú nội bộ' : isVisitor ? 'Khách hàng' : isAi ? 'GoTek AI' : 'Nhân viên hỗ trợ',
+    senderAvatar: isAi 
+      ? undefined 
+      : isVisitor 
+      ? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' 
+      : undefined,
+    senderRole: isAi ? 'AI Copilot' : isVisitor ? 'Khách vãng lai' : 'Chuyên viên hỗ trợ',
+    timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    content: m.body,
+  };
+}
 
 interface ConsoleWorkspaceProps {
   me?: any;
@@ -47,12 +105,11 @@ export function ConsoleWorkspace({
     setActiveModule(resolveInitialModule(currentPath));
   }, [currentPath]);
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('staff');
-  const [documents, setDocuments] = useState<KnowledgeDocument[]>(INITIAL_DOCUMENTS);
-  // Members are loaded from the tenant-scoped API by MembersSettings.
-  const staffList: StaffMember[] = [];
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
 
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConvId, setSelectedConvId] = useState<string>('');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
@@ -123,6 +180,101 @@ export function ConsoleWorkspace({
     setTimeout(() => setToastMessage(null), 3200);
   };
 
+  // Real Database Loading for Conversations, Messages, Staff, and Knowledge Documents
+  const loadConversations = async () => {
+    try {
+      const list = await api('/conversations');
+      setConversations((prev) => {
+        const mapped = list.map((c: any) => {
+          const existing = prev.find((p) => p.id === c.id);
+          return mapDbConversation(c, existing?.messages || []);
+        });
+        return mapped;
+      });
+      if (list.length > 0) {
+        setSelectedConvId((prev) => (prev && list.some((c: any) => c.id === prev) ? prev : list[0].id));
+      }
+    } catch (e) {
+      console.error('Failed to load conversations from db:', e);
+    }
+  };
+
+  useEffect(() => {
+    void loadConversations();
+    const interval = setInterval(loadConversations, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedConvId) return;
+    let alive = true;
+    const fetchMessages = async () => {
+      try {
+        const rawMsgs = await api(`/conversations/${selectedConvId}/messages`);
+        if (!alive) return;
+        const mappedMsgs = rawMsgs.map(mapDbMessage);
+        setConversations((prev) =>
+          prev.map((c) => (c.id === selectedConvId ? { ...c, messages: mappedMsgs } : c))
+        );
+      } catch (e) {
+        console.error('Failed to fetch messages:', e);
+      }
+    };
+    void fetchMessages();
+    const interval = setInterval(fetchMessages, 3000);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, [selectedConvId]);
+
+  useEffect(() => {
+    api('/members')
+      .then((members: any[]) => {
+        setStaffList(
+          members.map((m: any) => ({
+            id: m.id,
+            name: m.full_name,
+            email: m.email,
+            avatarUrl: '',
+            role: m.role.toLowerCase() as any,
+            roleTitle: m.role,
+            status: m.active ? 'online' : 'offline',
+            statusText: m.active ? 'Đang hoạt động' : 'Đã vô hiệu',
+            activeChats: 0,
+            maxChats: 10,
+            assignedChannels: [],
+            lastActive: 'Hôm nay',
+            locationInfo: 'Việt Nam',
+          }))
+        );
+      })
+      .catch(() => {});
+
+    api('/knowledge/items?limit=100')
+      .then((res: any) => {
+        const items = Array.isArray(res) ? res : res.items || [];
+        setDocuments(
+          items.map((i: any) => ({
+            id: i.id,
+            title: i.title,
+            size: '12 KB',
+            hash: i.draft_version_id || i.id,
+            cosineSim: 1.0,
+            sourceType: (i.source_type?.toLowerCase() || 'doc') as any,
+            publicationStatus: (i.state?.toLowerCase() || 'draft') as any,
+            audience: i.audience || 'INTERNAL',
+            audienceDesc: i.audience === 'PUBLIC' ? 'Công khai' : 'Nội bộ',
+            chunksCount: 1,
+            matchScore: '100%',
+            lastUpdated: i.updated_at ? new Date(i.updated_at).toLocaleDateString('vi-VN') : 'Mới',
+            updatedBy: 'Hệ thống',
+          }))
+        );
+      })
+      .catch(() => {});
+  }, []);
+
   // Document actions
   const handleAddDocument = (newDoc: KnowledgeDocument) => {
     setDocuments((prev) => [newDoc, ...prev]);
@@ -141,63 +293,60 @@ export function ConsoleWorkspace({
     showGlobalToast('Đã gỡ tài liệu khỏi kho tri thức');
   };
 
-  // Chat actions
-  const handleSendMessage = (
+  // Real Database Chat actions
+  const handleSendMessage = async (
     convId: string,
     message: Omit<ChatMessage, 'id' | 'timestamp'>
   ) => {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const fullMsg: ChatMessage = {
-      ...message,
-      id: `msg-${Date.now()}`,
-      timestamp: timeStr,
-    };
-
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id === convId) {
-          return {
-            ...c,
-            lastMessageSnippet: message.content.slice(0, 80),
-            lastMessageTime: 'Vừa xong',
-            messages: [...c.messages, fullMsg],
-          };
-        }
-        return c;
-      })
-    );
-  };
-
-  const handleTakeover = (convId: string) => {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const takeoverNotice: ChatMessage = {
-      id: `sys-${Date.now()}`,
-      senderType: 'system_event',
-      senderName: 'Hệ thống',
-      timestamp: timeStr,
-      content: 'Nhân viên hỗ trợ đã tiếp quản hội thoại này từ AI Copilot.',
-    };
-
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === convId
-          ? {
+    try {
+      const visibility = message.senderType === 'internal_note' ? 'internal' : 'public';
+      const clientId = crypto.randomUUID();
+      const saved = await api(`/conversations/${convId}/messages`, 'POST', {
+        clientId,
+        body: message.content,
+        visibility,
+      });
+      const newMsg = mapDbMessage(saved);
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id === convId) {
+            return {
               ...c,
-              status: 'in_review',
-              slaUrgent: false,
-              messages: [...c.messages, takeoverNotice],
-            }
-          : c
-      )
-    );
-    showGlobalToast('Bạn đã tiếp quản thành công hội thoại với khách hàng');
+              lastMessageSnippet: message.content.slice(0, 80),
+              lastMessageTime: 'Vừa xong',
+              messages: [...c.messages.filter((m) => m.id !== newMsg.id), newMsg],
+            };
+          }
+          return c;
+        })
+      );
+      showGlobalToast(visibility === 'internal' ? 'Đã lưu ghi chú nội bộ' : 'Đã gửi phản hồi đến khách hàng');
+    } catch (e: any) {
+      showGlobalToast(`Lỗi gửi: ${e.message || 'Không thể gửi'}`);
+    }
   };
 
-  const handleResolve = (convId: string) => {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === convId ? { ...c, status: 'resolved' } : c))
-    );
-    showGlobalToast('Hội thoại đã được đánh dấu giải quyết và lưu trữ');
+  const handleTakeover = async (convId: string) => {
+    try {
+      const target = conversations.find((c) => c.id === convId);
+      await api(`/conversations/${convId}/takeover`, 'POST', {
+        version: (target as any)?.owner_version || 1,
+      });
+      showGlobalToast('Bạn đã tiếp quản hội thoại thành công');
+      await loadConversations();
+    } catch (e: any) {
+      showGlobalToast(`Lỗi tiếp quản: ${e.message || 'Không thể tiếp quản'}`);
+    }
+  };
+
+  const handleResolve = async (convId: string) => {
+    try {
+      await api(`/conversations/${convId}/status`, 'PATCH', { status: 'resolved' });
+      showGlobalToast('Hội thoại đã được đánh dấu giải quyết');
+      await loadConversations();
+    } catch (e: any) {
+      showGlobalToast(`Lỗi: ${e.message || 'Không thể cập nhật'}`);
+    }
   };
 
   return (

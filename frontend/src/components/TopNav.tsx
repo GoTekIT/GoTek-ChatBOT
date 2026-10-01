@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../api/api';
 import { ConsoleModule } from '../types';
 import { ThreeNeuralCore } from './common/ThreeNeuralCore';
 import { VectorSpace3DModal } from './modals/VectorSpace3DModal';
@@ -30,6 +31,15 @@ export const TopNav: React.FC<TopNavProps> = ({
   const [showVectorModal, setShowVectorModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [activeQueueTab, setActiveQueueTab] = useState<'live' | 'handoffs' | 'resolved'>('live');
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (showNotifications && can(me, 'audit.read')) {
+      api('/audit')
+        .then((logs: any[]) => setAuditLogs(logs.slice(0, 5)))
+        .catch(() => setAuditLogs([]));
+    }
+  }, [showNotifications]);
 
   const displayName = me?.user?.fullName || me?.user?.full_name || me?.user?.name || me?.user?.email?.split('@')[0] || 'Chưa xác định';
   const displayEmail = me?.user?.email || 'Chưa xác định';
@@ -177,27 +187,26 @@ export const TopNav: React.FC<TopNavProps> = ({
                   </span>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800/70 text-xs max-h-64 overflow-y-auto">
-                  <div className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
-                    <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold mb-1">
-                      <span className="material-symbols-outlined text-[15px]">priority_high</span>
-                      <span>SLA Escalation Triggered</span>
+                  {auditLogs.length === 0 ? (
+                    <div className="p-4 text-center text-slate-400 text-xs">
+                      Không có thông báo mới.
                     </div>
-                    <p className="text-slate-600 dark:text-slate-300 text-[11px]">
-                      Nguyễn Minh Tuấn (Techcombank) requested NDA review. SLA countdown &lt; 2m.
-                    </p>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">1 phút trước</span>
-                  </div>
-                  <div className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
-                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
-                      <span className="material-symbols-outlined text-[15px]">check_circle</span>
-                      <span>Vector Store Re-indexed</span>
-                    </div>
-                    <p className="text-slate-600 dark:text-slate-300 text-[11px]">
-                      142 documents synced to text-embedding-3-large pgvector index.
-                    </p>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">12 phút trước</span>
-                  </div>
-                </div>
+                  ) : (
+                    auditLogs.map((log) => (
+                      <div key={log.id} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold mb-1">
+                          <span className="material-symbols-outlined text-[15px]">info</span>
+                          <span className="font-mono text-[11px]">{log.action}</span>
+                        </div>
+                        <p className="text-slate-600 dark:text-slate-300 text-[11px] truncate">
+                          Đối tượng: {log.object_id}
+                        </p>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
+                          {new Date(log.created_at).toLocaleString('vi-VN')}
+                        </span>
+                      </div>
+                    ))
+                  )}</div>
               </div>
             )}
           </div>

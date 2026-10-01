@@ -42,7 +42,7 @@ export function useRealtimeChat({
     }
 
     // Connect to Backend SSE endpoint for real database conversations
-    const streamUrl = `/api/inbox/conversations/${encodeURIComponent(conversationId)}/stream`;
+    const streamUrl = `/api/conversations/${encodeURIComponent(conversationId)}/stream`;
     let eventSource: EventSource | null = null;
     let errorCount = 0;
 
@@ -134,7 +134,7 @@ export function useRealtimeChat({
   const sendTypingStatus = async (isTyping: boolean) => {
     if (!conversationId || !UUID_REGEX.test(conversationId)) return;
     try {
-      await fetch(`/api/inbox/conversations/${encodeURIComponent(conversationId)}/typing`, {
+      await fetch(`/api/conversations/${encodeURIComponent(conversationId)}/typing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -58,7 +58,7 @@ async def call_llm(
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}"
             contents = []
             for m in messages:
-                role = "user" if m.get("role") in ["user", "visitor"] else "model"
+                role = "model" if m.get("role") in ["assistant", "ai", "model"] else "user"
                 contents.append({"role": role, "parts": [{"text": m.get("content", "")}]})
 
             async with httpx.AsyncClient(timeout=30.0) as client:
