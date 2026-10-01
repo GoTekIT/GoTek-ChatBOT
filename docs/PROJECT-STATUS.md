@@ -1,3 +1,7 @@
+## Capability route verification
+
+- `GET /meta/connectors` is covered by an HTTP contract test: all four Meta surfaces are listed, Threads remains explicitly API-limited, and no credential field is returned.
+
 ## Connector capability catalogue
 
 - Added `GET /meta/connectors`, a credential-free catalogue for UI and admin tooling. It explicitly reports Facebook Messenger, Instagram Direct and WhatsApp Business transport capability, while Threads is marked `api_limited` with no DM inbound/outbound claim.
