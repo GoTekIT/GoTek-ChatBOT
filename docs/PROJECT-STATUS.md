@@ -1,3 +1,8 @@
+## Multi-surface normalization checkpoint
+
+- Implemented typed standalone inbound normalization for Messenger/Instagram and WhatsApp. WhatsApp routing uses metadata.phone_number_id; media references retain IDs for authenticated resolution, never invented public URLs. Unknown products, echoes, wrong recipients and malformed arrays are ignored.
+- Three focused tests and backend typecheck pass. This normalizer is NOT wired into live ingestion yet; no Instagram/WhatsApp end-to-end support claimed. Next: operator-owned connection routing, inbound persistence, platform-specific outbound adapters, test credentials and browser acceptance. Threads capabilities require official API verification rather than assuming native DM availability implies an API.
+
 ## Live browser media acceptance — 2026-10-01
 
 - Uploaded a generated 1-second MP4 through the authenticated GoTek Page Messenger conversation. Facebook showed “Bạn đã gửi, Có một video đính kèm” and “Đã gửi”; webhook persisted a `video` attachment in the tenant-scoped pilot database at 2026-10-01 14:19:36 UTC. Real image and video browser receipts are now evidenced. AI media understanding, production uptime, and external-customer acceptance remain pending.
