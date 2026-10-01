@@ -5,7 +5,7 @@ import pg from 'pg';
 import {pool,scope,transaction} from '../src/core/db';
 import {exportAuditEvents} from '../src/modules/audit/audit-export';
 
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 test.after(async()=>{await admin.end();await pool.end();});
 
 test('audit export is bounded, tenant scoped, paginates and requires Owner/Admin',async()=>{

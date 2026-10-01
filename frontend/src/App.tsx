@@ -78,6 +78,7 @@ export function App() {
     }
   }
 
+
   // 1. Platform Admin Group Routes (/platform/*)
   if (path.startsWith('/platform') && loading) return <p role="status">Đang kiểm tra quyền…</p>;
   if (path.startsWith('/platform') && me) {

@@ -6,7 +6,7 @@ import {pool,scope,transaction} from '../src/core/db';
 import {HttpError} from '../src/core/security';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 import {runWebRefreshOnce} from '../src/modules/web-sources/web-refresh-worker';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 test('web refresh persists isolated immutable snapshots; replay skips fetch; paused/changed/expired jobs cannot commit',async()=>{
  const workspace=randomUUID(),other=randomUUID(),user=randomUUID(),source=randomUUID();

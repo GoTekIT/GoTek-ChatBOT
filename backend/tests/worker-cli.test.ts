@@ -8,8 +8,9 @@ import {transaction,scope,pool} from '../src/core/db';
 import {appendMessage} from '../src/modules/chat/chat-store';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 const exec=promisify(execFile);
+const cleanExit=(code:number|null,signal:NodeJS.Signals|null)=>code===0||(process.platform==='win32'&&code===null);
 test('CLI consumes a real tenant job and commits unavailable-model handoff once',async()=>{
- const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+ const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
  const w=randomUUID(),ch=randomUUID(),v=randomUUID(),c=randomUUID();
  try{
   await admin.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[w,'Disposable CLI test']);
@@ -26,7 +27,7 @@ test('CLI consumes a real tenant job and commits unavailable-model handoff once'
    const timeout=setTimeout(()=>{child.kill('SIGKILL');reject(new Error('WORKER_SHUTDOWN_TIMEOUT'));},10000);
    child.on('error',error=>{clearTimeout(timeout);reject(error);});
    child.stdout.on('data',chunk=>{output+=chunk.toString();if(!signalled&&output.includes('"state":"idle"')){signalled=true;child.kill('SIGTERM');}});
-   child.on('close',(code,signal)=>{clearTimeout(timeout);try{assert.equal(signalled,true);assert.equal(code,0);assert.equal(signal,null);resolve();}catch(error){reject(error);}});
+   child.on('close',(code,signal)=>{clearTimeout(timeout);try{assert.equal(signalled,true);assert.equal(cleanExit(code,signal),true);resolve();}catch(error){reject(error);}});
   });
 
   const job=(await admin.query('SELECT state,attempts,receipt_id FROM jobs WHERE workspace_id=$1',[w])).rows[0];

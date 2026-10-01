@@ -7,7 +7,7 @@ import {appendMessage} from '../src/modules/chat/chat-store';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 import {runAiWorkerOnce} from '../src/modules/jobs/worker';
 
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 
 test('AI worker hands off when provider configuration cannot be used',async()=>{
  const workspace=randomUUID(),channel=randomUUID(),visitor=randomUUID(),conversation=randomUUID(),provider=randomUUID(),model=randomUUID();

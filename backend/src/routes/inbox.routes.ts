@@ -7,6 +7,8 @@ import {
   inboxResumeAi,
   inboxList,
   inboxMessages,
+  inboxDetail,
+  inboxAssign,
   inboxTakeover,
   inboxSend,
   inboxSetStatus,
@@ -22,8 +24,18 @@ inboxRouter.get(
 );
 
 inboxRouter.get(
+  '/conversations/:id',
+  authed((db, i, req) => inboxDetail(db, i, String(req.params.id)))
+);
+
+inboxRouter.get(
   '/conversations/:id/messages',
   authed((db, i, req) => inboxMessages(db, i, String(req.params.id), req.query.after))
+);
+
+inboxRouter.post(
+  '/conversations/:id/assign',
+  authed((db, i, req) => inboxAssign(db, i, String(req.params.id), req.body))
 );
 
 inboxRouter.post(
@@ -51,11 +63,16 @@ inboxRouter.post(
   authed((db, i, req) => inboxTyping(db, i, String(req.params.id), req.body))
 );
 
+inboxRouter.post(
+  '/inbox/conversations/:id/typing',
+  authed((db, i, req) => inboxTyping(db, i, String(req.params.id), req.body))
+);
+
 /**
  * Realtime Server-Sent Events (SSE) Stream for a single conversation.
  * Streams: message:new, typing, conversation:takeover, conversation:status, ai:token
  */
-inboxRouter.get('/conversations/:id/stream', async (req, res, next) => {
+const conversationStreamHandler = async (req: any, res: any, next: any) => {
   try {
     let actor: Identity;
     await transaction(async db => {
@@ -66,7 +83,10 @@ inboxRouter.get('/conversations/:id/stream', async (req, res, next) => {
   } catch (e) {
     next(e);
   }
-});
+};
+
+inboxRouter.get('/conversations/:id/stream', conversationStreamHandler);
+inboxRouter.get('/inbox/conversations/:id/stream', conversationStreamHandler);
 
 /**
  * Realtime Server-Sent Events (SSE) Stream for the whole workspace inbox.

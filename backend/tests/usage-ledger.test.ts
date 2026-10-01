@@ -4,7 +4,7 @@ import pg from 'pg';
 import {randomUUID} from 'node:crypto';
 import {pool,transaction,scope} from '../src/core/db';
 import {recordUsage} from '../src/modules/ai/usage-ledger';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 test('usage ledger persists with insert-only permissions, concurrent replay and tenant isolation',async()=>{
  const workspace=randomUUID(),other=randomUUID();

@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "databaseKind": "disposable-test-only",
+  "createdAt": "2026-09-29T13:35:33.752Z",
+  "workspaceIds": [
+    "c48bb2e4-e6ea-4ff6-88ac-717c3da6a2b1",
+    "581c56d7-8c3d-4624-b554-744c9b02d842"
+  ],
+  "userIds": [
+    "ae306cd5-e637-4cb0-87b0-43a5ee85bd6e",
+    "baeed9b2-cc2e-42a2-9b9e-8df5e3976c94",
+    "e18784b1-aaae-4309-83ef-b496d01a202f",
+    "06e801e2-3289-4cf5-8364-b404b8a6c677",
+    "ddca164b-a894-4c71-ae85-84e46a88c96f",
+    "6bb834fb-8aa2-4261-b7c4-b4277dbcb2fe"
+  ],
+  "channelIds": [
+    "c2014fac-fd70-41d9-a784-2d91f946a7a8",
+    "d58c2cc5-4da5-48ea-9eca-531840d32798"
+  ],
+  "visitorIds": [
+    "0ca729ba-927c-4e4e-a720-829c678bf0c5",
+    "981616ce-91d1-496d-82e2-f5c088890446",
+    "913d996c-020c-4639-b883-892c5ad47299",
+    "9c627dab-d9fe-4260-ad9f-e45e87d8a0ca",
+    "df55d367-f40f-4fca-bd4e-de2829d2a4ab",
+    "c68bf202-505b-46a7-9004-eb861f0316b8"
+  ],
+  "conversationIds": [
+    "0fb59663-93f4-4ab4-90a6-19774c8f1537",
+    "5fc5f92d-9d7d-47b1-bc05-b7db9ca35cf5",
+    "ab7d9fcb-620f-4fe3-8d60-fa73e7c4699e",
+    "b6c7f2f6-f3ba-431e-9267-51de3d37cf00",
+    "4420107f-d069-4350-90b6-4a2488ef08e6",
+    "c7235791-aa89-483c-9575-0a3794a5f3e1"
+  ],
+  "messageIds": [
+    "576fccf5-312d-4141-bf99-684d0219cc5c",
+    "b5598035-5d1f-42a9-ab07-70bb1b17712d",
+    "b72ce191-8686-4f00-8f2d-a00b5036b3a5",
+    "ac548853-ea59-4a51-9aa4-4677c2053559",
+    "d6a19e49-9327-4a12-a4b3-6d1b6269375a",
+    "610b4390-86b0-4176-8469-dd344da8fdc3",
+    "3596daae-aef3-4890-bb21-cc0571a7a19b",
+    "6413e001-e1fe-47b6-9293-92c1bfa3d08c",
+    "fa35732f-62e7-4cc7-bbba-1ffacddda5d6"
+  ],
+  "workspaces": {
+    "A": {
+      "id": "c48bb2e4-e6ea-4ff6-88ac-717c3da6a2b1",
+      "origin": "https://fixture-a.example.test",
+      "channelId": "c2014fac-fd70-41d9-a784-2d91f946a7a8",
+      "publicKey": "kBn99vY547y13GrnZFEuXhaORUSkISOl-pugRNdOB2k",
+      "roles": {
+        "owner": "ae306cd5-e637-4cb0-87b0-43a5ee85bd6e",
+        "admin": "baeed9b2-cc2e-42a2-9b9e-8df5e3976c94",
+        "agent": "e18784b1-aaae-4309-83ef-b496d01a202f",
+        "outside": "06e801e2-3289-4cf5-8364-b404b8a6c677"
+      },
+      "conversations": {
+        "ai": "0fb59663-93f4-4ab4-90a6-19774c8f1537",
+        "pending": "5fc5f92d-9d7d-47b1-bc05-b7db9ca35cf5",
+        "human": "ab7d9fcb-620f-4fe3-8d60-fa73e7c4699e",
+        "resolved": "b6c7f2f6-f3ba-431e-9267-51de3d37cf00",
+        "snoozed": "4420107f-d069-4350-90b6-4a2488ef08e6"
+      }
+    },
+    "B": {
+      "id": "581c56d7-8c3d-4624-b554-744c9b02d842",
+      "origin": "https://fixture-b.example.test",
+      "channelId": "d58c2cc5-4da5-48ea-9eca-531840d32798",
+      "publicKey": "CXwYO9mXRddqUMKUtegYUKp1cvJpEt1ESZm2AwNql2o",
+      "roles": {
+        "owner": "ddca164b-a894-4c71-ae85-84e46a88c96f",
+        "agent": "6bb834fb-8aa2-4261-b7c4-b4277dbcb2fe"
+      },
+      "conversations": {
+        "main": "c7235791-aa89-483c-9575-0a3794a5f3e1"
+      }
+    }
+  }
+}

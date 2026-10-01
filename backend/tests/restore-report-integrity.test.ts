@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync, existsSync} from 'node:fs';
+import {readFileSync} from 'node:fs';
+import {dirname,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import pg from 'pg';
 
 type RestoreReport = {
@@ -14,9 +16,7 @@ type RestoreReport = {
 };
 
 test('restore drill report has complete integrity metadata and disposable target is gone', async () => {
-  const reportPath = existsSync('delivery/evidence/p1-restore-drill.json')
-    ? 'delivery/evidence/p1-restore-drill.json'
-    : '../delivery/evidence/p1-restore-drill.json';
+  const reportPath=resolve(dirname(fileURLToPath(import.meta.url)),'..','..','delivery','evidence','p1-restore-drill.json');
   const report = JSON.parse(readFileSync(reportPath, 'utf8')) as RestoreReport;
 
   assert.equal(report.status, 'PASS');
@@ -51,7 +51,7 @@ test('restore drill report has complete integrity metadata and disposable target
     visitorSessionsExpired: true,
   });
 
-  const root = new pg.Client({host: '/tmp', port: 55432, user: 'gotek_migrator', database: 'postgres'});
+  const root = new pg.Client({host: '127.0.0.1', port: 55432, user: 'gotek_migrator', database: 'postgres'});
   await root.connect();
   try {
     const result = await root.query('SELECT 1 FROM pg_database WHERE datname=$1', [report.target]);

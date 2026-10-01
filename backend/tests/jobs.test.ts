@@ -1,6 +1,6 @@
 import {runWorkerOnce} from '../src/modules/jobs/worker';
 import {test,after} from 'node:test';import assert from 'node:assert/strict';import pg from 'pg';import {randomUUID} from 'node:crypto';import {pool,scope,transaction} from '../src/core/db';import {enqueueJob,claimJob,finishJob,recoverStaleJobs,jobMetadata} from '../src/modules/jobs/jobs';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
 test('H32 bounded jobs: atomic enqueue, concurrent claim, stale/unknown recovery, tenant isolation',async()=>{
  const workspace=randomUUID(),other=randomUUID();await admin.query('INSERT INTO workspaces(id,name) VALUES($1,$2),($3,$4)',[workspace,'Jobs test',other,'Other jobs']);
  const run=<T>(fn:(db:pg.PoolClient)=>Promise<T>,tenant=workspace)=>transaction(async db=>{await scope(db,tenant);return fn(db);});

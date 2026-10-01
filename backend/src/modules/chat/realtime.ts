@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { EventEmitter } from 'events';
+import type { WebSocket } from 'ws';
 
 export interface RealtimeEvent<T = unknown> {
   id?: string;
@@ -9,15 +10,28 @@ export interface RealtimeEvent<T = unknown> {
 }
 
 interface SseClient {
+  kind: 'sse';
   id: string;
   workspaceId: string;
   conversationId?: string;
+  isVisitor?: boolean;
   res: Response;
   req: Request;
 }
 
+interface WsClient {
+  kind: 'ws';
+  id: string;
+  workspaceId: string;
+  conversationId?: string;
+  isVisitor?: boolean;
+  ws: WebSocket;
+}
+
+type RealtimeClient = SseClient | WsClient;
+
 class RealtimeHub extends EventEmitter {
-  private clients: Map<string, SseClient> = new Map();
+  private clients: Map<string, RealtimeClient> = new Map();
   private heartbeatInterval: NodeJS.Timeout | null = null;
 
   constructor() {
@@ -27,7 +41,7 @@ class RealtimeHub extends EventEmitter {
   }
 
   /**
-   * Keep connections alive by sending standard SSE comments every 25 seconds.
+   * Keep connections alive by sending standard SSE comments or WS pings every 25 seconds.
    * Prevents proxy/ingress drop-outs (such as Nginx proxy_read_timeout).
    */
   private startHeartbeat() {
@@ -36,7 +50,11 @@ class RealtimeHub extends EventEmitter {
       const pingComment = `: ping - ${new Date().toISOString()}\n\n`;
       for (const client of this.clients.values()) {
         try {
-          client.res.write(pingComment);
+          if (client.kind === 'sse') {
+            client.res.write(pingComment);
+          } else if (client.kind === 'ws' && client.ws.readyState === 1) { // 1 = OPEN
+            client.ws.ping();
+          }
         } catch {
           this.removeClient(client.id);
         }
@@ -56,7 +74,8 @@ class RealtimeHub extends EventEmitter {
     workspaceId: string,
     res: Response,
     req: Request,
-    conversationId?: string
+    conversationId?: string,
+    isVisitor = false
   ): void {
     // Send SSE response headers
     res.writeHead(200, {
@@ -70,9 +89,11 @@ class RealtimeHub extends EventEmitter {
     res.flushHeaders?.();
 
     const client: SseClient = {
+      kind: 'sse',
       id: clientId,
       workspaceId,
       conversationId,
+      isVisitor,
       res,
       req,
     };
@@ -102,13 +123,69 @@ class RealtimeHub extends EventEmitter {
   }
 
   /**
+   * Register a new WebSocket subscriber connection.
+   */
+  public registerWs(
+    clientId: string,
+    workspaceId: string,
+    ws: WebSocket,
+    conversationId?: string,
+    isVisitor = false
+  ): void {
+    const client: WsClient = {
+      kind: 'ws',
+      id: clientId,
+      workspaceId,
+      conversationId,
+      isVisitor,
+      ws,
+    };
+
+    this.clients.set(clientId, client);
+
+    // Send initial connected acknowledgement
+    this.sendToClient(client, {
+      event: 'system:connected',
+      data: {
+        clientId,
+        workspaceId,
+        conversationId: conversationId || null,
+        message: 'GoTek Realtime WebSocket Connected',
+      },
+      timestamp: new Date().toISOString(),
+    });
+
+    ws.on('close', () => {
+      this.removeClient(clientId);
+    });
+
+    ws.on('error', () => {
+      this.removeClient(clientId);
+    });
+  }
+
+  /**
+   * Update active conversation subscription for a client.
+   */
+  public updateClientConversation(clientId: string, conversationId: string): void {
+    const client = this.clients.get(clientId);
+    if (client) {
+      client.conversationId = conversationId;
+    }
+  }
+
+  /**
    * Remove client and clean up.
    */
   public removeClient(clientId: string): void {
     const client = this.clients.get(clientId);
     if (client) {
       try {
-        client.res.end();
+        if (client.kind === 'sse') {
+          client.res.end();
+        } else if (client.kind === 'ws' && client.ws.readyState === 1) {
+          client.ws.close();
+        }
       } catch {
         // Ignored
       }
@@ -117,12 +194,24 @@ class RealtimeHub extends EventEmitter {
   }
 
   /**
-   * Serialize and send an SSE event to a specific client.
+   * Serialize and send an event to a specific client.
    */
-  private sendToClient(client: SseClient, event: RealtimeEvent): void {
+  private sendToClient(client: RealtimeClient, event: RealtimeEvent): void {
     try {
-      const payload = `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\nid: ${event.id || Date.now()}\n\n`;
-      client.res.write(payload);
+      if (client.kind === 'sse') {
+        const payload = `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\nid: ${event.id || Date.now()}\n\n`;
+        client.res.write(payload);
+      } else if (client.kind === 'ws') {
+        if (client.ws.readyState === 1) { // WebSocket.OPEN
+          client.ws.send(JSON.stringify({
+            event: event.event,
+            type: event.event,
+            data: event.data,
+            id: event.id || Date.now(),
+            timestamp: event.timestamp,
+          }));
+        }
+      }
     } catch {
       this.removeClient(client.id);
     }
@@ -144,6 +233,10 @@ class RealtimeHub extends EventEmitter {
 
     for (const client of this.clients.values()) {
       if (client.conversationId === conversationId) {
+        // SECURITY: Never leak internal staff notes to public website visitors
+        if (client.isVisitor && (data as any)?.visibility === 'internal') {
+          continue;
+        }
         this.sendToClient(client, event);
       }
     }

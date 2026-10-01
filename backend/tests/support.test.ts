@@ -1,5 +1,5 @@
 import {test,after} from 'node:test';import assert from 'node:assert/strict';import request from 'supertest';import pg from 'pg';import {randomUUID} from 'node:crypto';import {createApp} from '../src/app';import {pool} from '../src/core/db';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
 test('H28 support grant requires tenant approval, correct subject, scope, expiry and audit',async()=>{
  const app=createApp();const post=(agent:any,path:string,data:any)=>agent.post('/api'+path).set('X-Gotek-Request','1').send(data);
  async function fixture(){const agent=request.agent(app),email=`support-${randomUUID()}@example.test`,password='Local-support-test-2026';assert.equal((await post(agent,'/auth/signup',{email,password,fullName:'Support test',business:'Support workspace',phone:'0900000000'})).status,202);await post(agent,'/auth/login',{email,password});return {agent,me:(await agent.get('/api/me')).body};}
