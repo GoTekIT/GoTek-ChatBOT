@@ -1,3 +1,7 @@
+## Frontend Messenger type contract — 2026-10-01
+
+- Conversation type includes Facebook Messenger and an empty client tier matching missing profile data. Existing inbox renders channel text directly. Frontend typecheck/build PASS with existing bundle warning; this is source evidence, not authenticated browser acceptance.
+
 ## Inbox preview metadata — 2026-10-01
 
 - List preview now uses persisted message ID, sequence, author and visibility instead of a fabricated visitor message. Local authenticated Messenger list check confirms actual message ID/sequence/author; backend typecheck PASS. Browser and real AI acceptance remain pending.

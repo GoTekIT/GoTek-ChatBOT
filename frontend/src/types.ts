@@ -69,12 +69,12 @@ export interface Conversation {
   customerPhone: string;
   customerLocation: string;
   customerAvatar: string;
-  clientTier: 'Enterprise Prospect' | 'Enterprise Client' | 'Growth Plan';
+  clientTier: '' | 'Enterprise Prospect' | 'Enterprise Client' | 'Growth Plan';
   websiteUrl: string;
   lastMessageSnippet: string;
   lastMessageTime: string;
   unreadCount?: number;
-  channel: 'Widget' | 'Slack App' | 'Email' | 'API Chat';
+  channel: 'Widget' | 'Slack App' | 'Email' | 'API Chat' | 'Facebook Messenger';
   status: 'handoff' | 'ai_active' | 'in_review' | 'resolved';
   reply_owner?: string;
   replyOwner?: string;
