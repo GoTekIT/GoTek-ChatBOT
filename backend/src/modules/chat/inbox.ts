@@ -43,7 +43,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
     filterClause+=` AND (h.name ILIKE $${p.length} OR coalesce(v.profile->>'fullName','') ILIKE $${p.length} OR coalesce(v.profile->>'emailAddress','') ILIKE $${p.length} OR coalesce(v.profile->>'phoneNumber','') ILIKE $${p.length} OR EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id=c.id AND m.body ILIKE $${p.length}))`;
   }
 
-  const sql=`SELECT c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at, h.name AS channel_name, h.origin AS website_url, h.widget_mode AS channel_type, v.profile AS visitor_profile, (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body, (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
+  const sql=`SELECT c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at, h.name AS channel_name, h.origin AS website_url, CASE WHEN EXISTS(SELECT 1 FROM meta_connections mc WHERE mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id AND mc.status='connected') THEN 'facebook_messenger' ELSE h.widget_mode END AS channel_type, v.profile AS visitor_profile, (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body, (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
 
   const rows=(await db.query(sql,p)).rows;
 
@@ -91,7 +91,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       websiteUrl:r.website_url||'https://gotek.vn',
       lastMessageSnippet:r.last_message_body||'Bắt đầu cuộc trò chuyện mới...',
       lastMessageTime:timeStr,
-      channel:r.channel_type==='slack'?'Slack App':r.channel_type==='email'?'Email':'Widget',
+      channel:r.channel_type==='facebook_messenger'?'Facebook Messenger':r.channel_type==='slack'?'Slack App':r.channel_type==='email'?'Email':'Widget',
       status:uiStatus,
       assignedTo:r.assigned_to||undefined,
       ownerVersion:r.owner_version,
@@ -292,7 +292,7 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
   const c=await access(db,a,id);
   const messages=await inboxMessages(db,a,id,0);
 
-  const channelRow=(await db.query('SELECT name, origin, widget_mode FROM channels WHERE id=$1',[c.channel_id])).rows[0];
+  const channelRow=(await db.query("SELECT name, origin, widget_mode, EXISTS(SELECT 1 FROM meta_connections mc WHERE mc.channel_id=channels.id AND mc.workspace_id=channels.workspace_id AND mc.status='connected') AS is_facebook_messenger FROM channels WHERE id=$1",[c.channel_id])).rows[0];
   const visitorRow=(await db.query('SELECT profile FROM visitors WHERE id=$1',[c.visitor_id])).rows[0];
 
   const prof=visitorRow?.profile||{};
@@ -320,7 +320,7 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
     websiteUrl:channelRow?.origin||'https://gotek.vn',
     lastMessageSnippet:messages[messages.length-1]?.content||'Bắt đầu cuộc trò chuyện...',
     lastMessageTime:'1m ago',
-    channel:channelRow?.widget_mode==='slack'?'Slack App':channelRow?.widget_mode==='email'?'Email':'Widget',
+    channel:channelRow?.is_facebook_messenger?'Facebook Messenger':channelRow?.widget_mode==='slack'?'Slack App':channelRow?.widget_mode==='email'?'Email':'Widget',
     status:uiStatus,
     assignedTo:c.assigned_to||undefined,
     ownerVersion:c.owner_version,

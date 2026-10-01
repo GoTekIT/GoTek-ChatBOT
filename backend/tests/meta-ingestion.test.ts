@@ -1,0 +1,23 @@
+import {test,after} from 'node:test';
+import assert from 'node:assert/strict';
+import pg from 'pg';
+import {randomUUID,createHmac} from 'node:crypto';
+import {pool,scope,transaction} from '../src/core/db';
+import {receiveMetaWebhook} from '../src/modules/meta/messenger';
+const enabled=!!process.env.META_TEST_ADMIN_URL && !!process.env.DB_RUNTIME_FILE;
+const admin=enabled?new pg.Pool({connectionString:process.env.META_TEST_ADMIN_URL}):undefined;
+after(async()=>{await pool.end();await admin?.end();});
+test('Messenger signed inbound persists once under concurrent redelivery and isolates tenant reads',{skip:!enabled},async()=>{
+ const workspace=randomUUID(),other=randomUUID(),channel=randomUUID(),connection=randomUUID(),page=randomUUID();
+ process.env.META_PAGE_ID=page;process.env.META_WORKSPACE_ID=workspace;process.env.META_APP_SECRET='local-fixture-only';
+ await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2),($3,$4)',[workspace,'Meta fixture',other,'Other fixture']);
+ await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Messenger fixture','https://example.test','Hello','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
+ await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Fixture','META_FIXTURE_TOKEN')",[connection,workspace,channel,page]);
+ const raw=Buffer.from(JSON.stringify({object:'page',entry:[{id:page,messaging:[{sender:{id:'fixture-user'},recipient:{id:page},message:{mid:'fixture-mid',text:'Messenger integration fixture'}}]}]}));
+ const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
+ const results=await Promise.all([transaction(db=>receiveMetaWebhook(db,raw,signature)),transaction(db=>receiveMetaWebhook(db,raw,signature))]);
+ assert.equal(results.reduce((n,r)=>n+r.processed,0),1);
+ await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query('SELECT * FROM messages')).rowCount,1);assert.equal((await db.query('SELECT * FROM meta_events WHERE processed_at IS NOT NULL')).rowCount,1);});
+ await transaction(async db=>{await scope(db,other);for(const table of ['messages','meta_events','meta_connections','meta_identities'])assert.equal((await db.query(`SELECT * FROM ${table}`)).rowCount,0);});
+ await assert.rejects(transaction(db=>receiveMetaWebhook(db,Buffer.from('{}'),signature)),{code:'META_SIGNATURE_INVALID'});
+});

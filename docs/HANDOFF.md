@@ -1,3 +1,17 @@
+## Messenger inbound integration evidence — 2026-10-01
+
+- Added `backend/tests/meta-ingestion.test.ts`; executed against the disposable PostgreSQL on 55433 using app-role runtime credentials. PASS 1/1, not skipped.
+- Verified: two concurrent copies of a signed webhook produce exactly one message and one processed event; another tenant cannot read the message or Meta rows; altered raw payload is rejected.
+- This is a synthetic provider fixture, not Facebook delivery evidence. Real Page subscription, server secrets, outbound replies and AI dispatch remain incomplete.
+
+## Messenger database verification — 2026-10-01
+
+- Disposable local PostgreSQL created at `/tmp/gotek-meta-pilot-test/data`, listening only on loopback port 55433. This is separate from the application database on 55432.
+- `DB_RUNTIME_DIR=/tmp/gotek-meta-pilot-test/runtime DB_PORT=55433 GOTEK_DB_PORT=55433 npm run db:setup` passed, including migration 059. All three Meta tables have RLS enabled and forced. This proves schema installation, not message ingestion or tenant isolation acceptance.
+- Branch commits and PR #8 already exist; older notes saying no commit/push are superseded. No main push performed.
+- User approved temporary tunnel. Earlier Meta callback challenge succeeded; Page subscriptions, secrets, inbound persistence, outbound adapter and AI ownership integration remain unverified/incomplete. Privacy URL was not persisted in Meta after reload.
+- Next: exercise signed inbound with a disposable tenant/channel fixture and app-role connection, then implement durable outbound and ownership checks before tester messaging.
+
 ## Messenger pilot checkpoint — 2026-10-01 (IN PROGRESS)
 
 - Branch: `codex/meta-messenger-pilot`; no commit/push/merge performed.
