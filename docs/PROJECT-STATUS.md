@@ -1,3 +1,21 @@
+## Meta local disconnect implementation
+
+- Owner/Admin can disconnect from the active Channels screen via authenticated POST /api/meta/connections/:id/disconnect. Tenant-scoped row lock serializes with outbound dispatch; already-dispatched requests cannot be recalled. Provider token is not revoked externally.
+- History retained; repeated disconnect produces one audit event. Integration suite 4/4 passes covering Agent denial, cross-tenant denial, repeat and retention. Full backend/frontend build passes; browser UI acceptance remains pending.
+
+## Active Channels screen: workspace Meta connection listing
+
+- Authenticated GET /api/meta/connections requires Owner/Admin, derives workspace from session and returns explicit non-secret columns under RLS.
+- Actual screens/channels/Channels.tsx now displays stored workspace connection states, missing connections and load errors. Capability metadata is not treated as live connection status. This is read-only; connect/reconnect controls remain unfinished.
+- build:all passed (existing bundle-size warning); database integration 3/3 passed including Agent denial, cross-workspace isolation and token-reference omission. Browser rendering not yet verified; live testers deferred by user.
+
+## Review correction: actual UI wiring and remote source
+
+- PR #9 is draft. The 27 previously local-only commits were pushed to codex/meta-messenger-pilot using active GitHub account pcodejs; remote PR head was verified as 4f2c650. No main push or merge.
+- Earlier Channels UI completion claims were too broad: ConsoleWorkspace renders screens/channels/Channels, not components/channels/ChannelsView. The latter is currently unused; its capability fetch does not reach the active screen. Also /meta has no Vite proxy.
+- GET /meta/connectors is static capability metadata, not live workspace credential/connection state. Next implementation must integrate the actual Channels screen with authenticated workspace connection state, rather than advertise these static flags as connected.
+- Tester postponed at user request; backend receipts still need message correlation and visible delivery state. Multichannel goal remains incomplete.
+
 ## Dynamic Meta capability state
 
 - Channels UI now fetches `/meta/connectors` and maps backend capability states to the Meta cards, with safe fallbacks if the endpoint is unavailable. Frontend build passes.
