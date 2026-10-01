@@ -1,3 +1,7 @@
+## Dynamic Meta capability state
+
+- Channels UI now fetches `/meta/connectors` and maps backend capability states to the Meta cards, with safe fallbacks if the endpoint is unavailable. Frontend build passes.
+
 ## Meta channel UI state
 
 - Channels view now lists Facebook Messenger, Instagram Direct, WhatsApp Business and Threads with truthful implementation states. WhatsApp/Instagram are not shown as active before credentials; Threads is explicitly API-limited and public-publishing only. Frontend production build passes.
