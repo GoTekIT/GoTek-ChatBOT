@@ -1,3 +1,8 @@
+## Outbound media inbox checkpoint
+- `inboxSend` now accepts optional `{media:{type,url}}`, persists the attachment with the outbound message, and preserves idempotent retries.
+- Meta worker reads the persisted attachment and dispatches through `sendMetaMedia`; text messages retain the existing path. URLs are validated by the adapter and receipt persistence remains active.
+- Verified backend TypeScript build and Meta send/media suites: 10/10 passed. Live provider and UI upload acceptance remain pending.
+
 ## Media adapter checkpoint (implementation incomplete)
 - Added sendMetaMedia transport helper; WhatsApp file maps to document, captions are validated rather than silently dropped, malformed recipients/types and credential-bearing or non-HTTPS URLs fail before dispatch.
 - Helper is not connected to inbox upload/send or the worker yet. No claim of end-to-end media sending. Receipt projection still needs connection-scoped matching, monotonic updates, early-event reconciliation and UI integration.
