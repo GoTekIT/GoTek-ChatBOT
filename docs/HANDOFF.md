@@ -339,3 +339,5 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 - No UI claim of delivery has been added; client must render unknown as reconciliation-required and accepted as provider acceptance only.
 
 CI follow-up: run 36816158888 failed one legacy AI-resume unit fixture (194/195 passed): missing channel transport in mocked SQL result. Updated fixture to website and added Facebook/Instagram/missing-channel rejection cases with zero writes/audits. Production gate remains fail-closed. Targeted test and backend typecheck PASS; full CI rerun pending push. Meta integration remains IN PROGRESS.
+
+Meta outbound follow-up: worker validates provider config/encryption key before claiming work, avoiding a stranded dispatching row on missing config. Isolated PostgreSQL callback/outbox test PASS including accepted receipt API readback, unknown outcome readback, repeated completion rejection and no automatic resend; backend typecheck PASS. Provider calls remain mocked. Next: integrate guarded human send and honest UI delivery states, Instagram flow, reconciliation and live acceptance.
