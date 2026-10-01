@@ -14,7 +14,8 @@ import {
   createKnowledge,
   updateKnowledge,
   importKnowledgeBatch,
-  importKnowledgeFile
+  importKnowledgeFile,
+  deleteKnowledgeItem
 } from '../modules/knowledge/knowledge';
 import {
   beginKnowledgeImport,
@@ -221,6 +222,11 @@ knowledgeRouter.post(
 knowledgeRouter.post(
   '/knowledge/items/:id/rollback',
   authed((db, i, req) => rollbackKnowledge(db, i, String(req.params.id), req.body))
+);
+
+knowledgeRouter.delete(
+  '/knowledge/items/:id',
+  authed((db, i, req) => deleteKnowledgeItem(db, i, String(req.params.id)))
 );
 
 knowledgeRouter.get(
