@@ -1,3 +1,9 @@
+## WhatsApp inbound display name
+
+- New visitors now use a nonempty contacts.profile.name only when exactly one contact wa_id matches the message sender. Names are bounded to 300 characters; missing/ambiguous contacts retain the fallback. No email, avatar or phone is inferred. Existing profile refresh remains separate.
+- Backend build and four inbound normalization tests pass. This has not been verified with live Meta traffic.
+- Contract source: https://www.postman.com/meta/whatsapp-business-platform/request/36ymkut/received-contact-messages
+
 ## Media metadata validation
 
 - Resolver parses returned HTTPS URLs, rejects credentials/malformed/oversized URLs and refuses redirects on authenticated metadata requests. Signed query parameters remain intact. Backend build and eight focused media/transport tests passed.
