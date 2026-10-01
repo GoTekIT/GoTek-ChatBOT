@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Conversation, ChatMessage } from '../../types';
+import { metaDeliveryLabel } from '../../screens/inbox/meta-delivery';
 import { useRealtimeChat } from '../../hooks/useRealtimeChat';
 
 interface InboxViewProps {
@@ -841,6 +842,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     <div className="p-3.5 rounded-2xl rounded-tr-sm bg-[#1664ff] dark:bg-gradient-to-r dark:from-blue-600 dark:to-indigo-600 text-white shadow-xs text-[13.5px] leading-relaxed whitespace-pre-wrap">
                       {msg.content}
                     </div>
+
+                    {msg.deliveryStatus && <span role="status" className="mt-1 text-xs text-slate-500 dark:text-slate-400">{metaDeliveryLabel(msg.deliveryStatus)}</span>}
 
                     {/* Natural Hover Action Bar */}
                     <AnimatePresence>

@@ -52,6 +52,7 @@ export interface ChatMessage {
   senderRole?: string;
   timestamp: string;
   content: string;
+  deliveryStatus?: 'queued' | 'dispatching' | 'accepted' | 'unknown' | 'cancelled';
   citations?: Array<{
     title: string;
     pageOrSection?: string;
@@ -73,7 +74,7 @@ export interface Conversation {
   lastMessageSnippet: string;
   lastMessageTime: string;
   unreadCount?: number;
-  channel: 'Widget' | 'Slack App' | 'Email' | 'API Chat';
+  channel: 'Widget' | 'Facebook' | 'Instagram' | 'Slack App' | 'Email' | 'API Chat';
   status: 'handoff' | 'ai_active' | 'in_review' | 'resolved';
   assignedTo?: string;
   slaCountdown?: string;

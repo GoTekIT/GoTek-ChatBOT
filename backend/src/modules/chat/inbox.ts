@@ -15,7 +15,7 @@ export async function access(db:PoolClient,a:Actor,id:string){
  return c;
 }
 
-export async function inboxList(db:PoolClient,a:Actor,query?:unknown){const q=z.object({search:z.string().trim().max(120).optional(),status:z.enum(['open','resolved','snoozed']).optional(),assigned:z.enum(['mine','unassigned']).optional()}).parse(query||{});return (await db.query(`SELECT c.id,c.channel_id,c.status,c.reply_owner,c.owner_version,c.assigned_to,c.updated_at,h.name channel_name FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) AND ($4::text IS NULL OR c.status=$4) AND ($5::text IS NULL OR h.name ILIKE '%'||$5||'%') AND ($6::text IS NULL OR ($6='mine' AND c.assigned_to=$3) OR ($6='unassigned' AND c.assigned_to IS NULL)) ORDER BY c.updated_at DESC LIMIT 100`,[a.workspace_id,['Owner','Admin'].includes(a.role),a.user_id,q.status||null,q.search||null,q.assigned||null])).rows;}
+export async function inboxList(db:PoolClient,a:Actor,query?:unknown){const q=z.object({search:z.string().trim().max(120).optional(),status:z.enum(['open','resolved','snoozed']).optional(),assigned:z.enum(['mine','unassigned']).optional()}).parse(query||{});return (await db.query(`SELECT c.id,c.channel_id,c.status,c.reply_owner,c.owner_version,c.assigned_to,c.updated_at,h.name channel_name,h.transport FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) AND ($4::text IS NULL OR c.status=$4) AND ($5::text IS NULL OR h.name ILIKE '%'||$5||'%') AND ($6::text IS NULL OR ($6='mine' AND c.assigned_to=$3) OR ($6='unassigned' AND c.assigned_to IS NULL)) ORDER BY c.updated_at DESC LIMIT 100`,[a.workspace_id,['Owner','Admin'].includes(a.role),a.user_id,q.status||null,q.search||null,q.assigned||null])).rows;}
 
 export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknown){await access(db,a,id);const cursor=z.coerce.number().int().min(0).default(0).parse(after);return (await db.query('SELECT m.id,m.client_id,m.sequence,m.author_type,m.visibility,m.body,m.visitor_received_at,m.created_at, o.status AS delivery_status,o.provider_message_id FROM messages m LEFT JOIN meta_outbox o ON o.message_id=m.id WHERE m.conversation_id=$1 AND m.sequence>$2 ORDER BY m.sequence LIMIT 100',[id,cursor])).rows;}
 
@@ -43,8 +43,15 @@ export async function inboxTakeover(db:PoolClient,a:Actor,id:string,body:unknown
 export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown){
  await access(db,a,id);
  const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal'])}).strict().parse(body);
- if(data.visibility==='public')await requireWebsiteDispatch(db,a.workspace_id,id);
- const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id});
+ let socialMessage;
+ if(data.visibility==='public') {
+  const channel=(await db.query('SELECT h.transport FROM channels h JOIN conversations c ON c.channel_id=h.id AND c.workspace_id=h.workspace_id WHERE c.workspace_id=$1 AND c.id=$2',[a.workspace_id,id])).rows[0];
+  if(channel?.transport==='facebook') {
+   const {enqueueFacebookReply}=await import('../meta/outbox');
+   socialMessage=await enqueueFacebookReply(db,a,id,{clientId:data.clientId,body:data.body});
+  } else if(channel?.transport!=='website')throw new HttpError(409,'META_OUTBOUND_NOT_READY');
+ }
+ const message=socialMessage || await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id});
 
  // Broadcast realtime new message event
  afterCommit(db, () => realtimeHub.broadcastToConversation(id, 'message:new', message));

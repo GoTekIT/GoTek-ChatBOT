@@ -91,7 +91,7 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   assert.equal(messages.status,200);assert.equal(messages.body[0].body,'hello');
   const sendPath='/api/conversations/'+conversation.id+'/messages';
   const send=await app.post(sendPath).set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({clientId:randomUUID(),body:'not actually sent',visibility:'public'});
-  assert.equal(send.status,409);assert.equal(send.body.error,'META_OUTBOUND_NOT_READY');
+  assert.equal(send.status,409);assert.equal(send.body.error,'TAKEOVER_REQUIRED');
   const note=await app.post(sendPath).set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({clientId:randomUUID(),body:'internal note',visibility:'internal'});
   assert.equal(note.status,200);
   const resume=await app.post('/api/conversations/'+conversation.id+'/resume-ai').set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({version:1});
@@ -101,7 +101,9 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   await assert.rejects(enqueue(randomUUID()),/TAKEOVER_REQUIRED/);
   await admin.query("UPDATE conversations SET reply_owner='HUMAN_ACTIVE',assigned_to=$1,owner_version=owner_version+1 WHERE id=$2",[user,conversation.id]);
   const clientId=randomUUID();
-  const queued=await enqueue(clientId);assert.equal(queued.delivery_status,'queued');
+  const queuedResponse=await app.post(sendPath).set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({clientId,body:'queued reply',visibility:'public'});
+  assert.equal(queuedResponse.status,200);
+  const queued=queuedResponse.body;assert.equal(queued.delivery_status,'queued');
   assert.equal((await enqueue(clientId)).id,queued.id);
   await assert.rejects(enqueue(clientId,'different'),/IDEMPOTENCY_CONFLICT/);
   assert.equal((await admin.query('SELECT id FROM meta_outbox WHERE workspace_id=$1',[ws])).rowCount,1);
