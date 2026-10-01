@@ -316,3 +316,14 @@ Meta OAuth foundation continuation: added ordered migration058 for tenant-RLS OA
 - Extended fixture HTTP flow activates through route (mocked subscribed_apps), then normalizes into Inbox. Typecheck passed. Live subscription fields/current provider compatibility still need verification; no real provider call made.
 - Found and fixed misleading local-only social reply behavior: public inbox sends and AI resume now return META_OUTBOUND_NOT_READY for social channels until durable provider dispatch exists. Internal notes remain allowed. Tests verify zero public agent inserts on rejected social send and successful internal note.
 - Remaining: activation revocation/reconnect race tests and provider reconciliation, durable outbound+AI integration, full attachment/history/Instagram/UI, real Meta acceptance. Endpoint active means local subscription acknowledgement, not full product acceptance.
+
+### Facebook send transport foundation
+- Added facebook-send.ts internal adapter and three tests: fixed Page messages endpoint, RESPONSE text payload, bearer credential, matching recipient/message acceptance receipt, invalid-input preflight, and uncertain response/network errors -> unknown with exactly one attempt.
+- This adapter is deliberately not wired to inboxSend yet: durable outbox, ownership/window validation and unknown reconciliation must precede activation. META_OUTBOUND_NOT_READY remains in effect. API acceptance is not delivered/read proof.
+- Current provider contract/live acceptance still needs real Meta verification. No real send performed.
+
+### Durable outbound enqueue checkpoint
+- Added migration065 meta_outbox with tenant RLS, queued/dispatching/accepted/unknown/cancelled states, unique message reference, connection generation, recipient and owner version. Applied only isolated cluster.
+- Internal enqueueFacebookReply requires channel access, active Facebook connection/messaging scope, current human owner and 24-hour inbound window; message+outbox insert share transaction. Same clientId replay returns same queued item; changed body conflicts.
+- Extended HTTP/DB fixture suite passed for takeover gate, duplicate enqueue, conflict and closed window; backend typecheck passed. Facebook-send adapter tests previously 3/3 passed.
+- Not wired to Inbox; public social send gate remains. Next dispatcher must persist claim before external call, recheck membership/channel/owner/generation/window, classify crash/timeout as unknown, and expose honest delivery status. AI, attachments, history, Instagram, Connect UI and live Meta verification remain required.

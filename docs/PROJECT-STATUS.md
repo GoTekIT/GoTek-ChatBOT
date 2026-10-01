@@ -202,3 +202,5 @@ Facebook Page selection persists pending encrypted connection and consumes enrol
 Facebook signed webhook ingress and durable tenant receipts implemented; targeted HTTP/database fixture suite and typecheck passed. Inbox normalization/subscription/outbound are still pending; no live Meta acceptance.
 Facebook text normalization and explicit per-tenant batch worker added. Fixture HTTP/DB flow reaches existing Inbox APIs and deduplicates repeated message IDs; typecheck passed. No live Meta or production worker acceptance; outbound/attachments/Instagram still pending.
 Facebook subscription activation endpoint added with provider confirmation and generation/identity recheck; mocked HTTP flow/typecheck passed. Public social replies/AI resume fail explicitly until real outbound path exists; notes remain usable. Live Meta acceptance pending.
+Internal Facebook text send adapter added; not enabled in Inbox pending durable outbox and dispatch checks. Unknown outcomes are not retried automatically.
+Meta durable outbound schema/enqueue added and tested for ownership/window/idempotency. Not enabled in Inbox; dispatch worker and delivery state integration still pending.

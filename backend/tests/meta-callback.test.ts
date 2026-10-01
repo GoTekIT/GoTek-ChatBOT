@@ -6,6 +6,7 @@ import request from 'supertest';
 import {createApp} from '../src/app';
 import {pool,transaction,scope} from '../src/core/db';
 import {digest} from '../src/core/security';
+import {enqueueFacebookReply} from '../src/modules/meta/outbox';
 import {normalizeFacebookReceipt} from '../src/modules/meta/normalize';
 const admin=new pg.Pool({host:process.env.PGHOST||'/tmp',port:Number(process.env.PGPORT)||55432,user:process.env.PGUSER||'gotek_migrator',password:process.env.PGPASSWORD||'gotek_dev_password',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
@@ -96,6 +97,16 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
   const resume=await app.post('/api/conversations/'+conversation.id+'/resume-ai').set('Authorization','Bearer '+token).set('X-Gotek-Request','1').send({version:1});
   assert.equal(resume.status,409);assert.equal(resume.body.error,'META_OUTBOUND_NOT_READY');
   assert.equal((await admin.query("SELECT id FROM messages WHERE workspace_id=$1 AND author_type='agent' AND visibility='public'",[ws])).rowCount,0);
+  const enqueue=(clientId:string,text='queued reply')=>transaction(async db=>{await scope(db,ws);return enqueueFacebookReply(db,{workspace_id:ws,user_id:user,role:'Owner'},conversation.id,{clientId,body:text});});
+  await assert.rejects(enqueue(randomUUID()),/TAKEOVER_REQUIRED/);
+  await admin.query("UPDATE conversations SET reply_owner='HUMAN_ACTIVE',assigned_to=$1,owner_version=owner_version+1 WHERE id=$2",[user,conversation.id]);
+  const clientId=randomUUID();
+  const queued=await enqueue(clientId);assert.equal(queued.delivery_status,'queued');
+  assert.equal((await enqueue(clientId)).id,queued.id);
+  await assert.rejects(enqueue(clientId,'different'),/IDEMPOTENCY_CONFLICT/);
+  assert.equal((await admin.query('SELECT id FROM meta_outbox WHERE workspace_id=$1',[ws])).rowCount,1);
+  await admin.query("UPDATE meta_contacts SET last_inbound_at=now()-interval '25 hours' WHERE workspace_id=$1",[ws]);
+  await assert.rejects(enqueue(randomUUID()),/META_MESSAGING_WINDOW_CLOSED/);
   const deniedState=new URL((await connect()).body.authorizationUrl).searchParams.get('state')!;
   assert.equal((await app.get(base+'/callback').query({state:deniedState,error:'access_denied'}).set('Authorization','Bearer '+token)).status,400);
   const before=calls;assert.equal((await callback(deniedState)).status,400);assert.equal(calls,before);
@@ -105,7 +116,7 @@ test('Facebook HTTP callback consumes state once, hides tokens and rechecks revo
  } finally {
   globalThis.fetch=originalFetch;
   for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
-  for(const table of ['meta_inbound_messages','meta_contacts','messages','conversations','visitors','meta_webhook_receipts','meta_connections','channel_members','channels','audit_events'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
+  for(const table of ['meta_outbox','meta_inbound_messages','meta_contacts','messages','conversations','visitors','meta_webhook_receipts','meta_connections','channel_members','channels','audit_events'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
   for(const table of ['meta_enrollments','meta_oauth_attempts','sessions','memberships'])await admin.query(`DELETE FROM ${table} WHERE workspace_id=$1`,[ws]);
   await admin.query('DELETE FROM workspaces WHERE id=$1',[ws]);
   await admin.query('DELETE FROM users WHERE id=$1',[user]);
