@@ -51,7 +51,7 @@ export async function createMetaConnection(db:PoolClient, actor:{workspace_id:st
  return {id,status:'pending',platform:input.platform,externalAccountId:input.externalAccountId,accountName:input.accountName};
 }
 
-/** Verify only the configured secret reference; live Graph/webhook verification remains explicit. */
+/** Verify the configured credential against Meta Graph; webhook subscription remains a separate live gate. */
 export async function verifyMetaConnection(db:PoolClient, actor:{workspace_id:string;role:string;user_id:string}, id:string) {
  requireRole(actor.role);
  const row=(await db.query('SELECT id,page_access_token_ref,status FROM meta_connections WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[z.string().uuid().parse(id),actor.workspace_id])).rows[0];
