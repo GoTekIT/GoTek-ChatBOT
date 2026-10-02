@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Conversation, ChatMessage } from '../../types';
 import { useRealtimeChat } from '../../hooks/useRealtimeChat';
+import { api } from '../../api/api';
 
 interface InboxViewProps {
   conversations: Conversation[];
@@ -12,7 +13,9 @@ interface InboxViewProps {
   onTakeover: (convId: string) => void;
   onResolve: (convId: string) => void;
   onResumeAi?: (convId: string) => void;
+  onReassign?: (convId: string, assignedTo: string) => void;
   onIncomingMessage?: (convId: string, message: ChatMessage) => void;
+  isLoading?: boolean;
 }
 
 function playNotificationChime() {
@@ -34,6 +37,37 @@ function playNotificationChime() {
   } catch {}
 }
 
+function formatMessengerDateDivider(rawDate?: string | number | Date): string {
+  if (!rawDate) return 'Hôm nay';
+  const date = new Date(rawDate);
+  if (isNaN(date.getTime())) return 'Hôm nay';
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Hôm nay';
+  if (diffDays === 1) return 'Hôm qua';
+  if (diffDays > 1 && diffDays < 7) {
+    const dayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+    return dayNames[date.getDay()];
+  }
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${day} tháng ${month}`;
+  }
+  return `${day}/${month}/${date.getFullYear()}`;
+}
+
+function getDateDividerKey(rawDate?: string | number | Date): string {
+  if (!rawDate) return 'today';
+  const date = new Date(rawDate);
+  if (isNaN(date.getTime())) return 'today';
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
 export const InboxView: React.FC<InboxViewProps> = ({
   conversations,
   selectedConvId,
@@ -42,7 +76,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
   onTakeover,
   onResolve,
   onResumeAi,
+  onReassign,
   onIncomingMessage,
+  isLoading = false,
 }) => {
   // Filter tabs: all, queue (cần handoff), bot (AI đang phục vụ), mine (đã gán)
   const [filterTab, setFilterTab] = useState<'all' | 'queue' | 'bot' | 'mine'>('all');
@@ -57,9 +93,14 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const [messageReactions, setMessageReactions] = useState<Record<string, string[]>>({});
   const [isAiThinking, setIsAiThinking] = useState(false);
 
-  const [activeTags, setActiveTags] = useState<Record<string, string[]>>({
-    'conv-1': ['Enterprise Deal', '🔥 Lead Hot', 'Yêu cầu NDA'],
-  });
+  // States for Reassign, Shortcuts, Drafts & Retries (UC-027, UC-032, UC-035)
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [assignees, setAssignees] = useState<any[]>([]);
+  const [loadingAssignees, setLoadingAssignees] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [failedMessages, setFailedMessages] = useState<Record<string, { content: string; isInternal: boolean }>>({});
+
+  const [activeTags, setActiveTags] = useState<Record<string, string[]>>({});
 
   // Resizable and Collapsible Columns State
   const [queueWidth, setQueueWidth] = useState<number>(320);
@@ -125,7 +166,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   // Auto-scroll to latest message when conversation or messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeConv?.id, activeConv?.messages.length]);
+  }, [activeConv?.id, activeConv?.messages?.length]);
 
   // Subtle Resizer Dragging: Queue
   useEffect(() => {
@@ -191,7 +232,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const filteredConversations = conversations.filter((c) => {
     const matchesSearch =
       c.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.customerCompany.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.customerCompany || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.lastMessageSnippet.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
@@ -229,6 +270,138 @@ export const InboxView: React.FC<InboxViewProps> = ({
     showToast('Đã giải quyết phiên hỗ trợ thành công! 🎉');
   };
 
+  // Draft persistence per conversation (UC-032)
+  useEffect(() => {
+    if (!activeConv?.id) return;
+    const draft = localStorage.getItem('gotek.inbox.draft.' + activeConv.id) || '';
+    setMessageText(draft);
+  }, [activeConv?.id]);
+
+  const handleDraftChange = (text: string) => {
+    setMessageText(text);
+    if (activeConv?.id) {
+      if (text.trim()) {
+        localStorage.setItem('gotek.inbox.draft.' + activeConv.id, text);
+      } else {
+        localStorage.removeItem('gotek.inbox.draft.' + activeConv.id);
+      }
+    }
+  };
+
+  // Reassign Modal actions (UC-027)
+  const loadAndOpenReassign = async () => {
+    if (!activeConv) return;
+    setShowReassignModal(true);
+    setLoadingAssignees(true);
+    try {
+      const res = await api(`/conversations/${activeConv.id}/assignees`);
+      if (Array.isArray(res)) {
+        setAssignees(res);
+      }
+    } catch {
+      // Fallback
+    } finally {
+      setLoadingAssignees(false);
+    }
+  };
+
+  const handleAssignAgent = async (userId: string) => {
+    if (!activeConv) return;
+    try {
+      if (onReassign) {
+        onReassign(activeConv.id, userId);
+      } else {
+        await api(`/conversations/${activeConv.id}/assign`, 'POST', { assignedTo: userId });
+        showToast('Đã phân công lại cuộc trò chuyện');
+      }
+      setShowReassignModal(false);
+    } catch (err: any) {
+      showToast(`Lỗi phân công: ${err.message || 'Thử lại'}`);
+    }
+  };
+
+  // Failed message retry handler (UC-032)
+  const handleRetryFailedMessage = async (failedClientId: string) => {
+    const item = failedMessages[failedClientId];
+    if (!item || !activeConv) return;
+    try {
+      const sentViaWs = await sendMessageOverSocket(item.content, item.isInternal ? 'internal' : 'public', failedClientId);
+      onSendMessage(activeConv.id, {
+        clientId: failedClientId,
+        senderType: item.isInternal ? 'internal_note' : 'agent',
+        senderName: 'Alex Rivera (Staff Lead)',
+        content: item.content,
+      }, sentViaWs);
+      setFailedMessages(prev => {
+        const next = { ...prev };
+        delete next[failedClientId];
+        return next;
+      });
+      showToast('Đã gửi lại tin nhắn thành công ⚡');
+    } catch {
+      showToast('⚠️ Gửi lại vẫn thất bại. Vui lòng kiểm tra kết nối mạng.');
+    }
+  };
+
+  // Global Keyboard Navigation (UC-035)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowReassignModal(false);
+        setShowShortcutsModal(false);
+        return;
+      }
+
+      if (e.altKey) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const currentIndex = filteredConversations.findIndex(c => c.id === activeConv?.id);
+          if (currentIndex !== -1 && currentIndex < filteredConversations.length - 1) {
+            setSelectedConvId(filteredConversations[currentIndex + 1].id);
+            showToast(`Alt+↓: Chuyển sang ${filteredConversations[currentIndex + 1].customerName}`);
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const currentIndex = filteredConversations.findIndex(c => c.id === activeConv?.id);
+          if (currentIndex > 0) {
+            setSelectedConvId(filteredConversations[currentIndex - 1].id);
+            showToast(`Alt+↑: Chuyển sang ${filteredConversations[currentIndex - 1].customerName}`);
+          }
+        } else if (e.key === 'r' || e.key === 'R') {
+          e.preventDefault();
+          if (activeConv) {
+            handleResolveWithConfetti();
+          }
+        } else if (e.key === 't' || e.key === 'T') {
+          e.preventDefault();
+          if (activeConv) {
+            onTakeover(activeConv.id);
+            showToast('Alt+T: Đã tiếp quản cuộc trò chuyện');
+          }
+        } else if (e.key === 'a' || e.key === 'A') {
+          e.preventDefault();
+          if (activeConv && onResumeAi) {
+            onResumeAi(activeConv.id);
+            showToast('Alt+A: Đã chuyển lại quyền cho AI');
+          }
+        } else if (e.key === 'n' || e.key === 'N') {
+          e.preventDefault();
+          setComposerMode(prev => (prev === 'internal' ? 'public' : 'internal'));
+          showToast(`Alt+N: Đổi chế độ sang ${composerMode === 'internal' ? 'Trả lời khách' : 'Ghi chú nội bộ'}`);
+        } else if (e.key === 'p' || e.key === 'P') {
+          e.preventDefault();
+          loadAndOpenReassign();
+        } else if (e.key === 'k' || e.key === 'K') {
+          e.preventDefault();
+          setShowShortcutsModal(prev => !prev);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [filteredConversations, activeConv?.id, composerMode]);
+
   const handleSend = async () => {
     if (!messageText.trim() || !activeConv) return;
     const text = messageText;
@@ -242,22 +415,30 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
     const msgClientId = crypto.randomUUID();
 
-    // 1. Send via WebSocket if open (<1ms)
-    const sentViaWs = await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
+    try {
+      // 1. Send via WebSocket if open (<1ms)
+      const sentViaWs = await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
 
-    // 2. Dispatch to parent console state
-    onSendMessage(activeConv.id, {
-      clientId: msgClientId,
-      senderType: isInternal ? 'internal_note' : 'agent',
-      senderName: 'Alex Rivera (Staff Lead)',
-      senderAvatar:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
-      content: text,
-    }, sentViaWs);
+      // 2. Dispatch to parent console state
+      onSendMessage(activeConv.id, {
+        clientId: msgClientId,
+        senderType: isInternal ? 'internal_note' : 'agent',
+        senderName: 'Alex Rivera (Staff Lead)',
+        senderAvatar:
+          'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
+        content: text,
+      }, sentViaWs);
 
-    showToast(isInternal ? 'Đã lưu ghi chú nội bộ 🔒 (Khách không nhìn thấy)' : (sentViaWs ? 'Đã gửi qua WebSocket ⚡' : 'Đã gửi phản hồi'));
-    setMessageText('');
-    textareaRef.current?.focus();
+      showToast(isInternal ? 'Đã lưu ghi chú nội bộ 🔒 (Khách không nhìn thấy)' : (sentViaWs ? 'Đã gửi qua WebSocket ⚡' : 'Đã gửi phản hồi'));
+      setMessageText('');
+      if (activeConv?.id) {
+        localStorage.removeItem('gotek.inbox.draft.' + activeConv.id);
+      }
+      textareaRef.current?.focus();
+    } catch {
+      setFailedMessages(prev => ({ ...prev, [msgClientId]: { content: text, isInternal } }));
+      showToast('⚠️ Gửi tin thất bại. Bạn có thể bấm [Thử gửi lại]');
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -465,7 +646,25 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
           {/* Conversation Stream - Bento Cards */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
-            {filteredConversations.length === 0 ? (
+            {isLoading ? (
+              <div className="space-y-2 p-1">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="p-3 rounded-xl bg-slate-100/80 dark:bg-slate-800/40 animate-pulse space-y-2 border border-slate-200/50 dark:border-slate-800/50"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 shrink-0" />
+                      <div className="flex-1 space-y-1.5 min-w-0">
+                        <div className="w-28 h-3.5 bg-slate-200 dark:bg-slate-700 rounded" />
+                        <div className="w-16 h-2.5 bg-slate-200 dark:bg-slate-700 rounded" />
+                      </div>
+                    </div>
+                    <div className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded mt-1" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredConversations.length === 0 ? (
               <div className="py-16 text-center text-[13px] text-slate-400 dark:text-slate-500">
                 <span className="material-symbols-outlined text-[32px] text-slate-300 dark:text-slate-600 block mb-1.5">
                   inbox
@@ -612,10 +811,36 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
       {/* ================= COLUMN 2: CHAT CANVAS & THREAD (Fluid Edge-to-Edge) ================= */}
       <main className="flex-1 h-full flex flex-col bg-[#f8f9fb] dark:bg-[#080c14] relative overflow-hidden min-w-[380px] transition-colors">
-        {/* Thread Header Bar - Seamless and Clean */}
-        <header className="h-14 px-6 bg-white dark:bg-[#0d131f]/90 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between shrink-0 z-10 transition-colors">
+        {isLoading ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-3">
+            <div className="w-10 h-10 border-3 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+            <p className="text-[13px] text-slate-500 font-medium">Đang tải cuộc hội thoại...</p>
+          </div>
+        ) : !activeConv ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/40 flex items-center justify-center text-blue-500 mb-1">
+              <span className="material-symbols-outlined text-[32px]">forum</span>
+            </div>
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Chưa có cuộc hội thoại nào</h3>
+            <p className="text-xs text-slate-500 max-w-sm leading-relaxed">
+              Các cuộc trò chuyện từ website hoặc kênh chat sẽ tự động hiển thị tại đây khi khách hàng gửi tin nhắn.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Thread Header Bar - Seamless and Clean */}
+            <header className="h-14 px-6 bg-white dark:bg-[#0d131f]/90 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between shrink-0 z-10 transition-colors">
           {/* Customer Summary Info */}
           <div className="flex items-center gap-3 min-w-0">
+            {/* Mobile Back Button (UC-035) */}
+            <button
+              type="button"
+              onClick={() => setSelectedConvId('')}
+              className="md:hidden mr-1 p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 shrink-0 cursor-pointer"
+              title="Quay lại danh sách hàng chờ"
+            >
+              <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+            </button>
             <div className="relative">
               <img
                 src={activeConv.customerAvatar}
@@ -716,6 +941,29 @@ export const InboxView: React.FC<InboxViewProps> = ({
               </span>
             )}
 
+            {/* Reassign Button (UC-027) */}
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              type="button"
+              onClick={loadAndOpenReassign}
+              className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700 rounded-lg text-[12.5px] font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+              title="Phân công lại hội thoại cho nhân viên khác (Alt+P)"
+            >
+              <span className="material-symbols-outlined text-[17px] text-blue-600 dark:text-blue-400">group_add</span>
+              <span className="hidden sm:inline">Phân công</span>
+            </motion.button>
+
+            {/* Keyboard Shortcuts Button (UC-035) */}
+            <button
+              onClick={() => setShowShortcutsModal(true)}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors"
+              title="Xem danh sách phím tắt (Alt+K)"
+              type="button"
+            >
+              <span className="material-symbols-outlined text-[19px]">keyboard</span>
+            </button>
+
             {/* Toggle Dossier Panel */}
             <button
               onClick={() => setIsDossierOpen(!isDossierOpen)}
@@ -734,60 +982,78 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
         {/* ================= MESSAGE STREAM (Natural, Roomy & Interactive) ================= */}
         <div className="flex-1 overflow-y-auto px-6 lg:px-10 py-5 space-y-5 custom-scrollbar">
-          {/* Subtle Date Separator */}
-          <div className="flex items-center justify-center my-3">
-            <span className="px-3 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11.5px] font-medium select-none border border-transparent dark:border-slate-700/60">
-              Hôm nay · Phiên hội thoại trực tuyến
-            </span>
-          </div>
-
-          {activeConv.messages.map((msg) => {
+          {activeConv.messages.map((msg, index) => {
             const isHovered = hoveredMessageId === msg.id;
             const reactions = messageReactions[msg.id] || [];
+
+            const prevMsg = index > 0 ? activeConv.messages[index - 1] : null;
+            const currentRawDate = msg.created_at || (msg as any).createdAt;
+            const prevRawDate = prevMsg ? (prevMsg.created_at || (prevMsg as any).createdAt) : null;
+            const currentDateKey = currentRawDate ? getDateDividerKey(currentRawDate) : (index === 0 ? 'first' : null);
+            const prevDateKey = prevRawDate ? getDateDividerKey(prevRawDate) : null;
+            const showDateDivider = index === 0 || (currentDateKey && prevDateKey && currentDateKey !== prevDateKey);
+            const dateLabel = formatMessengerDateDivider(currentRawDate || Date.now());
+
+            const dateDividerNode = showDateDivider ? (
+              <div key={`divider-${msg.id}`} className="flex items-center justify-center my-4 select-none">
+                <div className="flex items-center gap-3 w-full max-w-sm px-2">
+                  <div className="flex-1 h-[1px] bg-slate-200/80 dark:bg-slate-700/60" />
+                  <span className="px-3.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11.5px] font-semibold tracking-wide border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                    {dateLabel}
+                  </span>
+                  <div className="flex-1 h-[1px] bg-slate-200/80 dark:bg-slate-700/60" />
+                </div>
+              </div>
+            ) : null;
 
             // 1. System Events
             if (msg.senderType === 'system_event') {
               return (
-                <div key={msg.id} className="flex justify-center my-2.5">
-                  <div className="px-3.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[12px] font-medium flex items-center gap-2 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
-                    <span className="material-symbols-outlined text-[15px] text-[#1664ff] dark:text-blue-400">info</span>
-                    <span>{msg.content}</span>
-                    <span className="text-slate-400 dark:text-slate-500 text-[11px]">({msg.timestamp})</span>
+                <React.Fragment key={msg.id}>
+                  {dateDividerNode}
+                  <div className="flex justify-center my-2.5">
+                    <div className="px-3.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[12px] font-medium flex items-center gap-2 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
+                      <span className="material-symbols-outlined text-[15px] text-[#1664ff] dark:text-blue-400">info</span>
+                      <span>{msg.content}</span>
+                      <span className="text-slate-400 dark:text-slate-500 text-[11px]">({msg.timestamp})</span>
+                    </div>
                   </div>
-                </div>
+                </React.Fragment>
               );
             }
 
             // 2. Internal Staff Notes - Elegant Linear/Notion Callout
             if (msg.senderType === 'internal_note') {
               return (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
-                  key={msg.id}
-                  onMouseEnter={() => setHoveredMessageId(msg.id)}
-                  onMouseLeave={() => setHoveredMessageId(null)}
-                  className="w-full my-2.5 group relative"
-                >
-                  <div className="p-3.5 rounded-r-xl border-l-4 border-amber-400 dark:border-amber-500 bg-amber-50/70 dark:bg-amber-950/30 text-slate-700 dark:text-amber-200 text-[13px] transition-colors shadow-xs">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-1.5 font-semibold text-amber-800 dark:text-amber-300 text-[12.5px]">
-                        <span className="material-symbols-outlined text-[16px]">lock</span>
-                        <span>Ghi chú nội bộ</span>
-                        <span className="font-normal text-amber-700/80 dark:text-amber-400/80 text-[11.5px]">(Chỉ nhân viên xem được)</span>
+                <React.Fragment key={msg.id}>
+                  {dateDividerNode}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    onMouseEnter={() => setHoveredMessageId(msg.id)}
+                    onMouseLeave={() => setHoveredMessageId(null)}
+                    className="w-full my-2.5 group relative"
+                  >
+                    <div className="p-3.5 rounded-r-xl border-l-4 border-amber-400 dark:border-amber-500 bg-amber-50/70 dark:bg-amber-950/30 text-slate-700 dark:text-amber-200 text-[13px] transition-colors shadow-xs">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1.5 font-semibold text-amber-800 dark:text-amber-300 text-[12.5px]">
+                          <span className="material-symbols-outlined text-[16px]">lock</span>
+                          <span>Ghi chú nội bộ</span>
+                          <span className="font-normal text-amber-700/80 dark:text-amber-400/80 text-[11.5px]">(Chỉ nhân viên xem được)</span>
+                        </div>
+                        <span className="text-[11.5px] text-amber-700/70 dark:text-amber-400/70 font-medium">{msg.timestamp}</span>
                       </div>
-                      <span className="text-[11.5px] text-amber-700/70 dark:text-amber-400/70 font-medium">{msg.timestamp}</span>
+                      <p className="whitespace-pre-wrap leading-relaxed text-slate-800 dark:text-slate-100 font-normal">
+                        {msg.content}
+                      </p>
+                      <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
+                        <span>Người tạo:</span>
+                        <strong className="text-slate-700 dark:text-slate-200">{msg.senderName}</strong>
+                      </div>
                     </div>
-                    <p className="whitespace-pre-wrap leading-relaxed text-slate-800 dark:text-slate-100 font-normal">
-                      {msg.content}
-                    </p>
-                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
-                      <span>Người tạo:</span>
-                      <strong className="text-slate-700 dark:text-slate-200">{msg.senderName}</strong>
-                    </div>
-                  </div>
-                </motion.div>
+                  </motion.div>
+                </React.Fragment>
               );
             }
 
@@ -796,15 +1062,16 @@ export const InboxView: React.FC<InboxViewProps> = ({
               const isCitationOpen = expandedCitations[msg.id];
 
               return (
-                <motion.div
-                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.25 }}
-                  key={msg.id}
-                  onMouseEnter={() => setHoveredMessageId(msg.id)}
-                  onMouseLeave={() => setHoveredMessageId(null)}
-                  className="flex items-start gap-3 max-w-[78%] group relative"
-                >
+                <React.Fragment key={msg.id}>
+                  {dateDividerNode}
+                  <motion.div
+                    initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.25 }}
+                    onMouseEnter={() => setHoveredMessageId(msg.id)}
+                    onMouseLeave={() => setHoveredMessageId(null)}
+                    className="flex items-start gap-3 max-w-[78%] group relative"
+                  >
                   {/* AI Avatar with Gradient Glow */}
                   <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#1664ff] via-[#4f46e5] to-[#722ed1] flex items-center justify-center text-white shrink-0 shadow-[0_2px_12px_rgba(22,100,255,0.35)] mt-0.5 border border-white/40 dark:border-white/20">
                     <span className="material-symbols-outlined text-[17px] animate-pulse">auto_awesome</span>
@@ -922,21 +1189,23 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     )}
                   </div>
                 </motion.div>
+                </React.Fragment>
               );
             }
 
             // 4. Staff Agent Response (Right-aligned Natural Blue Bubble)
             if (msg.senderType === 'agent') {
               return (
-                <motion.div
-                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.25 }}
-                  key={msg.id}
-                  onMouseEnter={() => setHoveredMessageId(msg.id)}
-                  onMouseLeave={() => setHoveredMessageId(null)}
-                  className="flex items-start justify-end gap-2.5 ml-auto max-w-[72%] group relative"
-                >
+                <React.Fragment key={msg.id}>
+                  {dateDividerNode}
+                  <motion.div
+                    initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.25 }}
+                    onMouseEnter={() => setHoveredMessageId(msg.id)}
+                    onMouseLeave={() => setHoveredMessageId(null)}
+                    className="flex items-start justify-end gap-2.5 ml-auto max-w-[72%] group relative"
+                  >
                   <div className="flex flex-col items-end min-w-0">
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="text-[11.5px] text-slate-400 dark:text-slate-500 font-normal">{msg.timestamp}</span>
@@ -996,20 +1265,22 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     className="w-8 h-8 rounded-full object-cover border border-slate-200/80 dark:border-slate-700 mt-0.5 shadow-xs shrink-0"
                   />
                 </motion.div>
+                </React.Fragment>
               );
             }
 
             // 5. Customer Message (Left-aligned Soft Bubble)
             return (
-              <motion.div
-                initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.25 }}
-                key={msg.id}
-                onMouseEnter={() => setHoveredMessageId(msg.id)}
-                onMouseLeave={() => setHoveredMessageId(null)}
-                className="flex items-start gap-2.5 max-w-[72%] group relative"
-              >
+              <React.Fragment key={msg.id}>
+                {dateDividerNode}
+                <motion.div
+                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.25 }}
+                  onMouseEnter={() => setHoveredMessageId(msg.id)}
+                  onMouseLeave={() => setHoveredMessageId(null)}
+                  className="flex items-start gap-2.5 max-w-[72%] group relative"
+                >
                 <img
                   src={activeConv.customerAvatar}
                   alt={activeConv.customerName}
@@ -1066,6 +1337,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                   )}
                 </div>
               </motion.div>
+              </React.Fragment>
             );
           })}
           <div ref={messagesEndRef} />
@@ -1225,7 +1497,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 ref={textareaRef}
                 value={messageText}
                 onChange={(e) => {
-                  setMessageText(e.target.value);
+                  handleDraftChange(e.target.value);
                   if (isStaffActive) sendTypingStatus(true);
                 }}
                 onBlur={() => { if (isStaffActive) sendTypingStatus(false); }}
@@ -1284,6 +1556,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
             </div>
           </div>
         </footer>
+          </>
+        )}
       </main>
 
       {/* ================= RESIZE HANDLE 2: SUBTLE SPLITTER ================= */}
@@ -1322,86 +1596,144 @@ export const InboxView: React.FC<InboxViewProps> = ({
             </button>
           </div>
 
-          <div className="p-4 space-y-3.5">
+          {isLoading ? (
+            <div className="p-4 space-y-3">
+              <div className="text-center p-4 rounded-2xl bg-slate-100/70 dark:bg-slate-800/40 animate-pulse border border-slate-200/50 dark:border-slate-800/50 space-y-2">
+                <div className="w-14 h-14 rounded-full bg-slate-200 dark:bg-slate-700 mx-auto" />
+                <div className="w-24 h-4 bg-slate-200 dark:bg-slate-700 rounded mx-auto" />
+                <div className="w-32 h-3 bg-slate-200 dark:bg-slate-700 rounded mx-auto" />
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-100/70 dark:bg-slate-800/40 animate-pulse space-y-2 border border-slate-200/50 dark:border-slate-800/50">
+                <div className="w-20 h-3 bg-slate-200 dark:bg-slate-700 rounded" />
+                <div className="w-full h-8 bg-slate-200 dark:bg-slate-700 rounded-lg" />
+                <div className="w-full h-8 bg-slate-200 dark:bg-slate-700 rounded-lg" />
+              </div>
+            </div>
+          ) : !activeConv ? (
+            <div className="p-8 text-center text-xs text-slate-400">
+              Chọn cuộc hội thoại để xem thông tin chi tiết
+            </div>
+          ) : (
+            <div className="p-4 space-y-3.5">
             {/* Customer Avatar & Hero Bento Card */}
             <div className="text-center p-4 rounded-2xl bg-white/80 dark:bg-[#131b2e]/80 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs">
-              <img
-                src={activeConv.customerAvatar}
-                alt={activeConv.customerName}
-                className="w-14 h-14 rounded-full mx-auto mb-2 object-cover border-2 border-white dark:border-slate-800 shadow-sm ring-2 ring-blue-500/20"
-              />
+              <div className="w-14 h-14 rounded-full mx-auto mb-2 bg-[#0284c7] text-white flex items-center justify-center text-xl font-bold uppercase shadow-sm border-2 border-white dark:border-slate-800 ring-2 ring-blue-500/20">
+                {activeConv.customerName ? activeConv.customerName.trim().slice(0, 2).toUpperCase() : 'KH'}
+              </div>
               <h3 className="font-bold text-[15px] text-[#1f2329] dark:text-slate-100 tracking-tight">{activeConv.customerName}</h3>
-              <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mb-2">{activeConv.customerCompany}</p>
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-[#1664ff] dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/70 shadow-2xs">
-                {activeConv.clientTier}
-              </span>
+              {activeConv.customerCompany ? (
+                <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mb-2">{activeConv.customerCompany}</p>
+              ) : null}
+              {activeConv.clientTier ? (
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-[#1664ff] dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/70 shadow-2xs">
+                  {activeConv.clientTier}
+                </span>
+              ) : null}
             </div>
 
-            {/* Contact Details Bento Card */}
-            <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#131b2e]/80 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-2">
+            {/* Customer Form Info Bento Card (Mirrors the exact Form Template & Visitor Submission) */}
+            <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#131b2e]/80 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-2.5">
               <h5 className="font-bold text-[11px] text-slate-400 dark:text-slate-400 uppercase tracking-wider">
-                Thông tin liên lạc
+                Thông tin khách hàng
               </h5>
 
-              {/* Email */}
-              <div
-                onClick={() => copyToClipboard(activeConv.customerEmail, 'Email')}
-                className="group flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors"
-                title="Bấm để sao chép Email"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="material-symbols-outlined text-slate-400 group-hover:text-[#1664ff] dark:group-hover:text-blue-400 text-[16px]">
-                    mail
-                  </span>
-                  <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium truncate">
-                    {activeConv.customerEmail}
-                  </span>
-                </div>
-                <span className="material-symbols-outlined text-slate-400 opacity-0 group-hover:opacity-100 text-[15px] transition-opacity">
-                  content_copy
-                </span>
-              </div>
+              {activeConv.prechatForm && activeConv.prechatForm.length > 0 ? (
+                <div className="space-y-2">
+                  {activeConv.prechatForm.map((field, idx) => (
+                    <div key={field.key || idx} className="space-y-1">
+                      <div className="text-[11.5px] font-medium text-slate-500 dark:text-slate-400 capitalize">
+                        {field.label || field.key}
+                      </div>
 
-              {/* Phone */}
-              <div
-                onClick={() => copyToClipboard(activeConv.customerPhone, 'Số điện thoại')}
-                className="group flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors"
-                title="Bấm để sao chép Số điện thoại"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="material-symbols-outlined text-slate-400 group-hover:text-[#1664ff] dark:group-hover:text-blue-400 text-[16px]">
-                    call
-                  </span>
-                  <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium truncate">
-                    {activeConv.customerPhone}
-                  </span>
+                      {field.value ? (
+                        <div
+                          onClick={() => copyToClipboard(field.value, field.label)}
+                          className="group flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 hover:bg-blue-50/60 dark:hover:bg-slate-800 cursor-pointer transition-colors border border-slate-100/90 dark:border-slate-800/70"
+                          title={`Bấm để sao chép ${field.label}`}
+                        >
+                          <span className="text-[12.5px] text-slate-700 dark:text-slate-200 font-medium truncate">
+                            {field.value}
+                          </span>
+                          <span className="material-symbols-outlined text-slate-400 opacity-0 group-hover:opacity-100 text-[14px] transition-opacity shrink-0 ml-2">
+                            content_copy
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="px-3 py-2 rounded-xl bg-slate-50/40 dark:bg-slate-800/20 text-slate-400 dark:text-slate-500 border border-dashed border-slate-200/80 dark:border-slate-800/80">
+                          <span className="text-[12px] italic">Chưa nhập</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <span className="material-symbols-outlined text-slate-400 opacity-0 group-hover:opacity-100 text-[15px] transition-opacity">
-                  content_copy
-                </span>
-              </div>
+              ) : (
+                /* Fallback if no prechat form is configured */
+                <div className="space-y-2">
+                  {/* Email */}
+                  <div className="space-y-1">
+                    <div className="text-[11.5px] font-medium text-slate-500 dark:text-slate-400">Email</div>
+                    {activeConv.customerEmail ? (
+                      <div
+                        onClick={() => copyToClipboard(activeConv.customerEmail || '', 'Email')}
+                        className="group flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 hover:bg-blue-50/60 dark:hover:bg-slate-800 cursor-pointer transition-colors border border-slate-100/90 dark:border-slate-800/70"
+                        title="Bấm để sao chép Email"
+                      >
+                        <span className="text-[12.5px] text-slate-700 dark:text-slate-200 font-medium truncate">
+                          {activeConv.customerEmail}
+                        </span>
+                        <span className="material-symbols-outlined text-slate-400 opacity-0 group-hover:opacity-100 text-[14px] transition-opacity shrink-0 ml-2">
+                          content_copy
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="px-3 py-2 rounded-xl bg-slate-50/40 dark:bg-slate-800/20 text-slate-400 dark:text-slate-500 border border-dashed border-slate-200/80 dark:border-slate-800/80">
+                        <span className="text-[12px] italic">Chưa có email</span>
+                      </div>
+                    )}
+                  </div>
 
-              {/* Location */}
-              <div className="flex items-center gap-2.5 p-1.5 text-slate-700 dark:text-slate-300">
-                <span className="material-symbols-outlined text-slate-400 text-[16px]">location_on</span>
-                <span className="text-[12px] font-medium">{activeConv.customerLocation}</span>
-              </div>
-
-              {/* Website */}
-              <div className="flex items-center justify-between p-1.5">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="material-symbols-outlined text-slate-400 text-[16px]">language</span>
-                  <a
-                    href={activeConv.websiteUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[12px] text-[#1664ff] dark:text-blue-400 hover:underline font-medium truncate"
-                  >
-                    {activeConv.websiteUrl}
-                  </a>
+                  {/* Phone */}
+                  <div className="space-y-1">
+                    <div className="text-[11.5px] font-medium text-slate-500 dark:text-slate-400">Số điện thoại</div>
+                    {activeConv.customerPhone ? (
+                      <div
+                        onClick={() => copyToClipboard(activeConv.customerPhone || '', 'Số điện thoại')}
+                        className="group flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 hover:bg-blue-50/60 dark:hover:bg-slate-800 cursor-pointer transition-colors border border-slate-100/90 dark:border-slate-800/70"
+                        title="Bấm để sao chép Số điện thoại"
+                      >
+                        <span className="text-[12.5px] text-slate-700 dark:text-slate-200 font-medium truncate">
+                          {activeConv.customerPhone}
+                        </span>
+                        <span className="material-symbols-outlined text-slate-400 opacity-0 group-hover:opacity-100 text-[14px] transition-opacity shrink-0 ml-2">
+                          content_copy
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="px-3 py-2 rounded-xl bg-slate-50/40 dark:bg-slate-800/20 text-slate-400 dark:text-slate-500 border border-dashed border-slate-200/80 dark:border-slate-800/80">
+                        <span className="text-[12px] italic">Chưa có số điện thoại</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <span className="material-symbols-outlined text-slate-400 text-[15px]">open_in_new</span>
-              </div>
+              )}
+
+              {/* Website if present */}
+              {activeConv.websiteUrl ? (
+                <div className="flex items-center justify-between p-1.5 pt-2 border-t border-slate-100 dark:border-slate-800/70">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="material-symbols-outlined text-slate-400 text-[16px]">language</span>
+                    <a
+                      href={activeConv.websiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[12px] text-[#1664ff] dark:text-blue-400 hover:underline font-medium truncate"
+                    >
+                      {activeConv.websiteUrl}
+                    </a>
+                  </div>
+                  <span className="material-symbols-outlined text-slate-400 text-[14px]">open_in_new</span>
+                </div>
+              ) : null}
             </div>
 
             {/* Session & Device Info Bento Card */}
@@ -1412,24 +1744,26 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">
                 <span>Kênh tiếp nhận</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.channel}</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.channel || 'Widget'}</span>
               </div>
 
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">
-                <span>Trang đang xem</span>
-                <span className="font-mono text-[11px] text-[#1664ff] dark:text-blue-400 truncate max-w-[150px]" title={activeConv.activeUrl}>
-                  {activeConv.activeUrl}
-                </span>
-              </div>
+              {activeConv.activeUrl ? (
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">
+                  <span>Trang đang xem</span>
+                  <span className="font-mono text-[11px] text-[#1664ff] dark:text-blue-400 truncate max-w-[150px]" title={activeConv.activeUrl}>
+                    {activeConv.activeUrl}
+                  </span>
+                </div>
+              ) : null}
 
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">
                 <span>Thời gian trực tuyến</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.sessionDuration}</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.sessionDuration || 'Vừa kết nối'}</span>
               </div>
 
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">
                 <span>Thiết bị</span>
-                <span className="text-slate-800 dark:text-slate-200 font-medium">{activeConv.deviceInfo}</span>
+                <span className="text-slate-800 dark:text-slate-200 font-medium">{activeConv.deviceInfo || 'Trình duyệt Web'}</span>
               </div>
             </div>
 
@@ -1476,22 +1810,26 @@ export const InboxView: React.FC<InboxViewProps> = ({
               </AnimatePresence>
 
               <div className="flex flex-wrap gap-1.5 pt-0.5">
-                {currentTags.map((tag, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800/90 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-[#1664ff] dark:hover:text-blue-400 text-slate-800 dark:text-slate-300 text-[11px] font-medium transition-colors group border border-slate-200/60 dark:border-slate-700/60"
-                  >
-                    <span>{tag}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="text-slate-400 hover:text-rose-500 font-bold ml-0.5 transition-colors cursor-pointer"
-                      title="Gỡ nhãn"
+                {currentTags.length > 0 ? (
+                  currentTags.map((tag, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800/90 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-[#1664ff] dark:hover:text-blue-400 text-slate-800 dark:text-slate-300 text-[11px] font-medium transition-colors group border border-slate-200/60 dark:border-slate-700/60"
                     >
-                      ×
-                    </button>
-                  </span>
-                ))}
+                      <span>{tag}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="text-slate-400 hover:text-rose-500 font-bold ml-0.5 transition-colors cursor-pointer"
+                        title="Gỡ nhãn"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-[11.5px] text-slate-400 dark:text-slate-500 italic py-0.5">Chưa có nhãn CRM nào</p>
+                )}
               </div>
             </div>
 
@@ -1532,8 +1870,127 @@ export const InboxView: React.FC<InboxViewProps> = ({
               )}
             </div>
           </div>
-        </div>
-      </motion.aside>
+        )}
+      </div>
+    </motion.aside>
+
+      {/* ================= REASSIGN MODAL (UC-027) ================= */}
+      <AnimatePresence>
+        {showReassignModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150" onClick={() => setShowReassignModal(false)}>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0d131f] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full p-5 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#1664ff] flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[19px]">group_add</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">Phân công lại hội thoại (UC-027)</h4>
+                    <p className="text-[11px] text-slate-500">Chuyển quyền hỗ trợ khách hàng sang nhân viên khác</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowReassignModal(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer">
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                {loadingAssignees ? (
+                  <div className="py-6 text-center text-xs text-slate-400">Đang tải danh sách nhân viên khả dụng...</div>
+                ) : assignees.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-slate-400">Không có nhân viên khả dụng trong kênh này</div>
+                ) : (
+                  assignees.map((agent) => (
+                    <button
+                      key={agent.userId}
+                      onClick={() => handleAssignAgent(agent.userId)}
+                      className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-blue-500/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 transition-all text-left group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950 text-[#1664ff] dark:text-blue-300 flex items-center justify-center font-bold text-xs">
+                          {agent.displayName[0]?.toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-xs text-slate-800 dark:text-slate-200 group-hover:text-[#1664ff]">{agent.displayName}</div>
+                          <div className="text-[11px] text-slate-400">{agent.email} · <span className="font-medium text-slate-500">{agent.role}</span></div>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        {agent.openCount} ca mở
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= SHORTCUTS MODAL (UC-035) ================= */}
+      <AnimatePresence>
+        {showShortcutsModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150" onClick={() => setShowShortcutsModal(false)}>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#0d131f] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full p-5 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <span className="material-symbols-outlined text-[#1664ff]">keyboard</span>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">Bảng phím tắt điều khiển nhanh (UC-035)</h4>
+                </div>
+                <button onClick={() => setShowShortcutsModal(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer">
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+              <div className="space-y-2.5 text-xs">
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Chuyển hội thoại kế tiếp</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Alt + ↓</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Chuyển hội thoại phía trước</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Alt + ↑</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Tiếp quản ca từ AI</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Alt + T</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Chuyển quyền trả lời về AI</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Alt + A</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Đổi Trả lời khách / Ghi chú</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Alt + N</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Giải quyết / Mở lại ca</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Alt + R</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Phân công lại nhân viên</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Alt + P</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Gửi tin nhắn</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Enter</kbd>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

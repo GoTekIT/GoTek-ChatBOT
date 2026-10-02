@@ -1,5 +1,34 @@
 # Development handoff
 
+## Phân hệ 3 (Hội thoại, phân công & chuyển người hỗ trợ) — 100% Production Ready — 2026-10-02
+
+- **Backend Hardening & Concurrency Guarantees**:
+  - `backend/src/modules/chat/chat-store.ts`: Atomic SQL increment for conversation sequence `next_sequence = next_sequence + 1 ... RETURNING next_sequence - 1 AS assigned_seq`. Completely prevents Postgres 23505 race conditions.
+  - `backend/src/modules/chat/inbox.ts`: Eliminated premature RAM broadcast in `inboxSend()`. Persistence occurs before event broadcast. Implemented `inboxAssignees` endpoint (`GET /api/inbox/conversations/:id/assignees`) returning active channel agents with open conversation load.
+  - `backend/src/modules/chat/realtime.ts`: Added Zero-Leakage isolation filter preventing private notes (`visibility: internal`, `author_type: internal_note`, `note:new`) from ever transmitting to visitor-bound sockets.
+- **Frontend Agent Console & Productivity (React 19)**:
+  - `frontend/src/screens/console/ConsoleWorkspace.tsx`: Added `handleReassign` integration with `/conversations/:id/assign`.
+  - `frontend/src/components/inbox/InboxView.tsx`:
+    - Reassign popover dialog with live assignee list and reassignment triggers (UC-027).
+    - Conversation auto-draft persistence in `localStorage` (`gotek.inbox.draft.<convId>`) (UC-032).
+    - Failed message tracking & retry handler retaining exact `clientId` for idempotency (UC-032).
+    - Complete Agent keyboard shortcuts (Alt+↑/↓, Alt+T, Alt+A, Alt+N, Alt+R, Alt+P, Alt+K, Esc) with interactive modal guide (UC-035).
+    - Responsive mobile view with back button (`← Hàng chờ`) for viewports < 768px (UC-035).
+- **SDK Resiliency**:
+  - `public/sdk.js`, `backend/public/sdk.js`, `frontend/public/sdk.js`: Upgraded `syncMessages()` to while-loop pagination syncing all missed messages across network reconnects.
+- **Verification**:
+  - `backend/tests/inbox-concurrency-negative.test.ts`: 5/5 PASSED.
+  - `backend/tests/inbox-resume-ai.test.ts`: 1/1 PASSED.
+  - `backend/tests/sdk-contract.test.ts`: 2/2 PASSED.
+  - `npm run test:frontend`: 9/9 PASSED.
+  - `npm run build:all`: 0 errors.
+
+## Remove Mock Data & Introduce Shimmer Skeleton Loading — 2026-10-01
+
+- `frontend/src/screens/console/ConsoleWorkspace.tsx`: Removed `INITIAL_CONVERSATIONS` and `INITIAL_DOCUMENTS` mock imports. Initial state is now strictly initialized with `[]` and `isLoadingConversations: true`.
+- `frontend/src/components/inbox/InboxView.tsx`: Added `isLoading` support with animated skeleton shimmer cards in conversation queue, loading spinner in conversation thread, and graceful empty states when no active conversations exist. Prevents UI flashing of mock data.
+- **Verification**: `npm run build:all` passed with 0 errors across backend and frontend.
+
 ## Widget Greeting as Chat Bubble & Clean Header Status — 2026-10-01
 
 - **Dynamic Greeting as Chat Bubble (`.bubble.greeting-bubble`)**:

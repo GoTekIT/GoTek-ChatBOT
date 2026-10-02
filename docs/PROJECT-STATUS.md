@@ -1,5 +1,30 @@
 # Current snapshot
 
+## Phân hệ 3 (Hội thoại, phân công & chuyển người hỗ trợ) — Đạt Chuẩn 100% Sẵn Sàng Production — 2026-10-02
+
+1. **Khắc Phục 6 Điểm Nghẽn Senior Leader Audit:**
+   - **Atomic Sequence Allocation:** Chuyển đổi cơ chế cấp phát số thứ tự tin nhắn (`sequence`) sang câu lệnh nguyên tử PostgreSQL `UPDATE conversations SET next_sequence = next_sequence + 1 WHERE id = $1 RETURNING next_sequence - 1 AS assigned_seq`. Loại bỏ triệt để lỗi xung đột mã `23505 (unique_violation)` khi nhiều tin nhắn tới đồng thời (UC-022, UC-023).
+   - **Triệt Tiêu Tin Nhắn Ma (Phantom Messages):** Gỡ bỏ RAM broadcast sớm trong `inboxSend()`; tin nhắn chỉ được phát sóng ra WebSocket / SSE sau khi giao dịch cơ sở dữ liệu đã `COMMIT` thành công trên đĩa.
+   - **Bảo Mật Zero-Leakage Cách Ly Room:** Bổ sung bộ lọc đa tầng nghiêm ngặt tại `realtimeHub.broadcastToConversation()` (`visibility === 'internal'`, `author_type === 'internal_note'`, event `note:new`), cấm 100% không cho ghi chú nội bộ phát tới kết nối của khách truy cập.
+   - **Vòng Lặp Tải Bù Tin Nhắn (Backfill While-Loop):** Nâng cấp hàm `syncMessages()` trong SDK khách hàng (`backend/public/sdk.js`, `frontend/public/sdk.js`, `public/sdk.js`) lặp qua các trang phân trang cho đến khi đồng bộ toàn bộ tin nhắn sau khi mất mạng, tránh thất lạc tin nhắn vượt quá giới hạn 100 tin.
+   - **Chống Trùng Lặp Idempotent & Fencing:** Bảo vệ giao dịch bằng `clientId` đồng nhất (trả về tin nhắn đã lưu khi retry thay vì lỗi) và kiểm tra phiên sở hữu `owner_version` (báo lỗi 409 `STALE_REPLY_OWNER` nếu tranh chấp quyền).
+   - **Điều Hướng & Năng Suất Agent:** Phím tắt bàn phím chuẩn Console (Alt+↑/↓, Alt+T, Alt+A, Alt+N, Alt+R, Alt+P, Alt+K), lưu nháp tự động (`gotek.inbox.draft.<convId>`), theo dõi tin nhắn lỗi và nút gửi lại, cùng giao diện chuyển giao hội thoại (Reassign Popover) theo danh sách thành viên kênh hoạt động.
+2. **Kiểm Chứng:**
+   - `backend/tests/inbox-concurrency-negative.test.ts`: 5/5 PASSED.
+   - `backend/tests/inbox-resume-ai.test.ts`: 1/1 PASSED.
+   - `backend/tests/sdk-contract.test.ts`: 2/2 PASSED.
+   - `npm run test:frontend`: 9/9 PASSED.
+   - `npm run build:all`: PASS 100% (Backend + Frontend).
+
+## Loại Bỏ Dữ Liệu Giả Lập & Thêm Trạng Thái Skeleton Loading Console — 2026-10-01
+
+- **Xóa Bỏ Mock Data:** Loại bỏ `INITIAL_CONVERSATIONS` và `INITIAL_DOCUMENTS` khỏi `useState` trong `ConsoleWorkspace.tsx`. Toàn bộ dữ liệu được khởi tạo từ mảng rỗng `[]` và nạp 100% từ API thật của Backend (`/api/conversations`).
+- **Trạng Thái Loading Chuẩn UX:**
+  - Thêm cờ `isLoadingConversations` trong `ConsoleWorkspace.tsx` và truyền prop `isLoading` vào `InboxView.tsx`.
+  - Khi chưa tải xong dữ liệu: Cột hàng chờ hội thoại hiển thị 4 thẻ **Skeleton Loading Shimmer Cards** nhấp nháy chuyển động nhẹ; cột khung chat hiển thị spinner tải dữ liệu; cột hồ sơ khách hiển thị skeleton avatar.
+  - Khi không có dữ liệu: Hiển thị giao diện Empty State thanh lịch ("Chưa có cuộc hội thoại nào"), loại bỏ hoàn toàn hiện tượng hiển thị dữ liệu giả Techcombank trước đây.
+- **Kiểm Chứng:** `npm run build:all` PASS 100%, không còn bất kỳ lỗi undefined crash nào.
+
 ## Chuyển Đổi Lời Mở Đầu Sang Bong Bóng Chat & Làm Gọn Header Widget — 2026-10-01
 
 1. **Hiển Thị Lời Mở Đầu Như Tin Nhắn Chat Đầu Tiên (`.bubble.greeting-bubble`):**

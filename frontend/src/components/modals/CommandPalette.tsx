@@ -47,7 +47,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const matchedConvs = conversations.filter(
     (c) =>
       c.customerName.toLowerCase().includes(query.toLowerCase()) ||
-      c.customerCompany.toLowerCase().includes(query.toLowerCase())
+      (c.customerCompany || '').toLowerCase().includes(query.toLowerCase())
   );
   const matchedStaff = staff.filter((s) =>
     s.name.toLowerCase().includes(query.toLowerCase()) || s.email.toLowerCase().includes(query.toLowerCase())

@@ -47,6 +47,8 @@ export interface StaffMember {
 export interface ChatMessage {
   id: string;
   clientId?: string;
+  created_at?: string;
+  createdAt?: string;
   senderType: 'customer' | 'ai' | 'agent' | 'internal_note' | 'system_event';
   senderName: string;
   senderAvatar?: string;
@@ -61,16 +63,26 @@ export interface ChatMessage {
   }>;
 }
 
+export interface PrechatFormEntry {
+  key: string;
+  label: string;
+  value: string;
+  required?: boolean;
+  placeholder?: string;
+}
+
 export interface Conversation {
   id: string;
+  channel_name?: string;
+  channelName?: string;
   customerName: string;
-  customerCompany: string;
-  customerEmail: string;
-  customerPhone: string;
-  customerLocation: string;
-  customerAvatar: string;
-  clientTier: 'Enterprise Prospect' | 'Enterprise Client' | 'Growth Plan';
-  websiteUrl: string;
+  customerCompany?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerLocation?: string;
+  customerAvatar?: string;
+  clientTier?: string;
+  websiteUrl?: string;
   lastMessageSnippet: string;
   lastMessageTime: string;
   unreadCount?: number;
@@ -82,16 +94,19 @@ export interface Conversation {
   ownerVersion?: number;
   slaCountdown?: string;
   slaUrgent?: boolean;
-  activeUrl: string;
-  sessionDuration: string;
-  deviceInfo: string;
-  ragMatchScore: string;
-  ragCitations: Array<{
+  activeUrl?: string;
+  sessionDuration?: string;
+  deviceInfo?: string;
+  ragMatchScore?: string;
+  ragCitations?: Array<{
     title: string;
     similarity: string;
     excerpt: string;
   }>;
   crmTags: string[];
+  prechatForm?: PrechatFormEntry[];
+  channelPrechatMessage?: string;
+  visitorProfile?: Record<string, any>;
   messages: ChatMessage[];
 }
 

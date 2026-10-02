@@ -5,10 +5,21 @@ import http from 'node:http';
 import {createApp} from './app.js';
 import {getRabbitChannel} from './core/rabbitmq.js';
 import {startNotificationWorker} from './workers/notification.worker.js';
+import {startAiReplyWorker} from './workers/ai-reply.worker.js';
+import {bootstrapPlatformAiRegistry} from './modules/platform/platform-bootstrap.js';
 import {initWebSocketServer} from './modules/chat/websocket.js';
 
 const app = createApp();
 const server = http.createServer(app);
+
+// Prevent transient remote DB pooler connection termination from crashing the process
+process.on('uncaughtException', (err: any) => {
+  if (err?.message?.includes('Connection terminated unexpectedly') || err?.code === 'ECONNRESET') {
+    console.warn('[db] Transient connection reset detected, server continuing...');
+    return;
+  }
+  console.error('[uncaughtException]', err);
+});
 
 // Initialize Full-Duplex 2-Way WebSocket Server
 initWebSocketServer(server);
@@ -21,6 +32,7 @@ app.use(express.static(resolve('public'), {
   setHeaders: (res) => {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   }
 }));
 
@@ -40,4 +52,8 @@ server.listen(port, host, () => {
   void getRabbitChannel().then(() => {
     void startNotificationWorker();
   });
+  // Initialize platform AI providers & model grants for workspaces
+  void bootstrapPlatformAiRegistry();
+  // Initialize AI reply background worker
+  void startAiReplyWorker();
 });

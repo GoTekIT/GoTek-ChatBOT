@@ -43,16 +43,84 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
     filterClause+=` AND (h.name ILIKE $${p.length} OR coalesce(v.profile->>'fullName','') ILIKE $${p.length} OR coalesce(v.profile->>'emailAddress','') ILIKE $${p.length} OR coalesce(v.profile->>'phoneNumber','') ILIKE $${p.length} OR EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id=c.id AND m.body ILIKE $${p.length}))`;
   }
 
-  const sql=`SELECT c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at, h.name AS channel_name, h.origin AS website_url, h.widget_mode AS channel_type, v.profile AS visitor_profile, (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body, (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
+  const sql=`SELECT c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at, h.name AS channel_name, h.origin AS website_url, h.widget_mode AS channel_type, h.prechat AS channel_prechat, v.profile AS visitor_profile, (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body, (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
 
   const rows=(await db.query(sql,p)).rows;
 
   return rows.map((r:any)=>{
     const prof=r.visitor_profile||{};
-    const name=prof.fullName?.trim()||prof.name?.trim()||'Khách vãng lai';
-    const email=prof.emailAddress?.trim()||prof.email?.trim()||'';
-    const phone=prof.phoneNumber?.trim()||prof.phone?.trim()||'';
-    const company=prof.company?.trim()||(email.includes('@')?email.split('@')[1].split('.')[0].toUpperCase()+' Corporate':'Techcombank Corporate');
+    const channelPrechat=r.channel_prechat||{};
+    const configuredFields=Array.isArray(channelPrechat.fields)?channelPrechat.fields:[];
+
+    // Build form entries according to the channel prechat template
+    const prechatForm: Array<{
+      key: string;
+      label: string;
+      value: string;
+      required: boolean;
+      placeholder?: string;
+    }> = [];
+
+    const matchedKeys = new Set<string>();
+
+    for (const f of configuredFields) {
+      if (f.enabled !== false) {
+        matchedKeys.add(f.key);
+        let val = prof[f.key];
+        if (val === undefined || val === null || val === '') {
+          if (f.key === 'fullName') val = prof.name || prof.fullName;
+          else if (f.key === 'emailAddress') val = prof.email || prof.emailAddress;
+          else if (f.key === 'phoneNumber') val = prof.phone || prof.phoneNumber;
+          else if (f.key === 'company') val = prof.company;
+        }
+
+        const strVal = typeof val === 'string' ? val.trim() : (val ? String(val).trim() : '');
+        prechatForm.push({
+          key: f.key,
+          label: f.label || f.key,
+          value: strVal,
+          required: Boolean(f.required),
+          placeholder: f.placeholder || ''
+        });
+      }
+    }
+
+    // Include any other custom keys that the visitor submitted in profile
+    const ignoredKeys = new Set(['tags', 'tier', 'clientTier', 'activeUrl', 'deviceInfo', 'userAgent']);
+    for (const [k, v] of Object.entries(prof)) {
+      if (!matchedKeys.has(k) && !ignoredKeys.has(k)) {
+        if ((k === 'name' && matchedKeys.has('fullName')) ||
+            (k === 'email' && matchedKeys.has('emailAddress')) ||
+            (k === 'phone' && matchedKeys.has('phoneNumber'))) {
+          continue;
+        }
+        const strVal = typeof v === 'string' ? v.trim() : (v ? String(v).trim() : '');
+        if (strVal) {
+          prechatForm.push({
+            key: k,
+            label: k,
+            value: strVal,
+            required: false
+          });
+        }
+      }
+    }
+
+    // Determine primary display values
+    const nameField = prechatForm.find(f => f.key === 'fullName' || f.label.toLowerCase().includes('name') || f.label.toLowerCase().includes('tên'));
+    const name = nameField?.value || prof.fullName?.trim() || prof.name?.trim() || 'Khách vãng lai';
+
+    const emailField = prechatForm.find(f => f.key === 'emailAddress' || f.label.toLowerCase().includes('email') || f.label.toLowerCase().includes('thư'));
+    const email = emailField?.value || prof.emailAddress?.trim() || prof.email?.trim() || '';
+
+    const phoneField = prechatForm.find(f => f.key === 'phoneNumber' || f.label.toLowerCase().includes('phone') || f.label.toLowerCase().includes('thoại'));
+    const phone = phoneField?.value || prof.phoneNumber?.trim() || prof.phone?.trim() || '';
+
+    const companyField = prechatForm.find(f => f.key === 'company' || f.label.toLowerCase().includes('công ty') || f.label.toLowerCase().includes('doanh nghiệp'));
+    const company = companyField?.value || prof.company?.trim() || '';
+
+    const locationField = prechatForm.find(f => f.key === 'location' || f.label.toLowerCase().includes('địa chỉ') || f.label.toLowerCase().includes('address') || f.label.toLowerCase().includes('location'));
+    const customerLocation = locationField?.value || prof.location?.trim() || prof.address?.trim() || '';
 
     let uiStatus:'handoff'|'ai_active'|'in_review'|'resolved'='ai_active';
     if(r.status==='resolved')uiStatus='resolved';
@@ -73,11 +141,18 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       }
     }
 
-    const avatar=`https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`;
+    const sessionStart = r.created_at ? new Date(r.created_at).getTime() : Date.now();
+    const diffSecs = Math.max(0, Math.floor((Date.now() - sessionStart) / 1000));
+    const mins = Math.floor(diffSecs / 60);
+    const secs = diffSecs % 60;
+    const sessionDuration = `${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+
+    const avatar=`https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0284c7&color=fff&size=128`;
 
     return {
       ...r,
       channel_name:r.channel_name,
+      channelName:r.channel_name,
       reply_owner:r.reply_owner,
       owner_version:r.owner_version,
       assigned_to:r.assigned_to,
@@ -85,22 +160,25 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       customerCompany:company,
       customerEmail:email,
       customerPhone:phone,
-      customerLocation:prof.location||'Hanoi, Vietnam',
+      customerLocation,
       customerAvatar:avatar,
-      clientTier:'Enterprise Prospect',
-      websiteUrl:r.website_url||'https://gotek.vn',
-      lastMessageSnippet:r.last_message_body||'Bắt đầu cuộc trò chuyện mới...',
+      clientTier:prof.tier?.trim()||prof.clientTier?.trim()||'',
+      websiteUrl:r.website_url||'',
+      lastMessageSnippet:r.last_message_body||'Chưa có tin nhắn',
       lastMessageTime:timeStr,
       channel:r.channel_type==='slack'?'Slack App':r.channel_type==='email'?'Email':'Widget',
       status:uiStatus,
       assignedTo:r.assigned_to||undefined,
       ownerVersion:r.owner_version,
-      activeUrl:prof.activeUrl||'/pricing/enterprise-contact',
-      sessionDuration:'08m 45s',
-      deviceInfo:prof.deviceInfo||'MacOS • Chrome',
-      ragMatchScore:'94% Match',
+      activeUrl:prof.activeUrl?.trim()||r.website_url||'',
+      sessionDuration,
+      deviceInfo:prof.deviceInfo?.trim()||prof.userAgent?.trim()||'',
+      ragMatchScore:'',
       ragCitations:[],
-      crmTags:['Enterprise Deal','🔥 Lead Hot','Yêu cầu NDA'],
+      crmTags:Array.isArray(prof.tags)?prof.tags:[],
+      prechatForm,
+      channelPrechatMessage:channelPrechat.message||'',
+      visitorProfile:prof,
       messages: r.last_message_body ? [{
         id: `last-${r.id}`,
         sequence: 1,
@@ -191,25 +269,12 @@ export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown){
   await access(db,a,id);
   const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal'])}).strict().parse(body);
   const msgId = uuid();
-  const nowIso = new Date().toISOString();
 
-  // 1. Instant in-memory broadcast (<2ms) so visitor widget never lags behind
-  realtimeHub.broadcastToConversation(id, 'message:new', {
-    id: msgId,
-    workspace_id: a.workspace_id,
-    conversation_id: id,
-    client_id: data.clientId,
-    clientId: data.clientId,
-    sequence: 0,
-    author_type: 'agent',
-    actor_id: a.user_id,
-    visibility: data.visibility,
-    body: data.body,
-    created_at: nowIso,
-  });
-
-  // 2. Persist with exact same messageId for 100% durability and consistency
+  // 1. Persist with exact same messageId for 100% durability and consistency
   const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId});
+
+  // 2. Broadcast to conversation only after database persistence commits
+  realtimeHub.broadcastToConversation(id, 'message:new', message);
 
   realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:message_sent', {
     conversationId: id,
@@ -286,6 +351,30 @@ export async function inboxAssign(db:PoolClient,a:Actor,id:string,body:unknown){
   });
 
   return row;
+}
+
+export async function inboxAssignees(db:PoolClient,a:Actor,id:string){
+  const c=await access(db,a,id);
+  const sql=`
+    SELECT m.user_id, u.email, m.role,
+      (SELECT count(*) FROM conversations x WHERE x.workspace_id=$1 AND x.assigned_to=m.user_id AND x.status='open') AS open_count
+    FROM memberships m
+    JOIN users u ON u.id = m.user_id
+    WHERE m.workspace_id = $1 AND m.active
+      AND (
+        NOT EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id=$1 AND cm.channel_id=$2)
+        OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id=$1 AND cm.channel_id=$2 AND cm.user_id=m.user_id)
+      )
+    ORDER BY open_count ASC, u.email ASC
+  `;
+  const rows=(await db.query(sql,[a.workspace_id,c.channel_id])).rows;
+  return rows.map((r:any)=>({
+    userId:r.user_id,
+    email:r.email,
+    displayName:r.email.split('@')[0],
+    role:r.role,
+    openCount:Number(r.open_count||0)
+  }));
 }
 
 export async function inboxDetail(db:PoolClient,a:Actor,id:string){

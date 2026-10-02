@@ -47,6 +47,7 @@ export function createApp() {
     setHeaders: (res) => {
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
   }));
 

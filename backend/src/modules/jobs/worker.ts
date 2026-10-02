@@ -5,6 +5,7 @@ import {HttpError} from '../../core/security';
 import {transactionalAiReplyHandler, type AiProviderInvoke} from '../../modules/ai/ai-reply-worker';
 import {workspacePrompt} from '../../modules/ai/workspace-prompt';
 import {invokeProvider,invokeProviderDetailed} from '../../modules/ai/provider-transport';
+import {realtimeHub} from '../../modules/chat/realtime';
 export type JobHandler=(job:{id:string,workspace_id:string,kind:string,payload:Record<string,unknown>})=>Promise<{receipt:string}>;
 /** Explicit tenant assigned by trusted scheduler, never from a public HTTP body. */
 export async function runWorkerOnce(workspace:string,handlers:Record<string,JobHandler>){
@@ -72,9 +73,20 @@ export async function runAiWorkerOnce(workspace:string,invoke:AiProviderInvoke){
     const live=(await db.query("SELECT id FROM jobs WHERE id=$1 AND workspace_id=$2 AND state='running' AND lease_token=$3 AND lease_until>clock_timestamp() FOR UPDATE",[job.id,workspace,(job as typeof job&{lease_token:string}).lease_token])).rowCount;
     if(!live)throw new HttpError(409,'STALE_JOB_LEASE');
     const conversation=String(job.payload.conversationId),version=Number(job.payload.ownerVersion);
-    await appendMessage(db,{workspace,conversation,clientId:job.id,author:'ai',visibility:'public',ownerVersion:version,body:fallback});
+    const fallbackMsg = await appendMessage(db,{workspace,conversation,clientId:job.id,author:'ai',visibility:'public',ownerVersion:version,body:fallback});
     const changed=await db.query("UPDATE conversations SET reply_owner='HANDOFF_PENDING',owner_version=owner_version+1,updated_at=now() WHERE workspace_id=$1 AND id=$2 AND reply_owner='AI_ACTIVE' AND owner_version=$3",[workspace,conversation,version]);
     if(!changed.rowCount)throw new HttpError(409,'STALE_REPLY_OWNER');
+    realtimeHub.broadcastToConversation(conversation, 'message:new', fallbackMsg);
+    realtimeHub.broadcastToConversation(conversation, 'conversation:takeover', {
+      replyOwner: 'HANDOFF_PENDING',
+      ownerVersion: version + 1
+    });
+    realtimeHub.broadcastToWorkspace(workspace, 'inbox:visitor_message', {
+      conversationId: conversation,
+      messageSnippet: String(fallbackMsg.body || '').slice(0, 100),
+      author: 'ai',
+      createdAt: fallbackMsg.created_at
+    });
     return {receipt:`handoff:${job.id}`};
    });
   }

@@ -9,6 +9,7 @@ import {
   inboxMessages,
   inboxDetail,
   inboxAssign,
+  inboxAssignees,
   inboxTakeover,
   inboxSend,
   inboxSetStatus,
@@ -31,6 +32,11 @@ inboxRouter.get(
 inboxRouter.get(
   '/conversations/:id/messages',
   authed((db, i, req) => inboxMessages(db, i, String(req.params.id), req.query.after))
+);
+
+inboxRouter.get(
+  '/conversations/:id/assignees',
+  authed((db, i, req) => inboxAssignees(db, i, String(req.params.id)))
 );
 
 inboxRouter.post(

@@ -26,6 +26,7 @@ interface WsClient {
   conversationId?: string;
   isVisitor?: boolean;
   ws: WebSocket;
+  isAlive: boolean;
 }
 
 type RealtimeClient = SseClient | WsClient;
@@ -42,7 +43,7 @@ class RealtimeHub extends EventEmitter {
 
   /**
    * Keep connections alive by sending standard SSE comments or WS pings every 25 seconds.
-   * Prevents proxy/ingress drop-outs (such as Nginx proxy_read_timeout).
+   * Dead-Socket Reaper terminates unresponsive zombie sockets to prevent memory leaks.
    */
   private startHeartbeat() {
     if (this.heartbeatInterval) return;
@@ -53,6 +54,13 @@ class RealtimeHub extends EventEmitter {
           if (client.kind === 'sse') {
             client.res.write(pingComment);
           } else if (client.kind === 'ws' && client.ws.readyState === 1) { // 1 = OPEN
+            if (client.isAlive === false) {
+              // Unresponsive zombie connection: terminate and reclaim memory
+              try { client.ws.terminate(); } catch {}
+              this.removeClient(client.id);
+              continue;
+            }
+            client.isAlive = false;
             client.ws.ping();
           }
         } catch {
@@ -139,9 +147,14 @@ class RealtimeHub extends EventEmitter {
       conversationId,
       isVisitor,
       ws,
+      isAlive: true,
     };
 
     this.clients.set(clientId, client);
+
+    ws.on('pong', () => {
+      client.isAlive = true;
+    });
 
     // Send initial connected acknowledgement
     this.sendToClient(client, {
@@ -233,9 +246,20 @@ class RealtimeHub extends EventEmitter {
 
     for (const client of this.clients.values()) {
       if (client.conversationId === conversationId) {
-        // SECURITY: Never leak internal staff notes to public website visitors
-        if (client.isVisitor && (data as any)?.visibility === 'internal') {
-          continue;
+        // SECURITY: Never leak internal staff notes or private data to public website visitors (Zero Leakage)
+        if (client.isVisitor) {
+          const d = data as any;
+          if (
+            d?.visibility === 'internal' ||
+            d?.author_type === 'internal_note' ||
+            d?.senderType === 'internal_note' ||
+            d?.author === 'internal_note' ||
+            d?.message?.visibility === 'internal' ||
+            eventName === 'note:new' ||
+            eventName === 'internal_note'
+          ) {
+            continue;
+          }
         }
         this.sendToClient(client, event);
       }

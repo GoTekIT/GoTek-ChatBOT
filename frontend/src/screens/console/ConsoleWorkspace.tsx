@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ConsoleModule, SettingsSubTab, KnowledgeDocument, StaffMember, Conversation, ChatMessage } from '../../types';
-import { INITIAL_DOCUMENTS, INITIAL_CONVERSATIONS } from '../../data/mockData';
 import { TopNav } from '../../components/TopNav';
 import { Sidebar } from '../../components/Sidebar';
 import { InboxView } from '../../components/inbox/InboxView';
@@ -48,12 +47,13 @@ export function ConsoleWorkspace({
     setActiveModule(resolveInitialModule(currentPath));
   }, [currentPath]);
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('staff');
-  const [documents, setDocuments] = useState<KnowledgeDocument[]>(INITIAL_DOCUMENTS);
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   // Members are loaded from the tenant-scoped API by MembersSettings.
   const staffList: StaffMember[] = [];
 
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState<boolean>(true);
+  const [selectedConvId, setSelectedConvId] = useState<string>('');
   const selectedConvIdRef = useRef<string>(selectedConvId);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
@@ -127,9 +127,14 @@ export function ConsoleWorkspace({
           setSelectedConvId(firstId);
           void loadMessagesForConv(firstId);
         }
+      } else {
+        setConversations([]);
+        setSelectedConvId('');
       }
     } catch (err) {
-      console.warn('Backend conversations load fallback to mock', err);
+      console.warn('Backend conversations load error', err);
+    } finally {
+      setIsLoadingConversations(false);
     }
   };
 
@@ -294,6 +299,7 @@ export function ConsoleWorkspace({
       id: clientUuid,
       clientId: clientUuid,
       timestamp: timeStr,
+      created_at: new Date().toISOString(),
     };
 
     setConversations((prev) =>
@@ -335,6 +341,7 @@ export function ConsoleWorkspace({
       senderType: 'system_event',
       senderName: 'Hệ thống',
       timestamp: timeStr,
+      created_at: new Date().toISOString(),
       content: 'Nhân viên hỗ trợ đã tiếp quản hội thoại này từ AI Copilot.',
     };
 
@@ -400,6 +407,7 @@ export function ConsoleWorkspace({
       senderType: 'system_event',
       senderName: 'Hệ thống',
       timestamp: timeStr,
+      created_at: new Date().toISOString(),
       content: 'Chuyên viên đã chuyển giao hội thoại lại cho GoTek AI Copilot tự động hỗ trợ.',
     };
 
@@ -432,6 +440,38 @@ export function ConsoleWorkspace({
       }
     } else {
       showGlobalToast('Đã chuyển giao hội thoại cho GoTek AI');
+    }
+  };
+
+  const handleReassign = async (convId: string, assignedTo: string) => {
+    const isRealConv = /^[0-9a-f-]{36}$/i.test(convId);
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === convId
+          ? {
+              ...c,
+              assignedTo,
+              assigned_to: assignedTo,
+              reply_owner: 'HUMAN_ACTIVE',
+              replyOwner: 'HUMAN_ACTIVE',
+              status: 'in_review',
+            }
+          : c
+      )
+    );
+
+    if (isRealConv) {
+      try {
+        const res = await api(`/conversations/${convId}/assign`, 'POST', { assignedTo });
+        if (res?.owner_version) {
+          setConversations((prev) => prev.map((c) => (c.id === convId ? { ...c, ownerVersion: res.owner_version } : c)));
+        }
+        showGlobalToast('Đã phân công lại hội thoại thành công');
+      } catch (err: any) {
+        showGlobalToast(`Lỗi phân công: ${err.message || 'Thử lại'}`);
+      }
+    } else {
+      showGlobalToast('Đã phân công lại hội thoại thành công');
     }
   };
 
@@ -516,7 +556,9 @@ export function ConsoleWorkspace({
                 onTakeover={handleTakeover}
                 onResolve={handleResolve}
                 onResumeAi={handleResumeAi}
+                onReassign={handleReassign}
                 onIncomingMessage={handleIncomingMessage}
+                isLoading={isLoadingConversations}
               />
             )}
 

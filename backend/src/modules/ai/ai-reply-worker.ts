@@ -9,6 +9,7 @@ import {workspacePrompt} from './workspace-prompt';
 import {retrieveEmbeddedContext} from '../../modules/knowledge/knowledge-embedding-worker';
 import {loadAiRuleSnapshot,assertAiRuleSnapshotCurrent} from './ai-rule-snapshot';
 import {reserveAiResponse,settleUsage} from './quota';
+import {realtimeHub} from '../../modules/chat/realtime';
 /**
  * Trusted worker boundary for widget AI jobs. Provider invocation is deliberately
  * injected by the caller; this boundary never trusts public job payload for
@@ -69,7 +70,14 @@ async function commit(db:PoolClient,context:Awaited<ReturnType<typeof prepare>>,
 
  await assertWidgetSourcesCurrent(db,context.workspace,context.context.map(source=>source.citation.versionId));
  await assertAiRuleSnapshotCurrent(db,context.rules);
- await appendMessage(db,{workspace:context.workspace,conversation:context.conversation,clientId:context.clientId,author:'ai',visibility:'public',body:output,ownerVersion:context.version});
+ const aiMsg = await appendMessage(db,{workspace:context.workspace,conversation:context.conversation,clientId:context.clientId,author:'ai',visibility:'public',body:output,ownerVersion:context.version});
+ realtimeHub.broadcastToConversation(context.conversation, 'message:new', aiMsg);
+ realtimeHub.broadcastToWorkspace(context.workspace, 'inbox:visitor_message', {
+  conversationId: context.conversation,
+  messageSnippet: String(aiMsg.body || '').slice(0, 100),
+  author: 'ai',
+  createdAt: aiMsg.created_at
+ });
  // The assistant message and dispatch receipt are committed together.  If
  // usage accounting fails, the whole transaction rolls back and remains
  // unknown; a retry must never invoke the provider again.

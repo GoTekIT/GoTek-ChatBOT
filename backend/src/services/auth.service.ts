@@ -17,6 +17,7 @@ import {SessionRepository} from '../repositories/session.repository';
 import {ChallengeRepository} from '../repositories/challenge.repository';
 import {publishTask, QUEUES} from '../core/rabbitmq.js';
 import {workspacePermissions} from '../core/authorization';
+import {grantDefaultAiModels} from '../modules/platform/platform-bootstrap.js';
 
 export class AuthService {
   static async signup(
@@ -60,6 +61,7 @@ export class AuthService {
 
     await WorkspaceRepository.createDefaultAiQuota(db, workspaceId, defaultAiQuota);
     await MembershipRepository.create(db, workspaceId, userId, 'Owner');
+    await grantDefaultAiModels(db, workspaceId);
     await challenge(db, userId, 'verify');
     await audit(db, workspaceId, userId, 'workspace.created', workspaceId);
   }

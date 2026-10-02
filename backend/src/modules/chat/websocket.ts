@@ -14,6 +14,8 @@ interface ClientContext {
   userId?: string;
   visitorId?: string;
   userName?: string;
+  msgTimestamps?: number[];
+  typingTimestamps?: number[];
 }
 
 export function initWebSocketServer(server: HttpServer): WebSocketServer {
@@ -50,6 +52,13 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
           }
 
           case 'typing': {
+            const nowTyping = Date.now();
+            clientCtx.typingTimestamps = (clientCtx.typingTimestamps || []).filter(t => nowTyping - t < 3000);
+            if (clientCtx.typingTimestamps.length >= 10) {
+              return; // Silently rate-limit excessive typing frames
+            }
+            clientCtx.typingTimestamps.push(nowTyping);
+
             const convId = clientCtx.isVisitor ? clientCtx.conversationId : (msg.conversationId || clientCtx.conversationId);
             if (convId) {
               realtimeHub.broadcastToConversation(convId, 'typing', {
@@ -64,6 +73,18 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
           }
 
           case 'message:send': {
+            const nowMsg = Date.now();
+            clientCtx.msgTimestamps = (clientCtx.msgTimestamps || []).filter(t => nowMsg - t < 3000);
+            if (clientCtx.msgTimestamps.length >= 5) {
+              ws.send(JSON.stringify({
+                type: 'error',
+                code: 'RATE_LIMITED',
+                message: 'Bạn đang gửi tin quá nhanh. Vui lòng thử lại sau vài giây.',
+              }));
+              return;
+            }
+            clientCtx.msgTimestamps.push(nowMsg);
+
             const body = typeof msg.body === 'string' ? msg.body.trim() : '';
             if (!body || body.length > 10000) {
               ws.send(JSON.stringify({
@@ -91,22 +112,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
             const msgId = uuid();
             const nowIso = new Date().toISOString();
 
-            // 1. OPTIMISTIC IN-MEMORY BROADCAST (<2ms perceived latency)
-            const immediateMessage = {
-              id: msgId,
-              workspace_id: clientCtx.workspaceId,
-              conversation_id: convId,
-              client_id: msgClientId,
-              clientId: msgClientId,
-              sequence: 0,
-              author_type: author,
-              actor_id: actor ?? null,
-              visibility,
-              body,
-              created_at: nowIso,
-            };
-
-            // Send immediate confirmation (ACK) back to sender
+            // 1. OPTIMISTIC ACK BACK TO CALLER ONLY (Local UI marks as pending)
             ws.send(JSON.stringify({
               type: 'message:ack',
               clientId: msgClientId,
@@ -114,22 +120,33 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
               createdAt: nowIso,
             }));
 
-            // Broadcast real-time message event to all conversation participants instantly
-            realtimeHub.broadcastToConversation(convId, 'message:new', immediateMessage);
-
-            // Broadcast summary to workspace inbox
-            realtimeHub.broadcastToWorkspace(clientCtx.workspaceId, clientCtx.isVisitor ? 'inbox:visitor_message' : 'inbox:message_sent', {
-              conversationId: convId,
-              messageSnippet: body.slice(0, 100),
-              author,
-              visibility,
-              createdAt: nowIso,
-            });
-
-            // 2. ASYNCHRONOUS DATABASE PERSISTENCE (100% History Durability)
+            // 2. ASYNCHRONOUS DATABASE PERSISTENCE WITH DURABILITY & SECURITY CHECKS
             void (async () => {
               try {
                 await transaction(async (db) => {
+                  // Verify visitor session expiry & pre-chat requirements
+                  if (clientCtx.isVisitor) {
+                    const v = (await db.query(
+                      'SELECT v.expires_at, v.profile, ch.prechat FROM visitors v JOIN channels ch ON ch.id = v.channel_id WHERE v.id = $1 AND v.workspace_id = $2',
+                      [clientCtx.visitorId, clientCtx.workspaceId]
+                    )).rows[0];
+
+                    if (!v || new Date(v.expires_at) < new Date()) {
+                      ws.close(4001, 'VISITOR_SESSION_EXPIRED');
+                      throw new Error('VISITOR_SESSION_EXPIRED');
+                    }
+
+                    if (v.prechat?.enabled) {
+                      const fields = Array.isArray(v.prechat.fields) ? v.prechat.fields : [];
+                      for (const f of fields) {
+                        if (f.enabled && f.required && !String(v.profile?.[f.key] || '').trim()) {
+                          ws.send(JSON.stringify({ type: 'error', code: 'PRECHAT_REQUIRED', message: 'Vui lòng điền thông tin pre-chat bắt buộc.' }));
+                          return;
+                        }
+                      }
+                    }
+                  }
+
                   // Verify conversation ownership
                   const c = (await db.query(
                     'SELECT id, reply_owner, owner_version, status, assigned_to FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',
@@ -162,6 +179,16 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                     author,
                     actor,
                     visibility,
+                  });
+
+                  // 3. BROADCAST TO ROOM & INBOX ONLY AFTER DATABASE PERSISTENCE SUCCEEDS (Eliminates Phantom Messages)
+                  realtimeHub.broadcastToConversation(convId, 'message:new', savedMessage);
+                  realtimeHub.broadcastToWorkspace(clientCtx.workspaceId, clientCtx.isVisitor ? 'inbox:visitor_message' : 'inbox:message_sent', {
+                    conversationId: convId,
+                    messageSnippet: body.slice(0, 100),
+                    author,
+                    visibility,
+                    createdAt: savedMessage.created_at,
                   });
 
                   // If visitor and AI is active, enqueue AI job
