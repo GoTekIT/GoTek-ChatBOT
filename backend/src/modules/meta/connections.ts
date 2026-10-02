@@ -31,9 +31,11 @@ export async function subscribeMetaWebhook(db:PoolClient, actor:{workspace_id:st
  const token=process.env[row.page_access_token_ref]?.trim();
  if(!token) throw new HttpError(400,'META_TOKEN_REFERENCE_NOT_CONFIGURED');
  let response:Response;
- try { response=await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION||'v20.0'}/${encodeURIComponent(row.external_page_id)}/subscribed_apps`,{method:'POST',redirect:'error',headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)}); }
+ const fields=['messages','messaging_postbacks','messaging_optins','message_deliveries','message_reads','message_reactions','message_echoes'].join(',');
+ try { response=await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION||'v20.0'}/${encodeURIComponent(row.external_page_id)}/subscribed_apps?subscribed_fields=${encodeURIComponent(fields)}`,{method:'POST',redirect:'error',headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)}); }
  catch { throw new HttpError(400,'META_WEBHOOK_SUBSCRIPTION_FAILED'); }
- if(!response.ok) throw new HttpError(400,'META_WEBHOOK_SUBSCRIPTION_FAILED');
+ const result=await response.json().catch(()=>null);
+ if(!response.ok||result?.success!==true) throw new HttpError(400,'META_WEBHOOK_SUBSCRIPTION_FAILED');
  await db.query('UPDATE meta_connections SET webhook_subscribed_at=now(),updated_at=now() WHERE id=$1 AND workspace_id=$2',[row.id,actor.workspace_id]);
  await audit(db,actor.workspace_id,actor.user_id,'meta.webhook_subscribed',row.id);
  return {id:row.id,webhookSubscribedAt:new Date().toISOString()};

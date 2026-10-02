@@ -671,3 +671,8 @@ Sau khi documentation pause được gỡ bằng một checkpoint mới: hoàn t
 ### Concurrent Meta linking guard
 - Changed channel locking from FOR SHARE to FOR UPDATE before checking active bindings. Concurrent create requests now serialize on the same channel.
 - Verified with two concurrent transactions against local PostgreSQL: one succeeds, the other returns META_CHANNEL_ALREADY_BOUND; exactly one connection persists. Reconnect also locks the channel first and rejects an occupied sibling before any Graph request. Backend typecheck and both focused DB tests passed. This does not yet cover alternate bootstrap writers.
+
+### Local subscription response validation
+- Subscription timestamp/audit now require HTTP success and JSON success=true; false, missing success, malformed JSON and HTTP errors leave no subscription mutation.
+- Verified: backend npm run build; meta-subscription-result.test.ts (1 passed, 0 skipped). This is a mocked provider test, not live Meta acceptance.
+- No push or merge. OAuth picker, durable ingress/claim/replay, authenticated media delivery and live multi-Page acceptance remain incomplete. Subscription field selection still needs platform-specific verification.
