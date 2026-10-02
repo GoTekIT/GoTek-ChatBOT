@@ -17,11 +17,13 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
  if(!signatureValid(raw,signature)) throw new HttpError(403,'META_SIGNATURE_INVALID');
  const body=z.unknown().parse(JSON.parse(raw.toString('utf8')));
  const statuses=normalizeMetaStatuses(body);
- const configuredWorkspace=process.env.META_WORKSPACE_ID;
- if(!configuredWorkspace) throw new HttpError(503,'META_ROUTING_NOT_CONFIGURED');
- await scope(db,z.string().uuid().parse(configuredWorkspace));
+ const route=async(surface:string,externalAccountId:string)=>{
+  const row=(await db.query(`SELECT * FROM resolve_meta_connection_route($1,$2)`,[surface,externalAccountId])).rows[0];
+  if(row) await scope(db,row.workspace_id);
+  return row;
+ };
  for(const status of statuses){
-  const c=(await db.query(`SELECT id,workspace_id FROM meta_connections WHERE workspace_id=$1 AND external_page_id=$2 AND channel_kind=$3 AND status='connected' FOR UPDATE`,[configuredWorkspace,status.externalAccountId,status.surface])).rows[0];
+  const c=await route(status.surface,status.externalAccountId);
   if(!c) continue;
   const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,status.eventId,'status:'+status.status,status])).rowCount;
   if(inserted){
@@ -37,7 +39,7 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
  if(!normalized.length) return {accepted:true,processed:0};
  let processed=0;
  for(const event of normalized){
-  const c=(await db.query(`SELECT * FROM meta_connections WHERE workspace_id=$1 AND external_page_id=$2 AND channel_kind=$3 AND status='connected' FOR UPDATE`,[configuredWorkspace,event.externalAccountId,event.surface])).rows[0];
+  const c=await route(event.surface,event.externalAccountId);
   if(!c) continue;
   const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,event.eventId,'message',event])).rowCount;
   if(!inserted) continue;
