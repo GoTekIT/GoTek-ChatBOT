@@ -5,6 +5,7 @@ import http from 'node:http';
 import {createApp} from './app.js';
 import {getRabbitChannel} from './core/rabbitmq.js';
 import {startNotificationWorker} from './workers/notification.worker.js';
+import {startAiWorker} from './workers/ai.worker.js';
 import {initWebSocketServer} from './modules/chat/websocket.js';
 
 const app = createApp();
@@ -39,5 +40,6 @@ server.listen(port, host, () => {
   // Initialize message broker queues and workers in background
   void getRabbitChannel().then(() => {
     void startNotificationWorker();
+    void startAiWorker();
   });
 });

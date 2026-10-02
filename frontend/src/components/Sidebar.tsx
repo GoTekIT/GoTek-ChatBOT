@@ -15,6 +15,7 @@ interface SidebarProps {
   sidebarWidth: number;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  inboxCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -29,6 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sidebarWidth,
   isCollapsed,
   onToggleCollapse,
+  inboxCount,
 }) => {
   return (
     <motion.aside
@@ -151,11 +153,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             )}
 
-            <span className={`bg-[#f53f3f] text-white text-[9.5px] font-bold rounded-full flex items-center justify-center shadow-xs shrink-0 ${
-              isCollapsed ? 'absolute top-1 right-1 px-1 min-w-[15px] h-3.5' : 'px-1.5 py-0.2'
-            }`}>
-              3
-            </span>
+            {typeof inboxCount === 'number' && inboxCount > 0 && (
+              <span className={`bg-[#f53f3f] text-white text-[9.5px] font-bold rounded-full flex items-center justify-center shadow-xs shrink-0 ${
+                isCollapsed ? 'absolute top-1 right-1 px-1 min-w-[15px] h-3.5' : 'px-1.5 py-0.2'
+              }`}>
+                {inboxCount > 99 ? '99+' : inboxCount}
+              </span>
+            )}
           </button>
 
           {/* Floating Tooltip when collapsed */}
@@ -168,7 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Tab 2: Knowledge Base */}
-        <div style={{display: canOpenModule(authorization, 'knowledge') ? undefined : 'none'}} className="relative group w-full flex justify-center">
+        <div className="relative group w-full flex justify-center">
           <button
             onClick={() => setActiveModule('knowledge')}
             className={`flex items-center rounded-xl transition-all duration-200 border-0 border-none outline-none cursor-pointer relative ${
@@ -178,7 +182,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             } ${
               activeModule === 'knowledge'
                 ? 'bg-[#e8f3ff] dark:bg-blue-950/70 text-[#1664ff] dark:text-blue-400 font-bold border border-transparent dark:border-blue-800/60 shadow-xs'
-                : 'text-[#646a73] dark:text-slate-400 hover:bg-[#ebedf0] dark:hover:bg-slate-800/70 hover:text-[#1f2329] dark:hover:text-slate-100'
+                : canOpenModule(authorization, 'knowledge')
+                  ? 'text-[#646a73] dark:text-slate-400 hover:bg-[#ebedf0] dark:hover:bg-slate-800/70 hover:text-[#1f2329] dark:hover:text-slate-100'
+                  : 'text-slate-400 dark:text-slate-600 opacity-60 hover:opacity-100'
             }`}
             type="button"
           >
@@ -200,21 +206,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Kho tri thức RAG
               </span>
             )}
-            {!isCollapsed && activeModule === 'knowledge' && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1664ff] dark:bg-blue-400 shrink-0" />
+            {!canOpenModule(authorization, 'knowledge') && !isCollapsed && (
+              <span className="material-symbols-outlined text-[13px] text-slate-400 shrink-0">lock</span>
             )}
           </button>
 
           {isCollapsed && (
             <div className="absolute left-[68px] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#1f2329] dark:bg-slate-800 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 -translate-x-2 transition-all whitespace-nowrap z-50 border border-transparent dark:border-slate-700">
-              Kho tri thức RAG (Knowledge)
+              Kho tri thức RAG (Knowledge) {!canOpenModule(authorization, 'knowledge') && '🔒'}
               <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#1f2329] dark:bg-slate-800 rotate-45" />
             </div>
           )}
         </div>
 
         {/* Tab 3: Channels & Integrations */}
-        <div style={{display: canOpenModule(authorization, 'channels') ? undefined : 'none'}} className="relative group w-full flex justify-center">
+        <div className="relative group w-full flex justify-center">
           <button
             onClick={() => setActiveModule('channels')}
             className={`flex items-center rounded-xl transition-all duration-200 border-0 border-none outline-none cursor-pointer relative ${
@@ -224,7 +230,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             } ${
               activeModule === 'channels'
                 ? 'bg-[#e8f3ff] dark:bg-blue-950/70 text-[#1664ff] dark:text-blue-400 font-bold border border-transparent dark:border-blue-800/60 shadow-xs'
-                : 'text-[#646a73] dark:text-slate-400 hover:bg-[#ebedf0] dark:hover:bg-slate-800/70 hover:text-[#1f2329] dark:hover:text-slate-100'
+                : canOpenModule(authorization, 'channels')
+                  ? 'text-[#646a73] dark:text-slate-400 hover:bg-[#ebedf0] dark:hover:bg-slate-800/70 hover:text-[#1f2329] dark:hover:text-slate-100'
+                  : 'text-slate-400 dark:text-slate-600 opacity-60 hover:opacity-100'
             }`}
             type="button"
           >
@@ -241,18 +249,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Kênh kết nối & Tích hợp
               </span>
             )}
+            {!canOpenModule(authorization, 'channels') && !isCollapsed && (
+              <span className="material-symbols-outlined text-[13px] text-slate-400 shrink-0">lock</span>
+            )}
           </button>
 
           {isCollapsed && (
             <div className="absolute left-[68px] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#1f2329] dark:bg-slate-800 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 -translate-x-2 transition-all whitespace-nowrap z-50 border border-transparent dark:border-slate-700">
-              Kênh kết nối & Tích hợp
+              Kênh kết nối (Channels) {!canOpenModule(authorization, 'channels') && '🔒'}
               <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#1f2329] dark:bg-slate-800 rotate-45" />
             </div>
           )}
         </div>
 
         {/* Tab 4: Analytics */}
-        <div style={{display: canOpenModule(authorization, 'analytics') ? undefined : 'none'}} className="relative group w-full flex justify-center">
+        <div className="relative group w-full flex justify-center">
           <button
             onClick={() => setActiveModule('analytics')}
             className={`flex items-center rounded-xl transition-all duration-200 border-0 border-none outline-none cursor-pointer relative ${
@@ -262,7 +273,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             } ${
               activeModule === 'analytics'
                 ? 'bg-[#e8f3ff] dark:bg-blue-950/70 text-[#1664ff] dark:text-blue-400 font-bold border border-transparent dark:border-blue-800/60 shadow-xs'
-                : 'text-[#646a73] dark:text-slate-400 hover:bg-[#ebedf0] dark:hover:bg-slate-800/70 hover:text-[#1f2329] dark:hover:text-slate-100'
+                : canOpenModule(authorization, 'analytics')
+                  ? 'text-[#646a73] dark:text-slate-400 hover:bg-[#ebedf0] dark:hover:bg-slate-800/70 hover:text-[#1f2329] dark:hover:text-slate-100'
+                  : 'text-slate-400 dark:text-slate-600 opacity-60 hover:opacity-100'
             }`}
             type="button"
           >
@@ -279,18 +292,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Báo cáo & Phân tích
               </span>
             )}
+            {!canOpenModule(authorization, 'analytics') && !isCollapsed && (
+              <span className="material-symbols-outlined text-[13px] text-slate-400 shrink-0">lock</span>
+            )}
           </button>
 
           {isCollapsed && (
             <div className="absolute left-[68px] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#1f2329] dark:bg-slate-800 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 -translate-x-2 transition-all whitespace-nowrap z-50 border border-transparent dark:border-slate-700">
-              Báo cáo & Phân tích
+              Báo cáo & Phân tích {!canOpenModule(authorization, 'analytics') && '🔒'}
               <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#1f2329] dark:bg-slate-800 rotate-45" />
             </div>
           )}
         </div>
 
         {/* Tab 5: Settings */}
-        <div style={{display: canOpenModule(authorization, 'settings') ? undefined : 'none'}} className="relative group w-full flex flex-col items-center">
+        <div className="relative group w-full flex flex-col items-center">
           <button
             onClick={() => setActiveModule('settings')}
             className={`flex items-center rounded-xl transition-all duration-200 border-0 border-none outline-none cursor-pointer relative ${
@@ -300,7 +316,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             } ${
               activeModule === 'settings'
                 ? 'bg-[#e8f3ff] dark:bg-blue-950/70 text-[#1664ff] dark:text-blue-400 font-bold border border-transparent dark:border-blue-800/60 shadow-xs'
-                : 'text-[#646a73] dark:text-slate-400 hover:bg-[#ebedf0] dark:hover:bg-slate-800/70 hover:text-[#1f2329] dark:hover:text-slate-100'
+                : canOpenModule(authorization, 'settings')
+                  ? 'text-[#646a73] dark:text-slate-400 hover:bg-[#ebedf0] dark:hover:bg-slate-800/70 hover:text-[#1f2329] dark:hover:text-slate-100'
+                  : 'text-slate-400 dark:text-slate-600 opacity-60 hover:opacity-100'
             }`}
             type="button"
           >
@@ -322,17 +340,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Cài đặt hệ thống
               </span>
             )}
+            {!canOpenModule(authorization, 'settings') && !isCollapsed && (
+              <span className="material-symbols-outlined text-[13px] text-slate-400 shrink-0">lock</span>
+            )}
             {!isCollapsed && activeModule === 'settings' && (
               <span className="w-1.5 h-1.5 rounded-full bg-[#1664ff] dark:bg-blue-400 shrink-0" />
             )}
           </button>
-
-          {isCollapsed && (
-            <div className="absolute left-[68px] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#1f2329] dark:bg-slate-800 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 -translate-x-2 transition-all whitespace-nowrap z-50 border border-transparent dark:border-slate-700">
-              Cài đặt & Nhân sự
-              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#1f2329] dark:bg-slate-800 rotate-45" />
-            </div>
-          )}
 
           {/* Submenu when expanded */}
           <AnimatePresence>
@@ -535,7 +549,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         type="button"
         whileHover={{ scale: 1.15 }}
         whileTap={{ scale: 0.9 }}
-        className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-md hover:shadow-lg hover:border-[#1664ff] dark:hover:border-blue-400 text-slate-600 dark:text-slate-300 hover:text-[#1664ff] dark:hover:text-blue-400 flex items-center justify-center cursor-pointer transition-colors z-30 group outline-none"
+        className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-md hover:shadow-lg hover:border-[#1664ff] dark:hover:border-blue-400 text-slate-600 dark:text-slate-300 hover:text-[#1664ff] dark:hover:text-blue-400 flex items-center justify-center cursor-pointer transition-colors z-50 group outline-none"
         title={isCollapsed ? 'Mở rộng Sidebar' : 'Thu gọn Sidebar'}
       >
         <motion.span

@@ -102,6 +102,12 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPEN_ROUTER_API: ${OPEN_ROUTER_API:-}
+      GOTEK_CUSTOM_LLM_BASE_URL: ${GOTEK_CUSTOM_LLM_BASE_URL:-http://ai-service:8000/v1}
+      COHERE_API_KEY: ${COHERE_API_KEY:-}
+      HF_TOKEN: ${HF_TOKEN:-}
     volumes:
       - gotek_app_runtime:/runtime:ro
     depends_on:
@@ -113,6 +119,27 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    networks:
+      - gotek-network
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: gotek-ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: 8000
+      NODE_ENV: development
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPEN_ROUTER_API: ${OPEN_ROUTER_API:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      COHERE_API_KEY: ${COHERE_API_KEY:-}
+      HF_TOKEN: ${HF_TOKEN:-}
+      ROBOFLOW_API_KEY: ${ROBOFLOW_API_KEY:-}
     networks:
       - gotek-network
 

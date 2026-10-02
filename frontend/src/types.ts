@@ -59,6 +59,7 @@ export interface ChatMessage {
     similarity?: string;
     verified?: boolean;
   }>;
+  status?: 'sending' | 'sent' | 'delivered' | 'read';
 }
 
 export interface Conversation {

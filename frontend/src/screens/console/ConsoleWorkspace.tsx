@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ConsoleModule, SettingsSubTab, KnowledgeDocument, StaffMember, Conversation, ChatMessage } from '../../types';
-import { INITIAL_DOCUMENTS, INITIAL_CONVERSATIONS } from '../../data/mockData';
 import { TopNav } from '../../components/TopNav';
 import { Sidebar } from '../../components/Sidebar';
 import { InboxView } from '../../components/inbox/InboxView';
@@ -48,12 +47,11 @@ export function ConsoleWorkspace({
     setActiveModule(resolveInitialModule(currentPath));
   }, [currentPath]);
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('staff');
-  const [documents, setDocuments] = useState<KnowledgeDocument[]>(INITIAL_DOCUMENTS);
-  // Members are loaded from the tenant-scoped API by MembersSettings.
-  const staffList: StaffMember[] = [];
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
 
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConvId, setSelectedConvId] = useState<string>('');
   const selectedConvIdRef = useRef<string>(selectedConvId);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
@@ -261,6 +259,53 @@ export function ConsoleWorkspace({
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3200);
   };
+
+  useEffect(() => {
+    api('/members')
+      .then((members: any[]) => {
+        setStaffList(
+          members.map((m: any) => ({
+            id: m.id,
+            name: m.full_name,
+            email: m.email,
+            avatarUrl: '',
+            role: m.role.toLowerCase() as any,
+            roleTitle: m.role,
+            status: m.active ? 'online' : 'offline',
+            statusText: m.active ? 'Đang hoạt động' : 'Đã vô hiệu',
+            activeChats: 0,
+            maxChats: 10,
+            assignedChannels: [],
+            lastActive: 'Hôm nay',
+            locationInfo: 'Việt Nam',
+          }))
+        );
+      })
+      .catch(() => {});
+
+    api('/knowledge/items?limit=100')
+      .then((res: any) => {
+        const items = Array.isArray(res) ? res : res.items || [];
+        setDocuments(
+          items.map((i: any) => ({
+            id: i.id,
+            title: i.title,
+            size: '12 KB',
+            hash: i.draft_version_id || i.id,
+            cosineSim: 1.0,
+            sourceType: (i.source_type?.toLowerCase() || 'doc') as any,
+            publicationStatus: (i.state?.toLowerCase() || 'draft') as any,
+            audience: i.audience || 'INTERNAL',
+            audienceDesc: i.audience === 'PUBLIC' ? 'Công khai' : 'Nội bộ',
+            chunksCount: 1,
+            matchScore: '100%',
+            lastUpdated: i.updated_at ? new Date(i.updated_at).toLocaleDateString('vi-VN') : 'Mới',
+            updatedBy: 'Hệ thống',
+          }))
+        );
+      })
+      .catch(() => {});
+  }, []);
 
   // Document actions
   const handleAddDocument = (newDoc: KnowledgeDocument) => {
@@ -492,6 +537,7 @@ export function ConsoleWorkspace({
               sidebarWidth={sidebarWidth}
               isCollapsed={isSidebarCollapsed}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              inboxCount={conversations.length}
             />
 
             {/* Subtle Draggable Resizer between Sidebar & Content */}

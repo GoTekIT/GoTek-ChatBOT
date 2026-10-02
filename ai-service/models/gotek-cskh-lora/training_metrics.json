@@ -1,0 +1,10 @@
+{
+  "model_name": "Qwen/Qwen2.5-1.5B-Instruct",
+  "epochs": 3,
+  "total_steps": 51,
+  "final_loss": 1.2746,
+  "best_loss": 1.2746,
+  "learning_rate": 0.0002,
+  "dataset_path": "D:\\GoTek-ChatBOT\\dataset\\processed\\cskh_seed_dataset_50.jsonl",
+  "completed_at": "2026-09-30T17:50:31.441370"
+}
