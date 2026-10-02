@@ -15,9 +15,7 @@ import {quarantineMetaEvent} from './quarantine';
 /** Ingest Messenger, Instagram messaging, and WhatsApp Cloud webhook envelopes.
  * Routing is always resolved from operator configuration in meta_connections; no
  * workspace id supplied by Meta is trusted. */
-export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:string|undefined,afterCommit:Array<()=>void>=[]) {
- if(!signatureValid(raw,signature)) throw new HttpError(403,'META_SIGNATURE_INVALID');
- const body=z.unknown().parse(JSON.parse(raw.toString('utf8')));
+export async function ingestMetaBody(db:PoolClient,body:unknown,afterCommit:Array<()=>void>=[]) {
  const statuses=normalizeMetaStatuses(body);
  for(const status of statuses){
   const c=await resolveConnectionRoute(db,status.surface,status.externalAccountId);
@@ -64,4 +62,10 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
   processed++;
  }
  return {accepted:true,processed};
+}
+
+export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:string|undefined,afterCommit:Array<()=>void>=[]) {
+ if(!signatureValid(raw,signature)) throw new HttpError(403,'META_SIGNATURE_INVALID');
+ const body=z.unknown().parse(JSON.parse(raw.toString('utf8')));
+ return ingestMetaBody(db,body,afterCommit);
 }
