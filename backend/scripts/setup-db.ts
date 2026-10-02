@@ -28,8 +28,8 @@ const config = existsSync(file)
       database: 'gotek_chatbot'
     };
 
-// Admin connection options (supports Windows TCP and Unix socket)
-const adminHost = process.env.PGHOST || (process.platform === 'win32' ? '127.0.0.1' : '/tmp');
+// Admin connection options (supports Windows TCP, Docker TCP and Unix socket)
+const adminHost = process.env.PGHOST || (existsSync('/tmp/.s.PGSQL.55432') ? '/tmp' : '127.0.0.1');
 const adminPort = Number(process.env.PGPORT) || 55432;
 const adminUser = process.env.PGUSER || 'gotek_migrator';
 const adminPassword = process.env.PGPASSWORD || 'gotek_dev_password';
