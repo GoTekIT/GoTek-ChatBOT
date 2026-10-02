@@ -92,6 +92,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Enter can fire repeatedly before the async provider/API round trip returns.
   // Keep a synchronous lock so one composer action creates one client id.
   const sendingRef = useRef(false);

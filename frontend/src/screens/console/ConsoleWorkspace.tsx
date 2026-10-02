@@ -13,6 +13,7 @@ import { AnalyticsView } from '../../components/analytics/AnalyticsView';
 import { CommandPalette } from '../../components/modals/CommandPalette';
 import { navigate } from '../../hooks/usePath';
 import { api } from '../../api/api';
+import { INITIAL_CONVERSATIONS } from '../../data/mockData';
 
 interface ConsoleWorkspaceProps {
   me?: any;
