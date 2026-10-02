@@ -11,6 +11,7 @@ import {enqueueJob} from '../jobs/jobs';
 import {realtimeHub} from '../chat/realtime';
 import {normalizeMetaInbound,normalizeMetaStatuses} from './inbound';
 import {quarantineMetaEvent} from './quarantine';
+import {resolveMetaMedia} from './media';
 
 /** Ingest Messenger, Instagram messaging, and WhatsApp Cloud webhook envelopes.
  * Routing is always resolved from operator configuration in meta_connections; no
@@ -54,11 +55,19 @@ export async function ingestMetaBody(db:PoolClient,body:unknown,afterCommit:Arra
   else if(event.displayName) await db.query("UPDATE visitors SET profile=jsonb_set(profile,'{name}',$1::jsonb) WHERE id=$2 AND (profile->>'name' IS NULL OR profile->>'name'='Meta user')",[JSON.stringify(event.displayName),conversation.visitor_id]);
   if(event.surface!=='whatsapp_business') await enqueueJob(db,c.workspace_id,{kind:'meta.profile.fetch',key:`meta-profile:${c.id}:${event.senderId}:${new Date().toISOString().slice(0,10)}`,payload:{connectionId:c.id,userId:event.senderId},external:false});
   const digest=createHash('sha256').update(`${c.id}:${event.eventId}`).digest('hex');const clientId=`${digest.slice(0,8)}-${digest.slice(8,12)}-4${digest.slice(13,16)}-8${digest.slice(17,20)}-${digest.slice(20,32)}`;
-  const attachmentCount=event.attachments.length+event.mediaReferences.length; const bodyText=event.text|| (attachmentCount?`[Đính kèm ${attachmentCount} tệp từ ${event.surface}]`:'');
-  let msg; try { msg=await appendMessage(db,{workspace:c.workspace_id,conversation:conversation.id,clientId,author:'visitor',visibility:'public',body:bodyText,attachments:event.attachments,providerMedia:event.mediaReferences}); } catch(error) { throw error; }
+  const mediaTokenRef = (await db.query('SELECT page_access_token_ref FROM meta_connections WHERE id=$1 AND workspace_id=$2',[c.id,c.workspace_id])).rows[0]?.page_access_token_ref as string|undefined;
+  const resolvedAttachments = [...event.attachments];
+  if(mediaTokenRef && event.mediaReferences.length){
+   for(const media of event.mediaReferences){
+    const resolved=await resolveMetaMedia({mediaId:media.id,tokenRef:mediaTokenRef});
+    if(resolved.status==='accepted'&&resolved.url) resolvedAttachments.push({type:media.type,url:resolved.url});
+   }
+  }
+  const attachmentCount=resolvedAttachments.length+event.mediaReferences.length; const bodyText=event.text|| (attachmentCount?`[Đính kèm ${attachmentCount} tệp từ ${event.surface}]`:'');
+  let msg; try { msg=await appendMessage(db,{workspace:c.workspace_id,conversation:conversation.id,clientId,author:'visitor',visibility:'public',body:bodyText,attachments:resolvedAttachments,providerMedia:event.mediaReferences}); } catch(error) { throw error; }
   if(conversation.reply_owner==='AI_ACTIVE'&&event.text) await enqueueJob(db,c.workspace_id,{kind:'ai.reply',key:`conversation:${conversation.id}:message:${msg.id}`,payload:{conversationId:conversation.id,messageId:msg.id,ownerVersion:conversation.owner_version,requireGrounded:true},external:false});
   await db.query('UPDATE meta_events SET processed_at=now() WHERE connection_id=$1 AND external_event_id=$2',[c.id,event.eventId]);
-  afterCommit.push(()=>{realtimeHub.broadcastToConversation(conversation.id,'message:new',{...msg,attachments:event.attachments});realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:visitor_message',{conversationId:conversation.id,source:event.surface,messageSnippet:bodyText.slice(0,100),createdAt:msg.created_at});});
+  afterCommit.push(()=>{realtimeHub.broadcastToConversation(conversation.id,'message:new',{...msg,attachments:resolvedAttachments});realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:visitor_message',{conversationId:conversation.id,source:event.surface,messageSnippet:bodyText.slice(0,100),createdAt:msg.created_at});});
   processed++;
  }
  return {accepted:true,processed};
