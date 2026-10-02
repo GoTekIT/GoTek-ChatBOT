@@ -10,6 +10,7 @@ import {appendMessage} from '../chat/chat-store';
 import {enqueueJob} from '../jobs/jobs';
 import {realtimeHub} from '../chat/realtime';
 import {normalizeMetaInbound,normalizeMetaStatuses} from './inbound';
+import {quarantineMetaEvent} from './quarantine';
 
 /** Ingest Messenger, Instagram messaging, and WhatsApp Cloud webhook envelopes.
  * Routing is always resolved from operator configuration in meta_connections; no
@@ -20,7 +21,7 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
  const statuses=normalizeMetaStatuses(body);
  for(const status of statuses){
   const c=await resolveConnectionRoute(db,status.surface,status.externalAccountId);
-  if(!c) continue;
+  if(!c){ await quarantineMetaEvent(db,status.surface,status.externalAccountId,status.eventId,status,'NO_CONNECTION_MAPPING'); continue; }
   const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,status.eventId,'status:'+status.status,status])).rowCount;
   if(inserted){
    await reconcileMetaReceipt(db,c.workspace_id,c.id,status.providerMessageId);
@@ -28,11 +29,23 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
   }
  }
  const normalized=normalizeMetaInbound(body);
+ // Preserve accounts present in the envelope even when normalization cannot
+ // produce a message (for example a Page with an unsupported event shape).
+ const rawAccounts = body && typeof body==='object' && (body as any).object==='page'
+  ? ((Array.isArray((body as any).entry)?(body as any).entry:[]).map((e:any)=>({surface:'facebook_messenger',account:String(e?.id||''),payload:e})))
+  : body && typeof body==='object' && (body as any).object==='instagram'
+   ? ((Array.isArray((body as any).entry)?(body as any).entry:[]).map((e:any)=>({surface:'instagram_messaging',account:String(e?.id||''),payload:e})))
+   : [];
+ for(const rawAccount of rawAccounts){
+  if(!rawAccount.account) continue;
+  const route=await resolveConnectionRoute(db,rawAccount.surface,rawAccount.account);
+  if(!route) await quarantineMetaEvent(db,rawAccount.surface,rawAccount.account,createHash('sha256').update(JSON.stringify(rawAccount.payload)).digest('hex'),rawAccount.payload,'NO_CONNECTION_MAPPING');
+ }
  if(!normalized.length) return {accepted:true,processed:0};
  let processed=0;
  for(const event of normalized){
   const c=await resolveConnectionRoute(db,event.surface,event.externalAccountId);
-  if(!c) continue;
+  if(!c){ await quarantineMetaEvent(db,event.surface,event.externalAccountId,event.eventId,event,'NO_CONNECTION_MAPPING'); continue; }
   const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,event.eventId,'message',event])).rowCount;
   if(!inserted) continue;
   const profile={externalId:event.senderId,name:event.displayName||'Meta user',source:event.surface};

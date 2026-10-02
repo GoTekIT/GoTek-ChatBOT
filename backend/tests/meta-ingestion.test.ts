@@ -291,9 +291,10 @@ test('one signed envelope routes three Pages across two workspaces without confi
   await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Route','https://example.test','Hello','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
   await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Route','META_FIXTURE_TOKEN')",[randomUUID(),workspace,channel,pages[i]]);
  }
- const raw=Buffer.from(JSON.stringify({object:'page',entry:pages.map(page=>({id:page,messaging:[{sender:{id:'same-person'},recipient:{id:page},message:{mid:'mid-'+page,text:'From '+page}}]}))}));
+ const raw=Buffer.from(JSON.stringify({object:'page',entry:[...pages.map(page=>({id:page,messaging:[{sender:{id:'same-person'},recipient:{id:page},message:{mid:'mid-'+page,text:'From '+page}}]})),{id:'unrelated-page',messaging:[{sender:{id:'unknown'},recipient:{id:'unrelated-page'},message:{mid:'unknown-mid',text:'quarantine'}}]}]}));
  const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
  assert.equal((await transaction(db=>receiveMetaWebhook(db,raw,signature))).processed,3);
+ await transaction(async db=>{await db.query("SELECT set_config('app.meta_worker','true',true)"); assert.equal((await db.query("SELECT external_account_id,reason FROM meta_webhook_quarantine WHERE external_account_id='unrelated-page'")).rows[0].reason,'NO_CONNECTION_MAPPING');});
  assert.equal((await transaction(db=>receiveMetaWebhook(db,raw,signature))).processed,0);
  for(let i=0;i<workspaces.length;i++) await transaction(async db=>{
   await scope(db,workspaces[i]);

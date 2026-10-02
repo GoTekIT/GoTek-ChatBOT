@@ -1,3 +1,8 @@
+## Unmapped webhook quarantine checkpoint (2026-10-02)
+- Migration 070 adds a seven-day, deduplicated quarantine queue for Meta events whose Page/account mapping is missing. Webhook ingestion stores the signed event payload and reason instead of silently dropping it; it never assigns the event to a tenant.
+- Unsupported page event shapes are also quarantined by raw account entry. Regression includes a mixed envelope with an unknown Page and confirms mapped pages still process normally.
+- Disposable PostgreSQL Meta suite: 5/5 passed; backend typecheck passed. Replay/admin workflow and expiry worker are still pending, so this is not a complete quarantine feature yet.
+
 ## Receipt source integrity guard (2026-10-02)
 - Migration 069 checks each receipt source against its message conversation, beyond tenant-only FK validation, and prevents changing a conversation's original connection after creation.
 - Added negative database tests for assigning a receipt or conversation to another valid same-tenant connection. Migration applied only to isolated PostgreSQL 55439.
