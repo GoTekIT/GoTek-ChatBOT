@@ -35,6 +35,8 @@ export async function createMetaConnection(db:PoolClient, actor:{workspace_id:st
  if(!process.env[input.tokenRef]?.trim()) throw new HttpError(400,'META_TOKEN_REFERENCE_NOT_CONFIGURED');
  const channel=(await db.query('SELECT id FROM channels WHERE id=$1 AND workspace_id=$2 AND enabled FOR SHARE',[input.channelId,actor.workspace_id])).rows[0];
  if(!channel) throw new HttpError(404,'CHANNEL_NOT_FOUND');
+ const occupied=(await db.query("SELECT id FROM meta_connections WHERE workspace_id=$1 AND channel_id=$2 AND status IN ('pending','connected','reauth_required','error') FOR SHARE",[actor.workspace_id,input.channelId])).rowCount;
+ if(occupied) throw new HttpError(409,'META_CHANNEL_ALREADY_BOUND');
  const duplicate=(await db.query('SELECT workspace_id FROM meta_connections WHERE channel_kind=$1 AND external_page_id=$2 FOR SHARE',[input.platform,input.externalAccountId])).rows[0];
  if(duplicate) throw new HttpError(409,'META_ACCOUNT_ALREADY_CONNECTED');
  const id=uuid();

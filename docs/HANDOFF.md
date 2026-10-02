@@ -1,3 +1,8 @@
+## Per-connection channel guard checkpoint (2026-10-02)
+- Migration 071 and the create API now reject multiple active Meta connections bound to the same workspace channel; duplicate legacy bindings abort migration rather than choosing a source.
+- This preserves one Page/account → one channel → one connection routing invariant. Workspace admins must create/select a separate channel before linking another account.
+- `npm run build:all` passed; no live Meta verification was performed.
+
 ## Multi-connection management checkpoint (2026-10-02)
 - Added Owner/Admin API and Channels UI to add multiple Facebook/Instagram/WhatsApp/Threads account mappings per workspace using server-side token references only.
 - Global `(platform, external account id)` uniqueness rejects cross-workspace double ownership; connection starts pending and is verified only after the configured secret reference exists.
