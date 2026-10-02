@@ -7,6 +7,7 @@ import {InvitationRepository} from '../repositories/invitation.repository';
 import {UserRepository} from '../repositories/user.repository';
 import {requirePermission} from '../core/authorization';
 import {publishTask, QUEUES} from '../core/rabbitmq.js';
+import {realtimeHub} from '../modules/chat/realtime.js';
 
 export class MemberService {
   static async listMembers(db: PoolClient, workspaceId: string): Promise<any[]> {
@@ -49,6 +50,11 @@ export class MemberService {
 
     await MembershipRepository.update(db, workspaceId, targetUserId, data);
     await audit(db, workspaceId, operatorId, 'membership.updated', targetUserId);
+
+    // SECURITY: Immediately disconnect any active streams/sockets for the target user if deactivated or role altered
+    if (!data.active || current.role !== data.role) {
+      realtimeHub.disconnectUser(workspaceId, targetUserId, !data.active ? 'MEMBERSHIP_DEACTIVATED' : 'ROLE_CHANGED');
+    }
   }
 
   static async listInvitations(db: PoolClient): Promise<any[]> {

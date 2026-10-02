@@ -120,7 +120,7 @@ router.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
  const replay=!!(await db.query('SELECT id FROM messages WHERE conversation_id=$1 AND workspace_id=$2 AND client_id=$3',[v.conversation_id,c.workspace_id,data.clientId])).rowCount;
  const m=await appendMessage(db,{workspace:c.workspace_id,conversation:v.conversation_id,clientId:data.clientId,body:data.body,author:'visitor',visibility:'public'});const state=(await db.query('SELECT reply_owner,owner_version,assigned_to FROM conversations WHERE id=$1',[v.conversation_id])).rows[0];if(!replay&&state.reply_owner==='AI_ACTIVE'){await enqueueJob(db,c.workspace_id,{kind:'ai.reply',key:`conversation:${v.conversation_id}:message:${m.id}`,payload:{conversationId:v.conversation_id,messageId:m.id,ownerVersion:state.owner_version,requireGrounded:true},external:false});}
  realtimeHub.broadcastToConversation(v.conversation_id, 'message:new', m);
- realtimeHub.broadcastToWorkspace(c.workspace_id, 'inbox:visitor_message', { conversationId: v.conversation_id, messageSnippet: m.body.slice(0, 100), author: 'visitor', createdAt: m.created_at });
+ realtimeHub.broadcastToWorkspace(c.workspace_id, 'inbox:visitor_message', { conversationId: v.conversation_id, messageSnippet: m.body.slice(0, 100), author: 'visitor', createdAt: m.created_at }, { channelId: c.id });
  return {id:m.id,client_id:m.client_id,sequence:m.sequence,body:m.body,author_type:m.author_type,created_at:m.created_at,replyOwner:state.reply_owner,ownerVersion:state.owner_version,assignedTo:state.assigned_to};}));});
  // A visitor may request a human, but may never choose an agent or resume AI.
  router.post('/:key/handoff',async(req,res)=>{
@@ -144,7 +144,7 @@ router.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
       messageSnippet: '🔴 Khách hàng yêu cầu hỗ trợ từ nhân viên (Handoff)',
       author: 'system',
       createdAt: new Date().toISOString()
-    });
+    }, { channelId: c.id });
     return {replyOwner:changed.reply_owner,ownerVersion:changed.owner_version};
    }));
   });

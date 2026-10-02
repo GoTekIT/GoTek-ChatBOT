@@ -23,7 +23,7 @@ export async function ingestMetaBody(db:PoolClient,body:unknown,afterCommit:Arra
   const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,status.eventId,'status:'+status.status,status])).rowCount;
   if(inserted){
    await reconcileMetaReceipt(db,c.workspace_id,c.id,status.providerMessageId);
-   afterCommit.push(()=>realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:message_receipt',status));
+   afterCommit.push(()=>realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:message_receipt',status,{channelId:c.channel_id}));
   }
  }
  const normalized=normalizeMetaInbound(body);
@@ -58,7 +58,7 @@ export async function ingestMetaBody(db:PoolClient,body:unknown,afterCommit:Arra
   let msg; try { msg=await appendMessage(db,{workspace:c.workspace_id,conversation:conversation.id,clientId,author:'visitor',visibility:'public',body:bodyText,attachments:event.attachments,providerMedia:event.mediaReferences}); } catch(error) { throw error; }
   if(conversation.reply_owner==='AI_ACTIVE'&&event.text) await enqueueJob(db,c.workspace_id,{kind:'ai.reply',key:`conversation:${conversation.id}:message:${msg.id}`,payload:{conversationId:conversation.id,messageId:msg.id,ownerVersion:conversation.owner_version,requireGrounded:true},external:false});
   await db.query('UPDATE meta_events SET processed_at=now() WHERE connection_id=$1 AND external_event_id=$2',[c.id,event.eventId]);
-  afterCommit.push(()=>{realtimeHub.broadcastToConversation(conversation.id,'message:new',{...msg,attachments:event.attachments});realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:visitor_message',{conversationId:conversation.id,source:event.surface,messageSnippet:bodyText.slice(0,100),createdAt:msg.created_at});});
+  afterCommit.push(()=>{realtimeHub.broadcastToConversation(conversation.id,'message:new',{...msg,attachments:event.attachments});realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:visitor_message',{conversationId:conversation.id,source:event.surface,messageSnippet:bodyText.slice(0,100),createdAt:msg.created_at},{channelId:c.channel_id});});
   processed++;
  }
  return {accepted:true,processed};
