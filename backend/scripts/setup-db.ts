@@ -11,11 +11,21 @@ const file = resolve(localDir, 'runtime.json');
 
 // Check .env if exists to keep password consistent with existing configuration
 let envPassword = '';
-const envFile = resolve(rootDir, '.env');
-if (existsSync(envFile)) {
-  const envContent = readFileSync(envFile, 'utf8');
-  const match = envContent.match(/DATABASE_URL=postgresql:\/\/[^:]+:([^@]+)@/);
-  if (match) envPassword = match[1];
+const candidateEnvFiles = [
+  resolve(rootDir, 'backend/.env'),
+  resolve(rootDir, '.env'),
+  resolve(process.cwd(), '.env'),
+  resolve(process.cwd(), 'backend/.env')
+];
+for (const cand of candidateEnvFiles) {
+  if (existsSync(cand)) {
+    const envContent = readFileSync(cand, 'utf8');
+    const match = envContent.match(/DATABASE_URL=postgresql:\/\/[^:]+:([^@]+)@/);
+    if (match) {
+      envPassword = match[1];
+      break;
+    }
+  }
 }
 
 const config = existsSync(file)
@@ -27,9 +37,13 @@ const config = existsSync(file)
       password: envPassword || randomBytes(32).toString('hex'),
       database: 'gotek_chatbot'
     };
+if (envPassword) {
+  config.password = envPassword;
+}
 
-// Admin connection options (supports Windows TCP and Unix socket)
-const adminHost = process.env.GOTEK_DB_HOST || process.env.PGHOST || (process.platform === 'win32' ? '127.0.0.1' : '/tmp');
+// Admin connection options (supports Windows TCP, Docker TCP and Unix socket)
+const defaultHost = process.platform === 'win32' || !existsSync('/tmp/.s.PGSQL.55432') ? '127.0.0.1' : '/tmp';
+const adminHost = process.env.GOTEK_DB_HOST || process.env.PGHOST || defaultHost;
 const adminPort = Number(process.env.GOTEK_DB_PORT || process.env.PGPORT) || 55432;
 const adminUser = process.env.GOTEK_DB_ADMIN_USER || process.env.PGUSER || 'gotek_migrator';
 const adminPassword = process.env.GOTEK_DB_ADMIN_PASSWORD || process.env.PGPASSWORD || 'gotek_dev_password';

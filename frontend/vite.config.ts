@@ -35,6 +35,10 @@ export default defineConfig(({mode}) => {
         target: 'http://127.0.0.1:4317',
         changeOrigin: true,
       },
+      '/meta': {
+        target: 'http://127.0.0.1:4317',
+        changeOrigin: true,
+      },
       '/widget-api': {
         target: 'http://127.0.0.1:4317',
         changeOrigin: true,

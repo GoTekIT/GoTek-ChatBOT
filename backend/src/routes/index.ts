@@ -14,6 +14,7 @@ import {platformRouter} from './platform.routes';
 import {miscRouter} from './misc.routes';
 import {aiRouter} from './ai.routes';
 import {botRouter} from './bot.routes';
+import {metaRouter} from './meta.routes';
 
 /**
  * Centralized API Group Router
@@ -32,6 +33,7 @@ apiRouter.use(webSourceRouter);
 apiRouter.use(rulesRouter);
 apiRouter.use(aiRouter);
 apiRouter.use(botRouter);
+apiRouter.use(metaRouter);
 apiRouter.use(contactRouter);
 apiRouter.use(auditRouter);
 apiRouter.use(supportRouter);

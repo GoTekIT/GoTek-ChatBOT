@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api, ApiError } from '../../api/api';
+import { api, ApiError } from '@api';
 import { ImportDocModal } from '../modals/ImportDocModal';
+import { ImportHistoryModal } from '../modals/ImportHistoryModal';
 import { BotTemplatesView } from './BotTemplatesView';
 import { MultiStepFaqView } from './MultiStepFaqView';
 import { WebSources } from '../../screens/knowledge/WebSources';
@@ -79,6 +80,7 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
 
   // Modals state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportHistoryOpen, setIsImportHistoryOpen] = useState(false);
 
   // Create / Edit modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -602,6 +604,17 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
           >
             <span className="material-symbols-outlined text-[18px]">upload_file</span>
             <span>Nhập tài liệu</span>
+          </button>
+
+          {/* Import History & Error Logs Button (UC-11) */}
+          <button
+            onClick={() => setIsImportHistoryOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#c7c4d8] hover:bg-[#f2f3ff] text-[#131b2e] rounded-xl text-xs font-semibold transition-all active:scale-[0.98] shadow-2xs"
+            type="button"
+            title="Xem lịch sử và lỗi các tệp DOCX / PDF đã nhập"
+          >
+            <span className="material-symbols-outlined text-[17px] text-[#464555]">history</span>
+            <span>Lịch sử nhập tệp</span>
           </button>
 
           {/* New Item Button */}
@@ -1874,6 +1887,12 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
           void loadData();
         }}
       />
+      {/* ================= MODAL: IMPORT RECEIPTS & ERROR HISTORY (UC-11) ================= */}
+      <ImportHistoryModal
+        isOpen={isImportHistoryOpen}
+        onClose={() => setIsImportHistoryOpen(false)}
+      />
+
       {/* ================= MODAL: CREATE CATEGORY (UC-036) ================= */}
       {isCategoryModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
