@@ -15,7 +15,8 @@
     "worker:ai": "tsx scripts/ai-worker.ts",
     "worker:embedding": "tsx scripts/embed-knowledge.ts",
     "worker:web": "tsx scripts/web-refresh-worker.ts",
-    "worker:meta": "tsx scripts/meta-worker.ts"
+    "worker:meta": "tsx scripts/meta-worker.ts",
+    "meta:bootstrap": "tsx scripts/meta-bootstrap.ts"
   },
   "dependencies": {
     "@getbrevo/brevo": "^6.0.3",

@@ -11,7 +11,7 @@ import {pool} from '../src/core/db';
 import {runAiWorkerOnce,defaultWorkspaceProviderInvoke} from '../src/modules/jobs/worker';
 
 test('published enterprise data flows through granted adapter to widget, then human takeover',async t=>{
- const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+ const admin=new pg.Pool({host:'127.0.0.1',port:Number(process.env.PGPORT||55432),user:'gotek_migrator',database:'gotek_chatbot'});
  t.after(async()=>{await pool.end();await admin.end();});
  const email=randomUUID()+'@example.test';
  const app=createApp(),owner=request.agent(app),password='Local-grounded-fixture-2026';
@@ -105,7 +105,8 @@ test('published enterprise data flows through granted adapter to widget, then hu
   }
   raceChats++;throw new Error('chat must not run after takeover');
  };
- assert.equal((await runAiWorkerOnce(me.workspaceId,defaultWorkspaceProviderInvoke())).state,'unknown');
+ assert.equal((await runAiWorkerOnce(me.workspaceId,defaultWorkspaceProviderInvoke())).state,'dead');
+ assert.equal((await runAiWorkerOnce(me.workspaceId,defaultWorkspaceProviderInvoke())).state,'idle');
  assert.equal(raceEmbeddings,1);assert.equal(raceChats,0);
  assert.equal((await request(app).get(base+'/state').set('Origin',origin).set('Authorization','Bearer '+session.token).expect(200)).body.replyOwner,'HUMAN_ACTIVE');
  await post('/platform/grants',{workspaceId:me.workspaceId,modelId:embeddingModel.id,capability:'embedding',active:false,reason}).expect(200);
@@ -139,7 +140,8 @@ test('published enterprise data flows through granted adapter to widget, then hu
   await post('/conversations/'+c+'/takeover',{version:beforeRace.ownerVersion+1}).expect(200);
   throw new DOMException('fixture timeout after takeover','TimeoutError');
  };
- assert.equal((await runAiWorkerOnce(me.workspaceId,defaultWorkspaceProviderInvoke())).state,'unknown');
+ assert.equal((await runAiWorkerOnce(me.workspaceId,defaultWorkspaceProviderInvoke())).state,'dead');
+ assert.equal((await runAiWorkerOnce(me.workspaceId,defaultWorkspaceProviderInvoke())).state,'idle');
  assert.equal((await admin.query('SELECT count(*) FROM messages WHERE conversation_id=$1',[c])).rows[0].count,beforeCount);
  const afterRace=(await request(app).get(base+'/state').set('Origin',origin).set('Authorization','Bearer '+session.token).expect(200)).body;
  assert.equal(afterRace.replyOwner,'HUMAN_ACTIVE');

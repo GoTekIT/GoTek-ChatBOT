@@ -1,3 +1,4 @@
+import {SendAttempts} from './send-attempts';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -49,6 +50,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [composerMode, setComposerMode] = useState<'public' | 'internal'>('public');
   const [messageText, setMessageText] = useState('');
+  const [mediaUrl, setMediaUrl] = useState('');
+  const [mediaType, setMediaType] = useState<'image'|'video'|'audio'|'file'>('image');
+  const [showMedia, setShowMedia] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [newTagInput, setNewTagInput] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
@@ -73,6 +77,11 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Enter can fire repeatedly before the async provider/API round trip returns.
+  // Keep a synchronous lock so one composer action creates one client id.
+  const sendingRef = useRef(false);
+  const attemptsRef = useRef(new SendAttempts());
+  const [isSending, setIsSending] = useState(false);
 
   const activeConv = conversations.find((c) => c.id === selectedConvId) || conversations[0];
   const isStaffActive = Boolean(
@@ -230,7 +239,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   };
 
   const handleSend = async () => {
-    if (!messageText.trim() || !activeConv) return;
+    if (sendingRef.current || !messageText.trim() || !activeConv) return;
     const text = messageText;
     const isInternal = !isStaffActive || composerMode === 'internal';
 
@@ -240,24 +249,39 @@ export const InboxView: React.FC<InboxViewProps> = ({
       return;
     }
 
-    const msgClientId = crypto.randomUUID();
+    sendingRef.current = true;
+    setIsSending(true);
 
-    // 1. Send via WebSocket if open (<1ms)
-    const sentViaWs = activeConv.channel === 'Facebook Messenger' ? false : await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
+    const visibility = isInternal ? 'internal' : 'public';
+    const media=mediaUrl.trim()?{type:mediaType,url:mediaUrl.trim()}:undefined;
+    const msgClientId = attemptsRef.current.begin(activeConv.id,text,visibility,media);
 
-    // 2. Dispatch to parent console state
-    const saved = await onSendMessage(activeConv.id, {
+    try {
+      // 1. Send via WebSocket if open (<1ms)
+      const isMetaChannel = ['Facebook Messenger', 'Instagram', 'WhatsApp', 'Threads'].includes(activeConv.channel);
+      const sentViaWs = isMetaChannel ? false : await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
+
+      // 2. Dispatch to parent console state
+      const saved = await onSendMessage(activeConv.id, {
       clientId: msgClientId,
       senderType: isInternal ? 'internal_note' : 'agent',
       senderName: 'Alex Rivera (Staff Lead)',
       senderAvatar:
         'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
       content: text,
-    }, sentViaWs);
+      ...(media ? {attachments:[media]} : {}),
+      }, sentViaWs);
 
-    if (!saved) return;
-    setMessageText('');
-    textareaRef.current?.focus();
+      if (!saved) return;
+      attemptsRef.current.confirmed(activeConv.id,text,visibility,msgClientId,media);
+      setMessageText('');
+      setMediaUrl('');
+      setShowMedia(false);
+      textareaRef.current?.focus();
+    } finally {
+      sendingRef.current = false;
+      setIsSending(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1254,7 +1278,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
               <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-[12px]">
                 <button
                   type="button"
-                  onClick={() => showToast('Tính năng đính kèm tệp sẵn sàng')}
+                  onClick={() => setShowMedia((value) => !value)}
                   className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
                   title="Đính kèm tệp tin"
                 >
@@ -1271,12 +1295,19 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 <span className="hidden sm:inline text-slate-400 dark:text-slate-500 text-[11.5px]">Nhấn Enter để lưu</span>
               </div>
 
+              {showMedia && <div className="absolute bottom-14 left-4 right-4 z-10 flex gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                <select aria-label="Loại tệp Meta" value={mediaType} onChange={(e) => setMediaType(e.target.value as typeof mediaType)} className="rounded border px-2 text-xs dark:bg-slate-800">
+                  <option value="image">Ảnh</option><option value="video">Video</option><option value="audio">Audio</option><option value="file">Tệp</option>
+                </select>
+                <input aria-label="URL media HTTPS" value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="https://... (URL công khai)" className="min-w-0 flex-1 rounded border px-2 text-xs dark:bg-slate-800" type="url" />
+              </div>}
+
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={handleSend}
-                disabled={!messageText.trim()}
+                disabled={!messageText.trim() || isSending}
                 className={`px-4 py-1.5 rounded-xl text-[13px] font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                   !isStaffActive || composerMode === 'internal'
                     ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20'

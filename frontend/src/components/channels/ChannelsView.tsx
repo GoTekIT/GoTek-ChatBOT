@@ -1,6 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+
+type MetaCapability = {surface: string; status: 'pilot_ready'|'credentials_required'|'api_limited'};
 
 export const ChannelsView: React.FC = () => {
+  const [metaCapabilities, setMetaCapabilities] = useState<Record<string, MetaCapability['status']>>({});
+  useEffect(() => {
+    let active = true;
+    void fetch('/meta/connectors').then((response) => response.ok ? response.json() : Promise.reject()).then((body) => {
+      if (!active) return;
+      const next: Record<string, MetaCapability['status']> = {};
+      for (const item of (body.connectors ?? []) as MetaCapability[]) next[item.surface] = item.status;
+      setMetaCapabilities(next);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
   const [channels, setChannels] = useState([
     {
       id: 'web',
@@ -23,14 +36,44 @@ export const ChannelsView: React.FC = () => {
       conversationsCount: 580,
     },
     {
+      id: 'facebook-messenger',
+      name: 'Facebook Messenger',
+      type: 'Meta Graph API',
+      status: 'Pilot ready',
+      icon: 'forum',
+      color: 'bg-blue-50 text-blue-700 border-blue-200',
+      description: 'Page messages routed into the shared inbox with agent takeover.',
+      conversationsCount: 0,
+    },
+    {
+      id: 'instagram',
+      name: 'Instagram Direct',
+      type: 'Meta Graph API',
+      status: 'Credentials required',
+      icon: 'photo_camera',
+      color: 'bg-amber-50 text-amber-800 border-amber-200',
+      description: 'Direct messages share the inbox after an Instagram account is connected.',
+      conversationsCount: 0,
+    },
+    {
       id: 'whatsapp',
       name: 'WhatsApp Business API',
       type: 'Meta Cloud API',
-      status: 'Active',
+      status: 'Credentials required',
       icon: 'chat',
-      color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      description: 'Automated 24/7 client triage with instant human fallback',
-      conversationsCount: 310,
+      color: 'bg-amber-50 text-amber-800 border-amber-200',
+      description: 'Cloud API messages share the inbox with delivery receipts and media IDs.',
+      conversationsCount: 0,
+    },
+    {
+      id: 'threads',
+      name: 'Threads',
+      type: 'Public publishing API',
+      status: 'API limited',
+      icon: 'alternate_email',
+      color: 'bg-slate-100 text-slate-700 border-slate-300',
+      description: 'Public post publishing is supported; Threads direct messaging is unavailable.',
+      conversationsCount: 0,
     },
     {
       id: 'teams',
@@ -55,6 +98,10 @@ export const ChannelsView: React.FC = () => {
   ]);
 
   const [toast, setToast] = useState<string | null>(null);
+  const capabilityStatus = (id: string, fallback: string) => {
+    const status = metaCapabilities[id];
+    return status === 'pilot_ready' ? 'Pilot ready' : status === 'credentials_required' ? 'Credentials required' : status === 'api_limited' ? 'API limited' : fallback;
+  };
 
   const triggerToast = (msg: string) => {
     setToast(msg);
@@ -108,7 +155,7 @@ export const ChannelsView: React.FC = () => {
                       : 'bg-amber-50 text-amber-800 border border-amber-200'
                   }`}
                 >
-                  {ch.status}
+                  {(['facebook-messenger','instagram','whatsapp','threads'].includes(ch.id) ? capabilityStatus(ch.id === 'facebook-messenger' ? 'facebook_messenger' : ch.id === 'instagram' ? 'instagram_messaging' : ch.id === 'whatsapp' ? 'whatsapp_business' : 'threads', ch.status) : ch.status)}
                 </span>
               </div>
               <h3 className="text-sm font-bold text-[#131b2e]">{ch.name}</h3>

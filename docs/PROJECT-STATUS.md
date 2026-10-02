@@ -1,3 +1,192 @@
+## Composer media URL checkpoint
+- Inbox composer now exposes media type + HTTPS URL fields behind the attachment button and forwards the attachment with the existing send idempotency key.
+- This is URL-based media dispatch; local file upload/storage is intentionally not claimed. Frontend build and 10 tests pass.
+
+## UI media payload checkpoint
+- Console API send now forwards the first `ChatMessage.attachments` item as backend `media`; existing text sends are unchanged.
+- Frontend build completed and frontend suite passed 10/10. The current composer still has no file picker/upload control, so users cannot yet create an attachment from the UI.
+
+## Outbound media inbox checkpoint
+- `inboxSend` now accepts optional `{media:{type,url}}`, persists the attachment with the outbound message, and preserves idempotent retries.
+- Meta worker reads the persisted attachment and dispatches through `sendMetaMedia`; text messages retain the existing path. URLs are validated by the adapter and receipt persistence remains active.
+- Verified backend TypeScript build and Meta send/media suites: 10/10 passed. Live provider and UI upload acceptance remain pending.
+
+## Media adapter checkpoint (implementation incomplete)
+- Added sendMetaMedia transport helper; WhatsApp file maps to document, captions are validated rather than silently dropped, malformed recipients/types and credential-bearing or non-HTTPS URLs fail before dispatch.
+- Helper is not connected to inbox upload/send or the worker yet. No claim of end-to-end media sending. Receipt projection still needs connection-scoped matching, monotonic updates, early-event reconciliation and UI integration.
+- Provider contract reference: https://www.postman.com/meta/whatsapp-business-platform/request/zdgzfmt/send-document-message-by-url
+
+## CI diagnosis checkpoint
+
+- Retrieved failed run 36886952553 logs successfully by polling the exec session to completion. Previous missing-log claim was incorrect.
+- Resolved stale-owner test expectations: cancelled AI publishing is terminal dead with STALE_REPLY_OWNER, while provider dispatch/usage uncertainty remains independent. Added no-retry checks and exact cancellation error checks; kept disabled-workspace outcome unknown. Three affected suites pass (6 tests) on pilot PostgreSQL 55433; backend TypeScript build and git diff --check pass. Tests now accept PGPORT for isolated execution. Full CI rerun remains pending.
+- Run 36887584254 was authoritatively in_progress at Backend Typecheck & Tests when inspected. No claim of full CI acceptance.
+
+## Inbox source account binding
+
+- Inbox list/detail resolve channel_kind by the visitor original meta connection binding instead of the earliest account on the channel. Bound source survives disconnected/reauth states.
+- Database regression passes across three platforms and three connection states with an older unrelated Threads connection present; backend typecheck passed. Legacy unbound visitors do not gain an inferred Meta identity.
+
+## Inbox original-connection validation
+
+- Public Meta replies now reject an identity binding mismatch before message persistence or job enqueue; worker independently checks again at dispatch. Existing committed request IDs retain replay behavior.
+- Chat-store database regression passes with a connected replacement account and unchanged message count; backend typecheck passes.
+
+## Original account dispatch binding
+
+- Worker checks existing visitor token_hash binding (meta:connection-id:sender-id) before dispatch; a replacement account on the same channel cannot send an old conversation. Inbound conversation lookup uses this binding rather than sender ID alone. No migration or legacy data rewrite.
+- Meta integration 4/4 passes, including original disconnected plus replacement connected with zero transport calls; backend build passed. Inbox enqueue still needs matching early rejection; unbound legacy identities fail closed.
+
+## Outbound receipt shape validation
+
+- sendMetaText reads messages[0].id only for WhatsApp and message_id for Messenger/Instagram. Empty or mismatched successful-response receipts remain unknown. Redirects are rejected rather than replaying POST across a redirect.
+- Transport tests 9/9 and backend typecheck pass. Mock responses do not prove live provider acceptance.
+
+## Active inbox retry identity
+
+- InboxView retains request IDs for unconfirmed sends by conversation/body/visibility, including switching conversations or editing back to the original text. Successful confirmation releases the ID so intentional repeat messages remain possible.
+- Frontend tests 10/10 and build pass. Retention is in memory for the mounted inbox; reload persistence and browser E2E remain unverified.
+
+## Webhook payload isolation
+
+- New inbound meta_events rows retain only their normalized message event, not the entire signed envelope. A batch containing another Page no longer copies that Page data into the current connection event. Previously persisted rows are unchanged.
+- Meta database integration 4/4 and backend typecheck passed; regression includes a signed two-Page envelope and checks stored payload isolation.
+
+## Committed reply replay after disconnect
+
+- inboxSend locks the conversation before connector inspection (consistent with dispatch lock ordering). Existing client IDs are validated by appendMessage and returned without another job or realtime callback, even if the connection is now unavailable. New replies still fail closed.
+- Database chat-store regression and backend typecheck passed.
+
+## Inbox REST realtime commit boundary
+
+- Removed pre-validation temporary message broadcasts from inboxSend. The HTTP send route now publishes queued callbacks only after transaction commit, using the stored message ID/sequence. Idempotent replay queues no second broadcast; publication failure does not turn a committed send into HTTP failure.
+- Chat-store database suite passes including callback dedupe, unavailable Meta send and ownership fences; backend typecheck passes. This applies to REST inbox send, not all other realtime producers.
+
+## Meta reply availability guard
+
+- Public inbox replies for visitors carrying metaUserId require exactly one connected supported Meta route; unavailable or ambiguous routes return META_CONNECTION_UNAVAILABLE before message persistence/broadcast. Internal notes remain local.
+- Meta REST success toast now says queued, not delivered. This is not a full delivery-state implementation.
+- build:all passes; chat-store database test passes including offline Meta rejection and no inserted reply. Live testing deferred. Immutable conversation-to-connection binding and provider receipt projection remain open.
+
+## Meta local disconnect implementation
+
+- Owner/Admin can disconnect from the active Channels screen via authenticated POST /api/meta/connections/:id/disconnect. Tenant-scoped row lock serializes with outbound dispatch; already-dispatched requests cannot be recalled. Provider token is not revoked externally.
+- History retained; repeated disconnect produces one audit event. Integration suite 4/4 passes covering Agent denial, cross-tenant denial, repeat and retention. Full backend/frontend build passes; browser UI acceptance remains pending.
+
+## Active Channels screen: workspace Meta connection listing
+
+- Authenticated GET /api/meta/connections requires Owner/Admin, derives workspace from session and returns explicit non-secret columns under RLS.
+- Actual screens/channels/Channels.tsx now displays stored workspace connection states, missing connections and load errors. Capability metadata is not treated as live connection status. This is read-only; connect/reconnect controls remain unfinished.
+- build:all passed (existing bundle-size warning); database integration 3/3 passed including Agent denial, cross-workspace isolation and token-reference omission. Browser rendering not yet verified; live testers deferred by user.
+
+## Review correction: actual UI wiring and remote source
+
+- PR #9 is draft. The 27 previously local-only commits were pushed to codex/meta-messenger-pilot using active GitHub account pcodejs; remote PR head was verified as 4f2c650. No main push or merge.
+- Earlier Channels UI completion claims were too broad: ConsoleWorkspace renders screens/channels/Channels, not components/channels/ChannelsView. The latter is currently unused; its capability fetch does not reach the active screen. Also /meta has no Vite proxy.
+- GET /meta/connectors is static capability metadata, not live workspace credential/connection state. Next implementation must integrate the actual Channels screen with authenticated workspace connection state, rather than advertise these static flags as connected.
+- Tester postponed at user request; backend receipts still need message correlation and visible delivery state. Multichannel goal remains incomplete.
+
+## Dynamic Meta capability state
+
+- Channels UI now fetches `/meta/connectors` and maps backend capability states to the Meta cards, with safe fallbacks if the endpoint is unavailable. Frontend build passes.
+
+## Meta channel UI state
+
+- Channels view now lists Facebook Messenger, Instagram Direct, WhatsApp Business and Threads with truthful implementation states. WhatsApp/Instagram are not shown as active before credentials; Threads is explicitly API-limited and public-publishing only. Frontend production build passes.
+
+## Capability route verification
+
+- `GET /meta/connectors` is covered by an HTTP contract test: all four Meta surfaces are listed, Threads remains explicitly API-limited, and no credential field is returned.
+
+## Connector capability catalogue
+
+- Added `GET /meta/connectors`, a credential-free catalogue for UI and admin tooling. It explicitly reports Facebook Messenger, Instagram Direct and WhatsApp Business transport capability, while Threads is marked `api_limited` with no DM inbound/outbound claim.
+
+## Configurable Meta Graph API version
+
+- Meta outbound adapters now use `META_GRAPH_API_VERSION` when it matches `v<major>.<minor>`, defaulting to `v25.0`; malformed overrides fail closed to the known default. WhatsApp endpoint tests and Threads/media transport tests pass.
+- Implemented and unit-verified; live provider acceptance remains pending tester setup.
+
+## WhatsApp existing visitor regression fix
+
+- Reproduced SQL 42703 on a second WhatsApp message carrying a profile name: visitors has no updated_at column. Removed the invalid column assignment.
+- Database integration now verifies default-name hydration and preservation of a staff-edited name; Meta integration suite 3/3 passes and backend typecheck passes. No live WhatsApp acceptance claimed.
+
+
+### WhatsApp receipt correction (2026-10-01)
+- Fixed receipt deduplication: key now includes status, so sent/delivered/read for one provider message are all retained even in reverse arrival order. Stored payload is the individual normalized receipt, not the entire multi-account envelope.
+- Verified: pilot database integration suite 3/3 passed, including duplicate and reverse-order receipt callbacks.
+- Still incomplete: receipt-to-outbound-message correlation, authoritative delivery state projection and visible status badges; SSE refresh alone does not display provider delivery states. Live WhatsApp recipient verification remains pending.
+## WhatsApp inbound display name
+
+- New visitors now use a nonempty contacts.profile.name only when exactly one contact wa_id matches the message sender. Names are bounded to 300 characters; missing/ambiguous contacts retain the fallback. No email, avatar or phone is inferred. Existing visitors with the default name are hydrated; staff-edited names are preserved.
+- Backend build and four inbound normalization tests pass. This has not been verified with live Meta traffic.
+- Contract source: https://www.postman.com/meta/whatsapp-business-platform/request/36ymkut/received-contact-messages
+
+## Media metadata validation
+
+- Resolver parses returned HTTPS URLs, rejects credentials/malformed/oversized URLs and refuses redirects on authenticated metadata requests. Signed query parameters remain intact. Backend build and eight focused media/transport tests passed.
+- This is metadata resolution only. It does not download media bytes or provide an authenticated inbox media route. OAuth confirmation remains pending; do not infer authorization from automated goal continuation.
+
+## WhatsApp media webhook DB evidence
+
+- Signed image/video fixture webhooks now have integration assertions for stored provider IDs, deduped replay, tenant isolation, no fabricated public attachment URLs, and no text AI job for media-only inputs. Backend build and ingestion tests passed. This is synthetic input through the real persistence path, not live Meta delivery or media playback acceptance.
+- Live WhatsApp OAuth is waiting for user confirmation for Test WhatsApp Business Account only; do not select unknown/future accounts. Instagram test account identity is still missing.
+
+## Provider media retry verification
+
+- appendMessage now compares persisted provider media type/ID sets on clientId replay. Removing, replacing or changing the type of a provider attachment raises IDEMPOTENCY_CONFLICT. Integration assertions confirm one persisted reference on identical replay and tenant-isolated reads.
+- Backend typecheck and ingestion integration tests passed. This verifies persistence, not WhatsApp media rendering or authenticated download.
+
+## Outbound ambiguity correction
+
+- Replaces recency-based connection selection introduced in 86e7222: multiple connected accounts on a channel now terminate dispatch with META_DISPATCH_INVALID before any provider call. A database regression creates this ambiguity and asserts no transport call and terminal job state. Backend build and both ingestion integration tests pass.
+- This guards existing ambiguous mappings; immutable conversation-to-connection binding and concurrent connection provisioning still require implementation/verification. Real Instagram/WhatsApp acceptance remains incomplete.
+
+## Provider media resolution
+
+- Added server-side Meta media resolver for stored provider IDs. It calls the Graph media endpoint with the connection token reference, validates HTTPS response URLs, and returns no credential. Seven focused Meta transport/media tests and backend build pass. A tenant-authorized download route and cache retention policy remain before UI display.
+
+## Provider media references
+
+- Added migration `063_meta_media_references.sql` and message persistence support for provider media IDs. WhatsApp/Instagram media references are stored as typed IDs under tenant RLS; no provider URL or token is placed in message attachments. Pilot ingestion tests pass after applying migration 063.
+
+## Threads public API slice
+
+- Added a server-side Threads text publisher using the official `graph.threads.net` create-text endpoint with optional `reply_to_id`, token-reference lookup, length validation, and accepted/failed/unknown receipts. This is public posting/reply functionality only; Threads DM remains unsupported and is not routed into inbox.
+- Backend build and Threads transport test passed.
+
+## Multichannel pilot DB verification
+
+- Pilot database test now proves Instagram and WhatsApp envelopes can persist independently, dedupe concurrent redelivery, preserve source profile labels, enqueue AI jobs, and remain tenant-isolated. This is internal webhook verification only; it does not prove Meta accepted the webhook or delivered an outbound message.
+
+## Bootstrap validation correction
+
+- Bootstrap now validates the entire configuration before any DB write, requires explicit populated token references, rejects production and duplicate channel/account mappings, and refuses reassignment of existing mappings. New rows are `pending`; existing connections are left unchanged. Provider validation/activation remains to implement before live use.
+- Backend typecheck and seven bootstrap/transport unit tests passed. Bootstrap DB mutation integration has NOT been tested yet. Next: integration test mapping preservation, provider verification/activation, then real Instagram/WhatsApp roundtrips.
+
+## Transport review correction
+
+- Unsupported channel kinds (including Threads) now fail before transport instead of falling through to Messenger. WhatsApp without an account ID also fails before network access. Worker treats both configuration errors as terminal failures, not ambiguous delivery.
+- Backend typecheck and five transport tests passed. This does not verify real Instagram/WhatsApp delivery. Bootstrap validation, Instagram login/token-specific transport, WhatsApp media retrieval and live end-to-end acceptance remain incomplete; previous claims of source readiness were premature.
+
+## Meta source preservation and setup checkpoint
+- Added `npm --prefix backend run meta:bootstrap` for the test workspace. It upserts Facebook/Instagram/WhatsApp connections from server-side refs (`META_*_TOKEN_REF`) and account/channel IDs; it never accepts raw tokens or prints secrets.
+
+- Meta WhatsApp Step 1 now shows the generated test number `+1 (555) 189-9807`, phone_number_id `1386169614577563`, and WABA id `1591377349136734`; the access-token field still reports `Not generated yet`, so provider roundtrip is not yet verified. No token was copied into source or logs.
+
+- Webhook ingestion now normalizes and persists Facebook Messenger, Instagram messaging, and WhatsApp Cloud message envelopes through the same tenant-scoped path. Outbound text dispatch selects the Facebook/Instagram or WhatsApp Graph envelope from the connection kind and preserves accepted/failed/unknown receipts. Real provider roundtrip for Instagram/WhatsApp is still NEEDS VERIFICATION.
+
+- Database regression passed on isolated pilot port 55433: list/detail labels and empty placeholder website for Facebook, Instagram and WhatsApp across connected/disconnected/reauth_required states (9 combinations). Existing ordering, dedupe, ownership and tenant isolation assertions also passed.
+
+- Source lookup now retains the original Meta connection kind when disconnected or reauthorization is required; list/detail no longer fall back to Widget solely because connection status changed. Social channels do not display the placeholder widget origin as a customer website.
+- Meta Developer Console now confirms all four use cases are present: Messenger, Instagram, WhatsApp and Threads. WhatsApp basic setup / Step 1 testing opened; test credentials and roundtrip remain unverified. Instagram/WhatsApp normalization and routing are still not integrated into the live webhook or outbound worker. Credentials alone will not complete implementation.
+
+## Multi-surface normalization checkpoint
+
+- Implemented typed standalone inbound normalization for Messenger/Instagram and WhatsApp. WhatsApp routing uses metadata.phone_number_id; media references retain IDs for authenticated resolution, never invented public URLs. Unknown products, echoes, wrong recipients and malformed arrays are ignored.
+- Three focused tests and backend typecheck pass. This normalizer is NOT wired into live ingestion yet; no Instagram/WhatsApp end-to-end support claimed. Next: operator-owned connection routing, inbound persistence, platform-specific outbound adapters, test credentials and browser acceptance. Threads capabilities require official API verification rather than assuming native DM availability implies an API.
+
 ## Live browser media acceptance — 2026-10-01
 
 - Uploaded a generated 1-second MP4 through the authenticated GoTek Page Messenger conversation. Facebook showed “Bạn đã gửi, Có một video đính kèm” and “Đã gửi”; webhook persisted a `video` attachment in the tenant-scoped pilot database at 2026-10-01 14:19:36 UTC. Real image and video browser receipts are now evidenced. AI media understanding, production uptime, and external-customer acceptance remain pending.
@@ -412,3 +601,8 @@ Channel actions now use a consistent top-right toast for success/error feedback,
 Working-hours cards now have clearer day switches, active states and time controls; frontend build and tests remain green.
 
 Step 3 pre-chat fields now use a one-column editor. Businesses can add a custom field, edit its label and placeholder, mark it required/optional, or delete it; the last remaining field cannot be deleted. Settings validation accepts safe generated custom keys (up to ten fields), while tenant scoping and visitor-side allow-list validation remain enforced. Frontend build PASS, frontend tests 5/5 PASS, backend build PASS.
+## Meta multi-surface connector catalog — 2026-10-01
+
+- Added an explicit server-side catalog for Facebook Messenger, Instagram Direct, WhatsApp Business and Threads, with per-surface profile fields, inbound/outbound capability and status.
+- Facebook remains the only live pilot. Instagram and WhatsApp require their own Page/Business credentials, webhook subscription and policy checks. Threads is catalog-only because an approved GoTek DM transport is not available; it is not presented as live messaging.
+- Added migration 062 to validate Meta channel identifiers and a contract test. No provider secret, App Review approval or production connection is claimed.

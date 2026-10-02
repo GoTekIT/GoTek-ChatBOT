@@ -44,7 +44,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
     filterClause+=` AND (h.name ILIKE $${p.length} OR coalesce(v.profile->>'fullName','') ILIKE $${p.length} OR coalesce(v.profile->>'name','') ILIKE $${p.length} OR coalesce(v.profile->>'emailAddress','') ILIKE $${p.length} OR coalesce(v.profile->>'phoneNumber','') ILIKE $${p.length} OR EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id=c.id AND m.body ILIKE $${p.length}))`;
   }
 
-  const sql=`SELECT c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at, h.name AS channel_name, h.origin AS website_url, CASE WHEN EXISTS(SELECT 1 FROM meta_connections mc WHERE mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id AND mc.status='connected') THEN 'facebook_messenger' ELSE h.widget_mode END AS channel_type, v.profile AS visitor_profile, (SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,'author_type',m.author_type,'visibility',m.visibility) FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_meta, (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body, (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
+  const sql=`SELECT c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at, h.name AS channel_name, h.origin AS website_url, COALESCE((SELECT mc.channel_kind FROM meta_connections mc WHERE mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId') ORDER BY mc.created_at ASC, mc.id ASC LIMIT 1), h.widget_mode) AS channel_type, v.profile AS visitor_profile, (SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,'author_type',m.author_type,'visibility',m.visibility) FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_meta, (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body, (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
 
   const rows=(await db.query(sql,p)).rows;
 
@@ -89,10 +89,10 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       customerLocation:prof.location||'',
       customerAvatar:prof.avatarUrl||avatar,
       clientTier:prof.clientTier||'',
-      websiteUrl:r.channel_type==='facebook_messenger'?'':r.website_url||'',
+      websiteUrl:['facebook_messenger','instagram_messaging','whatsapp_business','threads'].includes(r.channel_type)?'':r.website_url||'',
       lastMessageSnippet:r.last_message_body||'Bắt đầu cuộc trò chuyện mới...',
       lastMessageTime:timeStr,
-      channel:r.channel_type==='facebook_messenger'?'Facebook Messenger':r.channel_type==='slack'?'Slack App':r.channel_type==='email'?'Email':'Widget',
+      channel:r.channel_type==='facebook_messenger'?'Facebook Messenger':r.channel_type==='instagram_messaging'?'Instagram':r.channel_type==='whatsapp_business'?'WhatsApp':r.channel_type==='threads'?'Threads':r.channel_type==='slack'?'Slack App':r.channel_type==='email'?'Email':'Widget',
       status:uiStatus,
       assignedTo:r.assigned_to||undefined,
       ownerVersion:r.owner_version,
@@ -189,40 +189,37 @@ export async function inboxTakeover(db:PoolClient,a:Actor,id:string,body?:unknow
   return result;
 }
 
-export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown){
+export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown,afterCommit:Array<()=>void>=[]){
   await access(db,a,id);
-  const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal'])}).strict().parse(body);
+  const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal']),media:z.object({type:z.enum(['image','video','audio','file']),url:z.string().url().max(8192)}).optional()}).strict().parse(body);
+  // Serialize retries before checking current connector availability. A committed
+  // request remains replayable after disconnect without creating a new send job.
+  await db.query('SELECT id FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,a.workspace_id]);
+  const existing=(await db.query('SELECT id FROM messages WHERE workspace_id=$1 AND conversation_id=$2 AND client_id=$3',[a.workspace_id,id,data.clientId])).rowCount;
+  if(existing) return appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,attachments:data.media?[data.media]:[]});
+  let meta: {id:string;page_access_token_ref:string;recipient_id:string} | undefined;
+  if(data.visibility==='public') {
+    const visitor=(await db.query("SELECT v.profile FROM conversations c JOIN visitors v ON v.id=c.visitor_id WHERE c.id=$1 AND c.workspace_id=$2",[id,a.workspace_id])).rows[0];
+    if(visitor?.profile?.metaUserId) {
+      const routes=(await db.query("SELECT mc.id,mc.page_access_token_ref,v.token_hash AS identity_binding,v.profile->>'metaUserId' AS recipient_id FROM conversations c JOIN visitors v ON v.id=c.visitor_id JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id WHERE c.id=$1 AND c.workspace_id=$2 AND mc.status='connected' AND mc.channel_kind IN ('facebook_messenger','instagram_messaging','whatsapp_business') FOR SHARE OF mc",[id,a.workspace_id])).rows;
+      if(routes.length!==1 || routes[0].identity_binding!==`meta:${routes[0].id}:${routes[0].recipient_id}`) throw new HttpError(409,'META_CONNECTION_UNAVAILABLE');
+      meta=routes[0];
+    }
+  }
   const msgId = uuid();
-  const nowIso = new Date().toISOString();
-
-  // 1. Instant in-memory broadcast (<2ms) so visitor widget never lags behind
-  realtimeHub.broadcastToConversation(id, 'message:new', {
-    id: msgId,
-    workspace_id: a.workspace_id,
-    conversation_id: id,
-    client_id: data.clientId,
-    clientId: data.clientId,
-    sequence: 0,
-    author_type: 'agent',
-    actor_id: a.user_id,
-    visibility: data.visibility,
-    body: data.body,
-    created_at: nowIso,
-  });
-
-  // 2. Persist with exact same messageId for 100% durability and consistency
-  const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId});
+  const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId,attachments:data.media?[data.media]:[]});
   if(data.visibility==='public'){
-    const meta=(await db.query("SELECT mc.id,mc.page_access_token_ref,v.profile->>'metaUserId' AS recipient_id FROM conversations c JOIN visitors v ON v.id=c.visitor_id JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id AND mc.status='connected' WHERE c.id=$1 AND c.workspace_id=$2",[id,a.workspace_id])).rows[0];
+
     if(meta?.recipient_id) await enqueueJob(db,a.workspace_id,{kind:'meta.message.send',key:`meta-send:${id}:${data.clientId}`,payload:{conversationId:id,messageId:message.id,recipientId:meta.recipient_id,tokenRef:meta.page_access_token_ref},external:true,maxAttempts:3});
   }
 
-  realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:message_sent', {
-    conversationId: id,
-    messageSnippet: message.body.slice(0, 100),
-    author: message.author_type,
-    visibility: message.visibility,
-    createdAt: message.created_at,
+  // Only a newly inserted message publishes, with the durable ID and sequence.
+  if(message.id===msgId) afterCommit.push(()=>{
+    realtimeHub.broadcastToConversation(id,'message:new',{...message,clientId:data.clientId});
+    realtimeHub.broadcastToWorkspace(a.workspace_id,'inbox:message_sent',{
+      conversationId:id,messageSnippet:message.body.slice(0,100),author:message.author_type,
+      visibility:message.visibility,createdAt:message.created_at,
+    });
   });
 
   return message;
@@ -298,7 +295,7 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
   const c=await access(db,a,id);
   const messages=await inboxMessages(db,a,id,0);
 
-  const channelRow=(await db.query("SELECT name, origin, widget_mode, EXISTS(SELECT 1 FROM meta_connections mc WHERE mc.channel_id=channels.id AND mc.workspace_id=channels.workspace_id AND mc.status='connected') AS is_facebook_messenger FROM channels WHERE id=$1",[c.channel_id])).rows[0];
+  const channelRow=(await db.query("SELECT name, origin, widget_mode, (SELECT mc.channel_kind FROM meta_connections mc WHERE mc.channel_id=channels.id AND mc.workspace_id=channels.workspace_id AND EXISTS(SELECT 1 FROM visitors v WHERE v.id=$2 AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId')) ORDER BY mc.created_at ASC, mc.id ASC LIMIT 1) AS channel_kind, EXISTS(SELECT 1 FROM meta_connections mc WHERE mc.channel_id=channels.id AND mc.workspace_id=channels.workspace_id AND mc.status='connected') AS is_facebook_messenger FROM channels WHERE id=$1",[c.channel_id,c.visitor_id])).rows[0];
   const visitorRow=(await db.query('SELECT profile FROM visitors WHERE id=$1',[c.visitor_id])).rows[0];
 
   const prof=visitorRow?.profile||{};
@@ -323,10 +320,10 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
     customerLocation:prof.location||'',
     customerAvatar:prof.avatarUrl||avatar,
     clientTier:prof.clientTier||'',
-    websiteUrl:channelRow?.is_facebook_messenger?'':channelRow?.origin||'',
+    websiteUrl:channelRow?.channel_kind?'':channelRow?.origin||'',
     lastMessageSnippet:messages[messages.length-1]?.content||'Bắt đầu cuộc trò chuyện...',
     lastMessageTime:'1m ago',
-    channel:channelRow?.is_facebook_messenger?'Facebook Messenger':channelRow?.widget_mode==='slack'?'Slack App':channelRow?.widget_mode==='email'?'Email':'Widget',
+    channel:channelRow?.channel_kind==='facebook_messenger'?'Facebook Messenger':channelRow?.channel_kind==='instagram_messaging'?'Instagram':channelRow?.channel_kind==='whatsapp_business'?'WhatsApp':channelRow?.channel_kind==='threads'?'Threads':channelRow?.widget_mode==='slack'?'Slack App':channelRow?.widget_mode==='email'?'Email':'Widget',
     status:uiStatus,
     assignedTo:c.assigned_to||undefined,
     ownerVersion:c.owner_version,

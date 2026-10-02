@@ -6,7 +6,7 @@ import {transactionalAiReplyHandler, type AiProviderInvoke} from '../../modules/
 import {workspacePrompt} from '../../modules/ai/workspace-prompt';
 import {invokeProvider,invokeProviderDetailed} from '../../modules/ai/provider-transport';
 import {fetchMetaProfile} from '../../modules/meta/profile';
-import {sendMetaText} from '../../modules/meta/send';
+import {sendMetaText,sendMetaMedia} from '../../modules/meta/send';
 export type JobHandler=(job:{id:string,workspace_id:string,kind:string,payload:Record<string,unknown>})=>Promise<{receipt:string}>;
 /** Explicit tenant assigned by trusted scheduler, never from a public HTTP body. */
 export async function runWorkerOnce(workspace:string,handlers:Record<string,JobHandler>){
@@ -25,8 +25,8 @@ export async function runWorkerOnce(workspace:string,handlers:Record<string,JobH
  if(!handler){await scoped(db=>finishJob(db,job.id,job.lease_token,{state:'failed',code:'HANDLER_UNAVAILABLE'}));return {state:'unavailable'};}
  try{const result=await handler(job);await scoped(db=>finishJob(db,job.id,job.lease_token,{state:'succeeded',receipt:result.receipt}));return {state:'succeeded'};}
  catch(error){if(error instanceof HttpError&&error.code==='STALE_JOB_LEASE')return {state:'lease_expired'};
- // An ownership fence rejection happens before inference or message commit.
- // It is a known cancellation, not an ambiguous provider outcome.
+ // Ownership rejection cancels publishing, including after an inference race.
+ // Keep any provider dispatch/usage uncertainty separately; never retry this reply.
  if(job.kind==='ai.reply'&&error instanceof HttpError&&error.code==='STALE_REPLY_OWNER'){
   await scoped(async db=>{
    await db.query("UPDATE jobs SET max_attempts=attempts WHERE id=$1 AND state='running' AND lease_token=$2 AND lease_until>now()",[job.id,job.lease_token]);
@@ -37,7 +37,7 @@ export async function runWorkerOnce(workspace:string,handlers:Record<string,JobH
  // Messenger rejections are terminal: do not retry sends implicitly.
  if(job.kind==='meta.message.send'&&error instanceof HttpError){
   const code=error.code;
-  const known=['META_DISPATCH_INVALID','STALE_REPLY_OWNER','META_TOKEN_NOT_CONFIGURED','META_MESSAGE_INVALID'].includes(code)||/^META_HTTP_4[0-9]{2}$/.test(code);
+  const known=['META_CHANNEL_UNSUPPORTED','META_ACCOUNT_REQUIRED','META_DISPATCH_INVALID','STALE_REPLY_OWNER','META_TOKEN_NOT_CONFIGURED','META_MESSAGE_INVALID'].includes(code)||/^META_HTTP_4[0-9]{2}$/.test(code);
   try{
    await scoped(async db=>{
     if(known)await db.query("UPDATE jobs SET max_attempts=attempts WHERE id=$1 AND state='running' AND lease_token=$2 AND lease_until>now()",[job.id,job.lease_token]);
@@ -110,10 +110,10 @@ export async function runMetaProfileWorkerOnce(workspace:string,fetchProfile:typ
  return runWorkerOnce(workspace,{'meta.profile.fetch':async job=>{
   return transaction(async db=>{
    await scope(db,workspace);
-   const connection=(await db.query("SELECT id,channel_id,page_access_token_ref FROM meta_connections WHERE id=$1 AND workspace_id=$2 AND status='connected' FOR SHARE",[String(job.payload.connectionId),workspace])).rows[0];
+   const connection=(await db.query("SELECT id,channel_id,page_access_token_ref,channel_kind FROM meta_connections WHERE id=$1 AND workspace_id=$2 AND status='connected' FOR SHARE",[String(job.payload.connectionId),workspace])).rows[0];
    if(!connection)throw new HttpError(409,'META_CONNECTION_NOT_READY');
    const userId=String(job.payload.userId);
-   const profile=await fetchProfile(userId,connection.page_access_token_ref);
+   const profile=await fetchProfile(userId,connection.page_access_token_ref,fetch,connection.channel_kind);
    await db.query('UPDATE meta_identities SET profile=profile||$1::jsonb,updated_at=now() WHERE connection_id=$2 AND workspace_id=$3 AND external_user_id=$4',[profile,connection.id,workspace,userId]);
    await db.query("UPDATE visitors SET profile=profile||$1::jsonb WHERE workspace_id=$2 AND channel_id=$3 AND profile->>'metaUserId'=$4",[profile,workspace,connection.channel_id,userId]);
    return {receipt:'meta-profile:updated'};
@@ -127,15 +127,17 @@ export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaTex
    await scope(db,workspace);
    // Serialize dispatch with takeover and connection revocation. Resolve the
    // recipient and credential from current scoped rows, never queued secrets.
-   const row=(await db.query(`SELECT m.body,m.author_type,m.visibility,m.actor_id,
+   const candidates=(await db.query(`SELECT m.body,m.author_type,m.visibility,m.actor_id,
     c.reply_owner,c.owner_version,c.assigned_to,
-    v.profile->>'metaUserId' AS recipient,mc.page_access_token_ref
+    v.token_hash AS identity_binding,mc.id AS connection_id,v.profile->>'metaUserId' AS recipient,mc.page_access_token_ref,mc.channel_kind,mc.external_page_id
     FROM messages m JOIN conversations c ON c.id=m.conversation_id AND c.workspace_id=m.workspace_id
     JOIN visitors v ON v.id=c.visitor_id AND v.workspace_id=c.workspace_id
     JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id
     WHERE m.id=$1 AND m.workspace_id=$2 AND c.id=$3 AND mc.status='connected'
-    FOR UPDATE OF c,mc`,[String(job.payload.messageId),workspace,String(job.payload.conversationId)])).rows[0];
-   if(!row||row.visibility!=='public'||!row.recipient)throw new HttpError(409,'META_DISPATCH_INVALID');
+    FOR UPDATE OF c,mc`,[String(job.payload.messageId),workspace,String(job.payload.conversationId)])).rows;
+   if(candidates.length!==1)throw new HttpError(409,'META_DISPATCH_INVALID');
+   const row=candidates[0];
+   if(!row||row.visibility!=='public'||!row.recipient||row.identity_binding!==`meta:${row.connection_id}:${row.recipient}`)throw new HttpError(409,'META_DISPATCH_INVALID');
    if(row.author_type==='ai'){
     if(row.reply_owner!=='AI_ACTIVE'||row.owner_version!==job.payload.ownerVersion)throw new HttpError(409,'STALE_REPLY_OWNER');
    }else if(row.author_type!=='agent'||row.reply_owner!=='HUMAN_ACTIVE'||row.assigned_to!==row.actor_id){
@@ -143,8 +145,13 @@ export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaTex
    }
    const live=await db.query("SELECT id FROM jobs WHERE id=$1 AND workspace_id=$2 AND state='running' AND lease_token=$3 AND lease_until>clock_timestamp()+interval '21 seconds' FOR UPDATE",[job.id,workspace,(job as typeof job&{lease_token:string}).lease_token]);
    if(!live.rowCount)throw new HttpError(409,'STALE_JOB_LEASE');
-   const result=await send({recipientId:row.recipient,text:row.body,pageAccessTokenRef:row.page_access_token_ref});
+   const media=(await db.query("SELECT kind,url FROM message_attachments WHERE workspace_id=$1 AND message_id=$2 ORDER BY created_at LIMIT 1",[workspace,job.payload.messageId])).rows[0];
+   const result=media
+    ? await sendMetaMedia({recipientId:row.recipient,mediaType:media.kind,mediaUrl:media.url,...(row.channel_kind==='whatsapp_business'&&media.kind!=='audio'?{caption:row.body}:{}),pageAccessTokenRef:row.page_access_token_ref,channelKind:row.channel_kind,externalAccountId:row.external_page_id})
+    : await send({recipientId:row.recipient,text:row.body,pageAccessTokenRef:row.page_access_token_ref,channelKind:row.channel_kind,externalAccountId:row.external_page_id});
    if(result.status!=='accepted')throw new HttpError(502,result.errorCode||'META_DELIVERY_UNKNOWN');
+   await db.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,provider_message_id,status)
+     VALUES(gen_random_uuid(),$1,$2,$3,'accepted') ON CONFLICT(workspace_id,message_id) DO UPDATE SET provider_message_id=EXCLUDED.provider_message_id,status='accepted',updated_at=now()`,[workspace,job.payload.messageId,result.providerMessageId]);
    return {receipt:`meta:${result.providerMessageId}`};
   });
  }});
