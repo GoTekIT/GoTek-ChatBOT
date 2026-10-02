@@ -1,3 +1,8 @@
+## Full backend validation checkpoint (2026-10-02)
+- Disposable PostgreSQL suite ran 211 tests: 209 passed; two failures were environment/legacy fixture issues. Authorization test hardcodes Unix socket /tmp/.s.PGSQL.55432, while the isolated test server used TCP. Chat source assertion exposed legacy conversations without connection_id; inbox now keeps a token-based compatibility fallback while explicit source bindings remain authoritative. Targeted chat-store test passes after the fix.
+- Backend build and frontend test/build had passed before this compatibility correction; rerun full CI is required.
+- No live data touched. PR #13 remains draft and main unchanged.
+
 ## Unmapped webhook quarantine checkpoint (2026-10-02)
 - Migration 070 adds a seven-day, deduplicated quarantine queue for Meta events whose Page/account mapping is missing. Webhook ingestion stores the signed event payload and reason instead of silently dropping it; it never assigns the event to a tenant.
 - Unsupported page event shapes are also quarantined by raw account entry. Regression includes a mixed envelope with an unknown Page and confirms mapped pages still process normally.
