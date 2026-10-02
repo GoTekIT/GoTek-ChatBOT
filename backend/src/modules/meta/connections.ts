@@ -50,7 +50,7 @@ export async function createMetaConnection(db:PoolClient, actor:{workspace_id:st
   tokenRef:z.string().regex(/^META_[A-Z0-9_]+$/)
  }).strict().parse(body);
  if(!process.env[input.tokenRef]?.trim()) throw new HttpError(400,'META_TOKEN_REFERENCE_NOT_CONFIGURED');
- const channel=(await db.query('SELECT id FROM channels WHERE id=$1 AND workspace_id=$2 AND enabled FOR SHARE',[input.channelId,actor.workspace_id])).rows[0];
+ const channel=(await db.query('SELECT id FROM channels WHERE id=$1 AND workspace_id=$2 AND enabled FOR UPDATE',[input.channelId,actor.workspace_id])).rows[0];
  if(!channel) throw new HttpError(404,'CHANNEL_NOT_FOUND');
  const occupied=(await db.query("SELECT id FROM meta_connections WHERE workspace_id=$1 AND channel_id=$2 AND status IN ('pending','connected','reauth_required','error') FOR SHARE",[actor.workspace_id,input.channelId])).rowCount;
  if(occupied) throw new HttpError(409,'META_CHANNEL_ALREADY_BOUND');
@@ -71,8 +71,17 @@ export async function createMetaConnection(db:PoolClient, actor:{workspace_id:st
 /** Verify the configured credential against Meta Graph; webhook subscription remains a separate live gate. */
 export async function verifyMetaConnection(db:PoolClient, actor:{workspace_id:string;role:string;user_id:string}, id:string) {
  requireRole(actor.role);
- const row=(await db.query('SELECT id,page_access_token_ref,status FROM meta_connections WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[z.string().uuid().parse(id),actor.workspace_id])).rows[0];
- if(!row) throw new HttpError(404,'META_CONNECTION_NOT_FOUND');
+ const connectionId=z.string().uuid().parse(id);
+ const target=(await db.query('SELECT channel_id FROM meta_connections WHERE id=$1 AND workspace_id=$2',[connectionId,actor.workspace_id])).rows[0];
+ if(!target) throw new HttpError(404,'META_CONNECTION_NOT_FOUND');
+ // Creation locks channel first; reconnect follows the same order to prevent
+ // two requests from passing the channel ownership check concurrently.
+ const channel=(await db.query('SELECT id FROM channels WHERE id=$1 AND workspace_id=$2 AND enabled FOR UPDATE',[target.channel_id,actor.workspace_id])).rows[0];
+ if(!channel) throw new HttpError(409,'CHANNEL_NOT_FOUND');
+ const row=(await db.query('SELECT id,channel_id,page_access_token_ref,status FROM meta_connections WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[connectionId,actor.workspace_id])).rows[0];
+ if(!row || row.channel_id!==target.channel_id) throw new HttpError(404,'META_CONNECTION_NOT_FOUND');
+ const sibling=(await db.query("SELECT id FROM meta_connections WHERE workspace_id=$1 AND channel_id=$2 AND id<>$3 AND status IN ('pending','connected','reauth_required','error') LIMIT 1",[actor.workspace_id,row.channel_id,row.id])).rows[0];
+ if(sibling) throw new HttpError(409,'META_CHANNEL_ALREADY_BOUND');
  if(!process.env[row.page_access_token_ref]?.trim()) throw new HttpError(400,'META_TOKEN_REFERENCE_NOT_CONFIGURED');
  const connection=(await db.query('SELECT channel_kind,external_page_id FROM meta_connections WHERE id=$1 AND workspace_id=$2',[row.id,actor.workspace_id])).rows[0];
  if(connection.channel_kind==='threads') throw new HttpError(400,'META_CONNECTOR_NOT_AVAILABLE');

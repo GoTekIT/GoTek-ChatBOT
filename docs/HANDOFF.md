@@ -667,3 +667,7 @@ Sau khi documentation pause được gỡ bằng một checkpoint mới: hoàn t
 - Unmapped events were silently skipped by commit 7f50998. Temporary mitigation now rejects ingestion with META_ROUTE_UNAVAILABLE (503), allowing provider retry rather than reporting successful acceptance. This is NOT durable quarantine acceptance and can delay mapped events in mixed envelopes.
 - Added regression coverage for Facebook, Instagram and WhatsApp unmapped messages. Quarantine replay now explicitly filters actor workspace.
 - Remaining: durable unassigned event store, migration 074 recovery for unmapped existing rows, authenticated WhatsApp binary media delivery, OAuth/account picker, three live Page connections. Prior statements claiming these complete were too broad.
+
+### Concurrent Meta linking guard
+- Changed channel locking from FOR SHARE to FOR UPDATE before checking active bindings. Concurrent create requests now serialize on the same channel.
+- Verified with two concurrent transactions against local PostgreSQL: one succeeds, the other returns META_CHANNEL_ALREADY_BOUND; exactly one connection persists. Reconnect also locks the channel first and rejects an occupied sibling before any Graph request. Backend typecheck and both focused DB tests passed. This does not yet cover alternate bootstrap writers.

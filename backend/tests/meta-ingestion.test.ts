@@ -1,6 +1,6 @@
 import {reconcileMetaReceipt} from '../src/modules/meta/receipts';
 import {inboxList,inboxDetail} from '../src/modules/chat/inbox';
-import {listMetaConnections,disconnectMetaConnection,listInboxSources} from '../src/modules/meta/connections';
+import {createMetaConnection,listMetaConnections,disconnectMetaConnection,listInboxSources,verifyMetaConnection} from '../src/modules/meta/connections';
 import {test,after} from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
@@ -323,4 +323,40 @@ test('one signed envelope routes three Pages across two workspaces without confi
  });
  const source=(await admin!.query('SELECT * FROM meta_connections WHERE external_page_id=$1',[pages[0]])).rows[0];
  await assert.rejects(admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) SELECT $1,workspace_id,channel_id,$2,'Conflict','META_FIXTURE_TOKEN' FROM meta_connections WHERE external_page_id=$3",[randomUUID(),source.external_page_id,pages[2]]),{code:'23505'});
+});
+
+
+test('concurrent account linking permits only one active connection on a channel',{skip:!enabled},async()=>{
+ const workspace=randomUUID(),channel=randomUUID(),user=randomUUID();
+ const ref='META_CONCURRENT_LINK_TEST';process.env[ref]='fixture-only';
+ await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[workspace,'Concurrent linking fixture']);
+ await admin!.query("INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,'Fixture','','unused')",[user,user+'@example.test']);
+ await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Fixture','https://example.test','Hi','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
+ const actor={workspace_id:workspace,user_id:user,role:'Owner'};
+ const account=BigInt('0x'+randomUUID().replaceAll('-','')).toString();
+ try{
+  const outcomes=await Promise.allSettled([account,account+'1'].map(externalAccountId=>transaction(async db=>{
+   await scope(db,workspace);
+   return createMetaConnection(db,actor,{channelId:channel,platform:'facebook_messenger',externalAccountId,accountName:'Test',tokenRef:ref});
+  })));
+  assert.equal(outcomes.filter(r=>r.status==='fulfilled').length,1);
+  const rejected=outcomes.find(r=>r.status==='rejected') as PromiseRejectedResult;
+  assert.equal(rejected.reason.code,'META_CHANNEL_ALREADY_BOUND');
+  assert.equal((await admin!.query('SELECT id FROM meta_connections WHERE channel_id=$1',[channel])).rowCount,1);
+ }finally{delete process.env[ref];}
+});
+
+test('reconnect rejects a disconnected connection when its channel is occupied',{skip:!enabled},async()=>{
+ const workspace=randomUUID(),channel=randomUUID(),user=randomUUID(),first=randomUUID(),second=randomUUID();
+ const ref='META_RECONNECT_LINK_TEST';process.env[ref]='fixture-only';
+ await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[workspace,'Reconnect linking fixture']);
+ await admin!.query("INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,'Fixture','','unused')",[user,user+'@example.test']);
+ await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Fixture','https://example.test','Hi','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
+ await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,channel_kind,external_page_id,page_name,page_access_token_ref,status) VALUES($1,$2,$3,'facebook_messenger',$4,'First',$5,'disconnected'),($6,$2,$3,'facebook_messenger',$7,'Second',$5,'pending')",[first,workspace,channel,randomUUID(),ref,second,randomUUID()]);
+ const actor={workspace_id:workspace,user_id:user,role:'Owner'};
+ const originalFetch=globalThis.fetch;let calls=0;globalThis.fetch=async(input)=>{calls++;const account=String(input).split('?')[0].split('/').pop();return new Response(JSON.stringify({id:account}),{status:200,headers:{'content-type':'application/json'}})};
+ try{await assert.rejects(transaction(async db=>{await scope(db,workspace);return verifyMetaConnection(db,actor,first)}),error=>error?.code==='META_CHANNEL_ALREADY_BOUND');assert.equal(calls,0);
+  await admin!.query("UPDATE meta_connections SET status='disconnected' WHERE id=$1",[second]);
+  const result=await transaction(async db=>{await scope(db,workspace);return verifyMetaConnection(db,actor,first)});assert.equal(result.status,'connected');assert.equal(calls,1);
+ }finally{globalThis.fetch=originalFetch;delete process.env[ref];}
 });
