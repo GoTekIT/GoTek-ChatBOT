@@ -1,3 +1,8 @@
+## Webhook subscription state checkpoint (2026-10-02)
+- Migration 073 adds `meta_connections.webhook_subscribed_at`; the connection catalog now exposes this timestamp without exposing credentials.
+- Owner/Admin can call `POST /api/meta/connections/:id/subscribe-webhook` after Graph credential verification. Facebook/Instagram call Meta `subscribed_apps`; WhatsApp remains app-level and Threads catalog-only.
+- `connected` and `webhook subscribed` are now distinct states. `npm run build:all` passed.
+
 ## Inbox source fallback checkpoint (2026-10-02)
 - Legacy Meta conversations with a null `conversation.connection_id` now resolve the original connection for account name, external account ID, status, source label, and platform/Page filters through an exact visitor binding.
 - This prevents old records from appearing as an unlabeled generic channel while preserving tenant scope and explicit connection precedence.

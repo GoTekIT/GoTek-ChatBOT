@@ -17,9 +17,26 @@ export async function listInboxSources(db:PoolClient, actor:{workspace_id:string
 /** Workspace administration view. Token values and secret references never leave the server. */
 export async function listMetaConnections(db:PoolClient, actor:{workspace_id:string;role:string}) {
  requireRole(actor.role);
- const connections=(await db.query(`SELECT id,channel_id,channel_kind,external_page_id,page_name,status,last_verified_at
+ const connections=(await db.query(`SELECT id,channel_id,channel_kind,external_page_id,page_name,status,last_verified_at,webhook_subscribed_at
  FROM meta_connections WHERE workspace_id=$1 ORDER BY created_at,id`,[actor.workspace_id])).rows;
  return {capabilities:META_CONNECTORS,connections};
+}
+
+export async function subscribeMetaWebhook(db:PoolClient, actor:{workspace_id:string;role:string;user_id:string}, id:string) {
+ requireRole(actor.role);
+ const row=(await db.query('SELECT id,channel_kind,external_page_id,page_access_token_ref,status FROM meta_connections WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[z.string().uuid().parse(id),actor.workspace_id])).rows[0];
+ if(!row) throw new HttpError(404,'META_CONNECTION_NOT_FOUND');
+ if(row.status!=='connected') throw new HttpError(409,'META_CONNECTION_NOT_VERIFIED');
+ if(row.channel_kind==='threads'||row.channel_kind==='whatsapp_business') throw new HttpError(400,'META_WEBHOOK_SUBSCRIPTION_APP_LEVEL_REQUIRED');
+ const token=process.env[row.page_access_token_ref]?.trim();
+ if(!token) throw new HttpError(400,'META_TOKEN_REFERENCE_NOT_CONFIGURED');
+ let response:Response;
+ try { response=await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION||'v20.0'}/${encodeURIComponent(row.external_page_id)}/subscribed_apps`,{method:'POST',redirect:'error',headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)}); }
+ catch { throw new HttpError(400,'META_WEBHOOK_SUBSCRIPTION_FAILED'); }
+ if(!response.ok) throw new HttpError(400,'META_WEBHOOK_SUBSCRIPTION_FAILED');
+ await db.query('UPDATE meta_connections SET webhook_subscribed_at=now(),updated_at=now() WHERE id=$1 AND workspace_id=$2',[row.id,actor.workspace_id]);
+ await audit(db,actor.workspace_id,actor.user_id,'meta.webhook_subscribed',row.id);
+ return {id:row.id,webhookSubscribedAt:new Date().toISOString()};
 }
 
 /** Add a server-configured Meta account to this workspace. Secrets stay in env/secret storage. */
