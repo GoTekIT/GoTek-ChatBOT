@@ -192,6 +192,7 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
 
     const timeDate=new Date(m.created_at);
     const timeFormatted=timeDate.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+    const status = m.visitor_received_at ? 'delivered' : 'sent';
 
     return {
       ...m,
@@ -199,7 +200,8 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
       senderName,
       senderRole,
       timestamp:timeFormatted,
-      content:m.body
+      content:m.body,
+      status
     };
   });
 }
@@ -304,8 +306,14 @@ export async function inboxResumeAi(db:PoolClient,a:Actor,id:string,body:unknown
 }
 
 export async function inboxAssign(db:PoolClient,a:Actor,id:string,body:unknown){
-  await access(db,a,id);
-  const data=z.object({assignedTo:z.string().uuid()}).parse(body);
+  const c = await access(db,a,id);
+  const data=z.object({
+    assignedTo:z.string().uuid(),
+    version:z.number().int().positive().optional()
+  }).parse(body);
+
+  const version = data.version ?? c.owner_version;
+  if (c.owner_version !== version) throw new HttpError(409, 'STALE_REPLY_OWNER');
 
   const member=(await db.query(`SELECT m.user_id FROM memberships m WHERE m.workspace_id=$1 AND m.user_id=$2 AND m.active`,[a.workspace_id,data.assignedTo])).rows[0];
   if(!member)throw new HttpError(400,'INVALID_ASSIGNEE');

@@ -93,14 +93,17 @@ export function useRealtimeChat({
       };
     }
 
-    let ws: WebSocket | null = null;
+    // Connect to Backend SSE endpoint for real database conversations
+    const streamUrl = `/api/conversations/${encodeURIComponent(conversationId)}/stream`;
     let eventSource: EventSource | null = null;
+    let ws: WebSocket | null = null;
     let isCleanedUp = false;
 
     // Connect via Full-Duplex WebSocket
     try {
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const token = getStoredToken();
+      const cookieMatch = typeof document !== 'undefined' ? document.cookie.match(/gotek_session=([^;]+)/) : null;
+      const token = getStoredToken() || (cookieMatch ? decodeURIComponent(cookieMatch[1]) : null);
       const wsUrl = `${wsProtocol}//${window.location.host}/ws?role=staff${token ? `&token=${encodeURIComponent(token)}` : ''}`;
       ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -113,7 +116,7 @@ export function useRealtimeChat({
         ws?.send(JSON.stringify({ type: 'subscribe', conversationId }));
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = (event: MessageEvent) => {
         if (isCleanedUp) return;
         try {
           const payload = JSON.parse(event.data);
@@ -149,16 +152,15 @@ export function useRealtimeChat({
 
       ws.onerror = () => {
         // Fallback to SSE if WS fails
-        if (!isConnected && !isCleanedUp) {
+        if (!isCleanedUp) {
           startSseFallback();
         }
       };
 
       ws.onclose = () => {
         wsRef.current = null;
-        if (!isCleanedUp) {
-          setIsConnected(false);
-          setTransportType('none');
+        if (!isCleanedUp && !eventSource) {
+          startSseFallback();
         }
       };
     } catch {
@@ -167,7 +169,7 @@ export function useRealtimeChat({
 
     function startSseFallback() {
       if (isCleanedUp || eventSource) return;
-      const streamUrl = `/api/inbox/conversations/${encodeURIComponent(conversationId)}/stream`;
+      const streamUrl = `/api/conversations/${encodeURIComponent(conversationId)}/stream`;
       try {
         eventSource = new EventSource(streamUrl, { withCredentials: true });
         eventSource.onopen = () => {
@@ -272,7 +274,7 @@ export function useRealtimeChat({
     }
 
     try {
-      await fetch(`/api/inbox/conversations/${encodeURIComponent(conversationId)}/typing`, {
+      await fetch(`/api/conversations/${encodeURIComponent(conversationId)}/typing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Gotek-Request': '1' },
         credentials: 'include',

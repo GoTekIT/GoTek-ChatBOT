@@ -6,6 +6,8 @@
     "install:all": "npm ci && npm ci --prefix backend && npm ci --prefix frontend",
     "dev:backend": "npm run --prefix backend dev",
     "dev:frontend": "npm run --prefix frontend dev",
+    "dev:ai": "uv run --directory ai-service uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "train:ai": "uv run --directory ai-service --with huggingface-hub --with python-dotenv python train_lora.py --epochs 3 --batch-size 2 --push-to-hub",
     "dev": "npx concurrently -k -p \"[{name}]\" -n \"Backend,Frontend\" -c \"cyan,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "build:all": "npm run --prefix backend build && npm run --prefix frontend build",
     "test:backend": "npm run --prefix backend test",

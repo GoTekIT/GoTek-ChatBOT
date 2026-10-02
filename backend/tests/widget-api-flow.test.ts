@@ -7,7 +7,7 @@ import {digest} from '../src/core/security';
 import {createApp} from '../src/app';
 import {pool,transaction,scope} from '../src/core/db';
 import {inboxTakeover,inboxSend} from '../src/modules/chat/inbox';
-const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:process.env.PGUSER||'gotek_migrator',password:process.env.PGPASSWORD||'gotek_dev_password',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 test('widget config/prechat/message/human reply/resume enforce origin and private-note boundary',async()=>{
  const w=randomUUID(),ch=randomUUID(),u=randomUUID(),key=randomBytes(32).toString('base64url');

@@ -72,6 +72,14 @@ export const InboxView: React.FC<InboxViewProps> = ({
     'conv-1': ['Enterprise Deal', '🔥 Lead Hot', 'Yêu cầu NDA'],
   });
 
+  const [readConvIds, setReadConvIds] = useState<Set<string>>(new Set(selectedConvId ? [selectedConvId] : []));
+
+  useEffect(() => {
+    if (selectedConvId) {
+      setReadConvIds((prev) => new Set([...prev, selectedConvId]));
+    }
+  }, [selectedConvId]);
+
   // Resizable and Collapsible Columns State
   const [queueWidth, setQueueWidth] = useState<number>(320);
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(true);
@@ -109,6 +117,40 @@ export const InboxView: React.FC<InboxViewProps> = ({
     }
   }, [activeConv?.id, isStaffActive]);
 
+  // UC-032: Restore draft for current conversation
+  useEffect(() => {
+    if (!activeConv?.id) {
+      setMessageText('');
+      return;
+    }
+    const savedDraft = localStorage.getItem(`gotek_draft_${activeConv.id}`);
+    setMessageText(savedDraft || '');
+  }, [activeConv?.id]);
+
+  const handleMessageChange = (val: string) => {
+    setMessageText(val);
+    if (activeConv?.id) {
+      if (val.trim()) {
+        localStorage.setItem(`gotek_draft_${activeConv.id}`, val);
+      } else {
+        localStorage.removeItem(`gotek_draft_${activeConv.id}`);
+      }
+    }
+    // Auto-resize textarea
+    const ta = textareaRef.current;
+    if (ta) {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+    }
+    // Debounce typing indicator (300ms) to avoid blocking Vietnamese IME input
+    if (isStaffActive) {
+      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+      typingDebounceRef.current = setTimeout(() => {
+        sendTypingStatus(Boolean(val.trim()));
+      }, 300);
+    }
+  };
+
   // =========================================================================
   // REALTIME CHAT HOOK (Full-Duplex WebSocket with SSE Fallback)
   // =========================================================================
@@ -141,7 +183,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   // Auto-scroll to latest message when conversation or messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeConv?.id, activeConv?.messages.length]);
+  }, [activeConv?.id, activeConv?.messages?.length]);
 
   // Subtle Resizer Dragging: Queue
   useEffect(() => {
@@ -272,9 +314,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
       const saved = await onSendMessage(activeConv.id, {
       clientId: msgClientId,
       senderType: isInternal ? 'internal_note' : 'agent',
-      senderName: 'Alex Rivera (Staff Lead)',
-      senderAvatar:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuD1-qn1cAT7mTay6n_TifAYhglMmbGsHViz0GRjVAPOCA6fSst4Nd_bqySEpKVWj125vgWZQUowOjx-51pdaBMMB1sKkKbRZLoNRnaBHEfvuYUUiKoT1E6KhQDmYUA0T0TXa7Icz4CnkIWnwMGuK48WG0GSOxypPNugzYG6XCL3iqeLcbbV-0qV5ZtsO5p95yp11TdZTQ7gHuXwjR3_k5Nd28ZfEmGM9GFSr_dJgAuj19uBwXoDFeuP',
+      senderName: 'Chuyên viên Hỗ trợ',
+      senderAvatar: '',
       content: text,
       ...(media ? {attachments:[media]} : {}),
       }, sentViaWs);
@@ -356,7 +397,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
     showToast('Đã gỡ nhãn CRM');
   };
 
-  const currentTags = activeTags[activeConv?.id] || activeConv?.crmTags || [];
+  const currentTags = activeConv ? (activeTags[activeConv.id] || activeConv.crmTags || []) : [];
 
   return (
     <div ref={containerRef} className="flex-1 flex overflow-hidden relative h-full bg-[#f8f9fb] dark:bg-[#080c14] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(22,100,255,0.05),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(22,100,255,0.1),rgba(0,0,0,0))] text-[#1f2329] dark:text-slate-100 select-text transition-colors duration-300">
@@ -534,11 +575,15 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 const isSelected = conv.id === selectedConvId;
                 const isHandoff = conv.status === 'handoff';
                 const isAi = conv.status === 'ai_active';
+                const isRead = isSelected || readConvIds.has(conv.id);
 
                 return (
                   <article
                     key={conv.id}
-                    onClick={() => setSelectedConvId(conv.id)}
+                    onClick={() => {
+                      setSelectedConvId(conv.id);
+                      setReadConvIds((prev) => new Set([...prev, conv.id]));
+                    }}
                     className={`group p-3 rounded-xl cursor-pointer transition-all duration-200 relative border ${
                       isSelected
                         ? 'bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-white dark:from-blue-950/70 dark:via-slate-900 dark:to-slate-900 border-blue-400/80 dark:border-blue-500/80 shadow-sm dark:shadow-[0_0_18px_rgba(22,100,255,0.18)] ring-1 ring-blue-400/30 dark:ring-blue-500/30'
@@ -577,15 +622,26 @@ export const InboxView: React.FC<InboxViewProps> = ({
                       {/* Content details */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1 mb-0.5">
-                          <h4
-                            className={`text-[13.5px] truncate transition-colors ${
-                              isSelected
-                                ? 'font-bold text-[#1f2329] dark:text-white'
-                                : 'font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400'
-                            }`}
-                          >
-                            {conv.customerName}
-                          </h4>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {isRead ? (
+                              <span className="inline-flex items-center text-slate-400 dark:text-slate-500 shrink-0" title="Hội thoại đã đọc">
+                                <span className="material-symbols-outlined text-[13px] text-emerald-500">done_all</span>
+                              </span>
+                            ) : (
+                              <span className="w-2 h-2 rounded-full bg-[#1664ff] shrink-0 animate-pulse" title="Tin nhắn mới chưa đọc" />
+                            )}
+                            <h4
+                              className={`text-[13.5px] truncate transition-colors ${
+                                isSelected
+                                  ? 'font-bold text-[#1f2329] dark:text-white'
+                                  : isRead
+                                    ? 'font-medium text-slate-700 dark:text-slate-200'
+                                    : 'font-bold text-slate-900 dark:text-white'
+                              }`}
+                            >
+                              {conv.customerName}
+                            </h4>
+                          </div>
                           <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 font-medium">
                             {conv.lastMessageTime}
                           </span>
@@ -595,12 +651,29 @@ export const InboxView: React.FC<InboxViewProps> = ({
                           {conv.customerCompany}
                         </p>
 
-                        <p className="text-[12px] text-slate-600 dark:text-slate-300 line-clamp-1 leading-normal mb-1.5 font-normal">
-                          {conv.lastMessageSnippet}
-                        </p>
+                        {typingState.isTyping && activeConv?.id === conv.id ? (
+                          <p className="text-[12px] text-[#1664ff] dark:text-blue-400 font-semibold line-clamp-1 leading-normal mb-1.5 flex items-center gap-1 animate-pulse">
+                            <span className="material-symbols-outlined text-[14px]">edit</span>
+                            <span>{typingState.actorType === 'visitor' ? 'Khách' : 'Nhân viên'} đang soạn tin...</span>
+                          </p>
+                        ) : (
+                          <p className="text-[12px] text-slate-600 dark:text-slate-300 line-clamp-1 leading-normal mb-1.5 font-normal">
+                            {conv.lastMessageSnippet}
+                          </p>
+                        )}
 
                         {/* Status Badges Row */}
                         <div className="flex items-center gap-1.5 flex-wrap">
+                          {isRead ? (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-medium border border-slate-200/50 dark:border-slate-700/50">
+                              Đã đọc
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-blue-50 dark:bg-blue-950/60 text-[#1664ff] dark:text-blue-400 text-[10px] font-bold border border-blue-200/70 dark:border-blue-800/60">
+                              Chưa đọc
+                            </span>
+                          )}
+
                           {isHandoff && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 text-[10.5px] font-semibold border border-rose-200/80 dark:border-rose-800/60 shadow-2xs">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
@@ -668,11 +741,39 @@ export const InboxView: React.FC<InboxViewProps> = ({
       </AnimatePresence>
 
       {/* ================= COLUMN 2: CHAT CANVAS & THREAD (Fluid Edge-to-Edge) ================= */}
-      <main className="flex-1 h-full flex flex-col bg-[#f8f9fb] dark:bg-[#080c14] relative overflow-hidden min-w-[380px] transition-colors">
+      {!activeConv ? (
+        <main className="flex-1 h-full flex flex-col items-center justify-center p-8 text-center bg-[#f8f9fb] dark:bg-[#080c14] text-slate-500">
+          <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-[#1664ff] dark:text-blue-400 flex items-center justify-center mb-4 border border-blue-200/60 dark:border-blue-800/60 shadow-xs">
+            <span className="material-symbols-outlined text-[32px]">forum</span>
+          </div>
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
+            {conversations.length === 0 ? 'Hộp thư chưa có hội thoại nào' : 'Chọn một cuộc hội thoại'}
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
+            {conversations.length === 0
+              ? 'Tất cả tin nhắn gửi từ Web Widget hoặc các kênh tích hợp sẽ tự động hiển thị tại đây theo thời gian thực từ cơ sở dữ liệu.'
+              : 'Chọn một hội thoại từ danh sách bên trái để xem nội dung trao đổi và tiếp quản hỗ trợ.'}
+          </p>
+        </main>
+      ) : (
+        <main className="flex-1 h-full flex flex-col bg-[#f8f9fb] dark:bg-[#080c14] relative overflow-hidden min-w-[380px] transition-colors">
         {/* Thread Header Bar - Seamless and Clean */}
         <header className="h-14 px-6 bg-white dark:bg-[#0d131f]/90 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between shrink-0 z-10 transition-colors">
           {/* Customer Summary Info */}
           <div className="flex items-center gap-3 min-w-0">
+            {/* Mobile Back Button (UC-035) */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsQueueOpen(true);
+                setSelectedConvId('');
+              }}
+              className="md:hidden -ml-2 mr-0.5 p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+              title="Quay lại danh sách hội thoại"
+            >
+              <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+            </button>
+
             <div className="relative">
               <img
                 src={activeConv.customerAvatar}
@@ -1004,6 +1105,33 @@ export const InboxView: React.FC<InboxViewProps> = ({
                       {msg.content}
                     </div>
 
+                    {/* Status delivery & receipts */}
+                    <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-400 dark:text-slate-500 font-normal">
+                      <span>{msg.timestamp}</span>
+                      <span>·</span>
+                      {msg.status === 'read' ? (
+                        <span className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 font-medium" title="Khách đã đọc tin nhắn">
+                          <span className="material-symbols-outlined text-[13px]">done_all</span>
+                          <span>Đã đọc</span>
+                        </span>
+                      ) : msg.status === 'delivered' ? (
+                        <span className="inline-flex items-center gap-0.5 text-slate-500 dark:text-slate-400 font-medium" title="Đã chuyển đến thiết bị khách">
+                          <span className="material-symbols-outlined text-[13px]">done_all</span>
+                          <span>Đã nhận</span>
+                        </span>
+                      ) : msg.status === 'sending' ? (
+                        <span className="inline-flex items-center gap-0.5 text-amber-500 font-medium" title="Đang gửi...">
+                          <span className="material-symbols-outlined text-[13px] animate-spin">sync</span>
+                          <span>Đang gửi</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 text-slate-400 dark:text-slate-500 font-medium" title="Đã gửi thành công vào hệ thống">
+                          <span className="material-symbols-outlined text-[13px]">check</span>
+                          <span>Đã gửi</span>
+                        </span>
+                      )}
+                    </div>
+
                     {/* Natural Hover Action Bar */}
                     <AnimatePresence>
                       {isHovered && (
@@ -1090,6 +1218,16 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     ))}
                   </div>
 
+                  {/* Customer message receipt */}
+                  <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-400 dark:text-slate-500 font-normal">
+                    <span>{msg.timestamp}</span>
+                    <span>·</span>
+                    <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-medium" title="Đã nhận vào hệ thống">
+                      <span className="material-symbols-outlined text-[13px]">done_all</span>
+                      <span>Đã nhận</span>
+                    </span>
+                  </div>
+
                   {/* Natural Hover Action Bar */}
                   <AnimatePresence>
                     {isHovered && (
@@ -1132,6 +1270,34 @@ export const InboxView: React.FC<InboxViewProps> = ({
               </motion.div>
             );
           })}
+
+          {/* Live In-stream Typing Indicator Bubble */}
+          <AnimatePresence>
+            {typingState.isTyping && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center gap-2 max-w-[70%]"
+              >
+                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-[#1664ff] shrink-0 shadow-2xs">
+                  <span className="material-symbols-outlined text-[16px]">edit</span>
+                </div>
+                <div className="px-4 py-2.5 rounded-2xl rounded-tl-sm bg-white dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/70 shadow-xs flex items-center gap-2.5">
+                  <span className="flex gap-1 items-center">
+                    <span className="w-2 h-2 rounded-full bg-[#1664ff] dark:bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-2 h-2 rounded-full bg-[#1664ff] dark:bg-blue-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-2 h-2 rounded-full bg-[#1664ff] dark:bg-blue-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
+                  <span className="text-[12px] font-medium text-slate-600 dark:text-slate-300">
+                    {typingState.actorType === 'visitor' ? activeConv.customerName : 'Nhân sự hỗ trợ'} đang soạn tin...
+                  </span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -1285,13 +1451,10 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
             {/* Borderless Textarea */}
             <div className="px-4 py-2">
-              <textarea
+            <textarea
                 ref={textareaRef}
                 value={messageText}
-                onChange={(e) => {
-                  setMessageText(e.target.value);
-                  if (isStaffActive) sendTypingStatus(true);
-                }}
+                onChange={(e) => handleMessageChange(e.target.value)}
                 onBlur={() => { if (isStaffActive) sendTypingStatus(false); }}
                 onKeyDown={handleKeyDown}
                 placeholder={
@@ -1301,8 +1464,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
                       ? 'Nhập ghi chú nội bộ (chỉ nhân viên xem được)...'
                       : 'Nhập nội dung tin nhắn gửi khách hàng... (Nhấn Enter để gửi, Shift+Enter để xuống dòng)'
                 }
-                rows={2}
-                className="w-full text-[13.5px] bg-transparent text-[#1f2329] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-none focus:outline-none leading-relaxed select-text"
+                className="w-full text-[13.5px] bg-transparent text-[#1f2329] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-none focus:outline-none leading-relaxed select-text overflow-y-auto"
+                style={{ minHeight: '48px', maxHeight: '160px' }}
               />
             </div>
 
@@ -1356,9 +1519,10 @@ export const InboxView: React.FC<InboxViewProps> = ({
           </div>
         </footer>
       </main>
+      )}
 
       {/* ================= RESIZE HANDLE 2: SUBTLE SPLITTER ================= */}
-      {isDossierOpen && (
+      {isDossierOpen && activeConv && (
         <div
           onMouseDown={() => setIsDraggingDossier(true)}
           className={`w-1 h-full cursor-col-resize hover:bg-[#1664ff]/40 active:bg-[#1664ff] transition-colors z-20 select-none shrink-0 ${
@@ -1369,6 +1533,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
       )}
 
       {/* ================= COLUMN 3: CUSTOMER DOSSIER (Bento Glassmorphism & Spring Expand/Collapse) ================= */}
+      {activeConv && (
       <motion.aside
         initial={false}
         animate={{
@@ -1605,6 +1770,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
           </div>
         </div>
       </motion.aside>
+      )}
     </div>
   );
 };

@@ -12,6 +12,8 @@ import {auditRouter} from './audit.routes';
 import {supportRouter} from './support.routes';
 import {platformRouter} from './platform.routes';
 import {miscRouter} from './misc.routes';
+import {aiRouter} from './ai.routes';
+import {botRouter} from './bot.routes';
 
 /**
  * Centralized API Group Router
@@ -28,6 +30,8 @@ apiRouter.use(inboxRouter);
 apiRouter.use(knowledgeRouter);
 apiRouter.use(webSourceRouter);
 apiRouter.use(rulesRouter);
+apiRouter.use(aiRouter);
+apiRouter.use(botRouter);
 apiRouter.use(contactRouter);
 apiRouter.use(auditRouter);
 apiRouter.use(supportRouter);
