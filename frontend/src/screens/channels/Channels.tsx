@@ -73,6 +73,9 @@ export function Channels({role}: {role: string}) {
   }
   const [meta, setMeta] = useState<MetaConnections | null>(null);
   const [metaError, setMetaError] = useState('');
+  const [metaFormOpen, setMetaFormOpen] = useState(false);
+  const [metaFormBusy, setMetaFormBusy] = useState(false);
+  const [metaForm, setMetaForm] = useState({platform: 'facebook_messenger', externalAccountId: '', accountName: '', tokenRef: 'META_GOTEK_PAGE_TOKEN', channelId: ''});
   const [rows, setRows] = useState<Channel[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [step, setStep] = useState(0);
@@ -294,6 +297,16 @@ export function Channels({role}: {role: string}) {
       </div>
       {canManage && <section aria-label="Kết nối Meta">
         <h2>Kết nối Meta</h2>
+        <p>Workspace này có thể liên kết nhiều Page/account; mỗi connection giữ nguồn riêng trong inbox.</p>
+        <button type="button" onClick={() => setMetaFormOpen((open) => !open)}>{metaFormOpen ? 'Đóng form liên kết' : 'Thêm Page/account test'}</button>
+        {metaFormOpen && <form onSubmit={async (event) => { event.preventDefault(); setMetaFormBusy(true); setMetaError(''); try { const created=await api('/meta/connections','POST',metaForm); await api(`/meta/connections/${created.id}/verify`,'POST',{}); setMeta(await api('/meta/connections')); setMetaForm({...metaForm,externalAccountId:'',accountName:''}); setMetaFormOpen(false); } catch { setMetaError('Không thể liên kết. Kiểm tra channel, tokenRef và tài khoản chưa được liên kết ở workspace khác.'); } finally { setMetaFormBusy(false); } }} style={{display:'grid',gap:8,maxWidth:520,margin:'12px 0'}}>
+          <label>Nền tảng<select value={metaForm.platform} onChange={(e) => setMetaForm({...metaForm,platform:e.target.value})}><option value="facebook_messenger">Facebook Messenger</option><option value="instagram_messaging">Instagram</option><option value="whatsapp_business">WhatsApp</option><option value="threads">Threads (catalog only)</option></select></label>
+          <label>Page/account ID<input required value={metaForm.externalAccountId} onChange={(e) => setMetaForm({...metaForm,externalAccountId:e.target.value})} /></label>
+          <label>Tên Page/account<input required value={metaForm.accountName} onChange={(e) => setMetaForm({...metaForm,accountName:e.target.value})} /></label>
+          <label>Token reference server-side<input required value={metaForm.tokenRef} onChange={(e) => setMetaForm({...metaForm,tokenRef:e.target.value})} /><small>Chỉ nhập tên biến META_...; không nhập token vào UI.</small></label>
+          <label>Channel xử lý<select required value={metaForm.channelId} onChange={(e) => setMetaForm({...metaForm,channelId:e.target.value})}><option value="">Chọn channel</option>{rows.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>
+          <button type="submit" disabled={metaFormBusy}>{metaFormBusy ? 'Đang xác minh…' : 'Liên kết và xác minh'}</button>
+        </form>}
         {metaError && <p role="alert">{metaError}</p>}
         {!meta && !metaError && <p role="status">Đang tải kết nối Meta…</p>}
         {meta?.capabilities.map(capability => {

@@ -1,6 +1,6 @@
 import type {PoolClient} from 'pg';
 import {z} from 'zod';
-import {requireRole,HttpError,audit} from '../../core/security';
+import {requireRole,HttpError,audit,uuid} from '../../core/security';
 import {META_CONNECTORS} from './connectors';
 
 /** Inbox source catalog follows channel read permissions, including disconnected history. */
@@ -20,6 +20,44 @@ export async function listMetaConnections(db:PoolClient, actor:{workspace_id:str
  const connections=(await db.query(`SELECT id,channel_id,channel_kind,external_page_id,page_name,status,last_verified_at
  FROM meta_connections WHERE workspace_id=$1 ORDER BY created_at,id`,[actor.workspace_id])).rows;
  return {capabilities:META_CONNECTORS,connections};
+}
+
+/** Add a server-configured Meta account to this workspace. Secrets stay in env/secret storage. */
+export async function createMetaConnection(db:PoolClient, actor:{workspace_id:string;role:string;user_id:string}, body:unknown) {
+ requireRole(actor.role);
+ const input=z.object({
+  channelId:z.string().uuid(),
+  platform:z.enum(['facebook_messenger','instagram_messaging','whatsapp_business','threads']),
+  externalAccountId:z.string().trim().regex(/^\d{1,128}$/),
+  accountName:z.string().trim().min(1).max(200),
+  tokenRef:z.string().regex(/^META_[A-Z0-9_]+$/)
+ }).strict().parse(body);
+ if(!process.env[input.tokenRef]?.trim()) throw new HttpError(400,'META_TOKEN_REFERENCE_NOT_CONFIGURED');
+ const channel=(await db.query('SELECT id FROM channels WHERE id=$1 AND workspace_id=$2 AND enabled FOR SHARE',[input.channelId,actor.workspace_id])).rows[0];
+ if(!channel) throw new HttpError(404,'CHANNEL_NOT_FOUND');
+ const duplicate=(await db.query('SELECT workspace_id FROM meta_connections WHERE channel_kind=$1 AND external_page_id=$2 FOR SHARE',[input.platform,input.externalAccountId])).rows[0];
+ if(duplicate) throw new HttpError(409,'META_ACCOUNT_ALREADY_CONNECTED');
+ const id=uuid();
+ try {
+  await db.query(`INSERT INTO meta_connections(id,workspace_id,channel_id,channel_kind,external_page_id,page_name,page_access_token_ref,status,scopes)
+   VALUES($1,$2,$3,$4,$5,$6,$7,'pending','[]'::jsonb)`,[id,actor.workspace_id,input.channelId,input.platform,input.externalAccountId,input.accountName,input.tokenRef]);
+ } catch(error:any) {
+  if(error?.code==='23505') throw new HttpError(409,'META_ACCOUNT_ALREADY_CONNECTED');
+  throw error;
+ }
+ await audit(db,actor.workspace_id,actor.user_id,'meta.connection.created',id);
+ return {id,status:'pending',platform:input.platform,externalAccountId:input.externalAccountId,accountName:input.accountName};
+}
+
+/** Verify only the configured secret reference; live Graph/webhook verification remains explicit. */
+export async function verifyMetaConnection(db:PoolClient, actor:{workspace_id:string;role:string;user_id:string}, id:string) {
+ requireRole(actor.role);
+ const row=(await db.query('SELECT id,page_access_token_ref,status FROM meta_connections WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[z.string().uuid().parse(id),actor.workspace_id])).rows[0];
+ if(!row) throw new HttpError(404,'META_CONNECTION_NOT_FOUND');
+ if(!process.env[row.page_access_token_ref]?.trim()) throw new HttpError(400,'META_TOKEN_REFERENCE_NOT_CONFIGURED');
+ await db.query("UPDATE meta_connections SET status='connected',last_verified_at=now(),updated_at=now() WHERE id=$1 AND workspace_id=$2",[row.id,actor.workspace_id]);
+ await audit(db,actor.workspace_id,actor.user_id,'meta.connection.verified',row.id);
+ return {id:row.id,status:'connected',verifiedAt:new Date().toISOString()};
 }
 
 /** Serializes with the dispatch lock; an already-dispatched request cannot be recalled. */

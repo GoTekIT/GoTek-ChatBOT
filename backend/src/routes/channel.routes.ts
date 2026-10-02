@@ -1,4 +1,4 @@
-import {listMetaConnections,disconnectMetaConnection} from '../modules/meta/connections';
+import {listMetaConnections,disconnectMetaConnection,createMetaConnection,verifyMetaConnection} from '../modules/meta/connections';
 import {Router} from 'express';
 import {authed} from '../middlewares/auth.middleware';
 import {
@@ -15,6 +15,8 @@ import {
 
 export const channelRouter = Router();
 channelRouter.post('/meta/connections/:id/disconnect', authed((db, i, req) => disconnectMetaConnection(db, i, String(req.params.id))));
+channelRouter.post('/meta/connections', authed((db, i, req) => createMetaConnection(db, i, req.body)));
+channelRouter.post('/meta/connections/:id/verify', authed((db, i, req) => verifyMetaConnection(db, i, String(req.params.id))));
 channelRouter.get('/meta/connections', authed((db, i) => listMetaConnections(db, i)));
 
 channelRouter.get(
