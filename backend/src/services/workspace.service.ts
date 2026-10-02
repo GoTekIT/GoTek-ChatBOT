@@ -1,12 +1,24 @@
 import type {PoolClient} from 'pg';
 import {scope} from '../core/db';
-import {HttpError, audit} from '../core/security';
+import {HttpError, audit, uuid} from '../core/security';
 import {WorkspaceRepository} from '../repositories/workspace.repository';
 import {MembershipRepository} from '../repositories/membership.repository';
 import {SessionRepository} from '../repositories/session.repository';
 import {usageSummary} from '../modules/ai/quota';
 
 export class WorkspaceService {
+  /** The caller is authenticated; ownership always belongs to that caller. */
+  static async createWorkspace(db: PoolClient, userId: string, name: string) {
+    const workspaceId = uuid();
+    await scope(db, workspaceId);
+    await WorkspaceRepository.create(db, workspaceId, name);
+    await MembershipRepository.create(db, workspaceId, userId, 'Owner');
+    const quota = Number.parseInt(process.env.GOTEK_DEFAULT_AI_RESPONSE_QUOTA || '1000', 10);
+    if (!Number.isSafeInteger(quota) || quota < 0) throw new HttpError(500, 'INVALID_DEFAULT_QUOTA');
+    await WorkspaceRepository.createDefaultAiQuota(db, workspaceId, quota);
+    await audit(db, workspaceId, userId, 'workspace.created', workspaceId);
+    return {id: workspaceId, name, role: 'Owner'};
+  }
   static async getWorkspace(db: PoolClient, workspaceId: string): Promise<any> {
     const ws = await WorkspaceRepository.findById(db, workspaceId);
     if (!ws) throw new HttpError(404, 'NOT_FOUND');

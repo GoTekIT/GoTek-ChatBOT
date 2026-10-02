@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import request from 'supertest';
+import {randomUUID} from 'node:crypto';
+import {createApp} from '../src/app';
+import {pool} from '../src/core/db';
+test.after(()=>pool.end());
+test('authenticated user creates another workspace as Owner without moving the active session',async()=>{
+ const app=createApp(),agent=request.agent(app);
+ await request(app).post('/api/workspaces').set('X-Gotek-Request','1').send({name:'Unauthorized'}).expect(401);
+ const email=randomUUID()+'@workspace.test',password='Workspace-test-2026!';
+ await agent.post('/api/auth/signup').set('X-Gotek-Request','1').send({email,password,fullName:'Workspace owner',business:'Original',phone:'0900000000'}).expect(202);
+ await agent.post('/api/auth/login').set('X-Gotek-Request','1').send({email,password}).expect(200);
+ const before=(await agent.get('/api/me').expect(200)).body;
+ const created=(await agent.post('/api/workspaces').set('X-Gotek-Request','1').send({name:'Second brand'}).expect(200)).body;
+ assert.equal(created.role,'Owner');assert.notEqual(created.id,before.workspaceId);
+ assert.equal((await agent.get('/api/me').expect(200)).body.workspaceId,before.workspaceId);
+ await agent.post('/api/workspace/switch').set('X-Gotek-Request','1').send({workspaceId:created.id}).expect(200);
+ assert.equal((await agent.get('/api/me').expect(200)).body.workspaceId,created.id);
+ await agent.post('/api/workspaces').set('X-Gotek-Request','1').send({name:'Invalid override',userId:randomUUID()}).expect(400);
+});
