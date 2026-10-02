@@ -1,4 +1,5 @@
 import type {PoolClient} from 'pg';import {z} from 'zod';import {uuid,opaque,requireRole,HttpError,audit} from '../../core/security';
+import {realtimeHub} from './realtime';
  type Actor={workspace_id:string,user_id:string,role:string};
  const databaseId=z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 export function websiteOrigin(value:string){let url:URL;try{url=new URL(value);}catch{throw new HttpError(400,'INVALID_WEBSITE_ORIGIN');}if(url.username||url.password||url.search||url.hash||url.pathname!=='/'||!['https:','http:'].includes(url.protocol)||url.protocol==='http:'&&!['localhost','127.0.0.1','[::1]'].includes(url.hostname))throw new HttpError(400,'INVALID_WEBSITE_ORIGIN');return url.origin;}
@@ -102,7 +103,7 @@ export async function updateChannelAgents(db:PoolClient,actor:Actor,id:string,bo
  const previous=(await db.query('SELECT user_id FROM channel_members WHERE workspace_id=$1 AND channel_id=$2',[actor.workspace_id,id])).rows.map(r=>r.user_id);
  const removed=previous.filter((user:string)=>!agents.includes(user));
  await db.query('DELETE FROM channel_members WHERE workspace_id=$1 AND channel_id=$2',[actor.workspace_id,id]);for(const user of agents)await db.query('INSERT INTO channel_members(workspace_id,channel_id,user_id) VALUES($1,$2,$3)',[actor.workspace_id,id,user]);
- if(removed.length){await db.query("UPDATE conversations SET assigned_to=NULL,reply_owner='HANDOFF_PENDING',owner_version=owner_version+1,updated_at=now() WHERE workspace_id=$1 AND channel_id=$2 AND status='open' AND assigned_to=ANY($3::uuid[])",[actor.workspace_id,id,removed]);await audit(db,actor.workspace_id,actor.user_id,'channel.assignments.released',id);}
+ if(removed.length){for(const u of removed){realtimeHub.evictChannel(actor.workspace_id,id,u);}await db.query("UPDATE conversations SET assigned_to=NULL,reply_owner='HANDOFF_PENDING',owner_version=owner_version+1,updated_at=now() WHERE workspace_id=$1 AND channel_id=$2 AND status='open' AND assigned_to=ANY($3::uuid[])",[actor.workspace_id,id,removed]);await audit(db,actor.workspace_id,actor.user_id,'channel.assignments.released',id);}
  await audit(db,actor.workspace_id,actor.user_id,'channel.members.updated',id);return {agents:valid};
 }
 export async function updateChannelState(db:PoolClient,actor:Actor,id:string,body:unknown){
