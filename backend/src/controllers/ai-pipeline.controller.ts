@@ -40,9 +40,19 @@ const playgroundSchema = z.object({
 
 const teachFaqSchema = z.object({
   question: z.string().trim().min(2).max(100),
-  answer: z.string().trim().min(2).max(1800),
+  answer: z.string().trim().min(2).max(1800).optional(),
+  steps: z.array(z.object({
+    stepNumber: z.number().int().min(1),
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().min(1).max(1000),
+    imageUrl: z.string().url().max(1000).optional(),
+  })).max(20).optional(),
+  allowedImages: z.array(z.string().url().max(1000)).max(10).optional(),
   categoryId: z.string().uuid().nullable().optional(),
-}).strict();
+  audience: z.enum(['PUBLIC', 'INTERNAL']).optional().default('PUBLIC'),
+}).refine(data => Boolean(data.answer || (data.steps && data.steps.length > 0)), {
+  message: 'Phải cung cấp câu trả lời tổng quan hoặc danh sách các bước thực hiện',
+});
 
 export class AiPipelineController {
   static async ingestDocument(db: PoolClient, i: Identity, req: Request): Promise<any> {

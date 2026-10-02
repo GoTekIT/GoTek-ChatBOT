@@ -66,3 +66,19 @@ export async function rollbackKnowledge(db:PoolClient,actor:any,id:string,body:u
  const response={...updated,version:target,state:'DRAFT'};
  return finish(db,actor,data.requestId,'knowledge.draft_rolled_back',payload,itemId,response);
 }
+
+const unpublishSchema=z.object({requestId:z.string().uuid(),expectedRevision:z.number().int().positive()}).strict();
+
+/** Revoke publication of an active knowledge item, hiding it from visitor widget and public RAG. */
+export async function unpublishKnowledge(db:PoolClient,actor:any,id:string,body:unknown){
+ requireRole(actor.role);const itemId=z.string().uuid().parse(id),data=unpublishSchema.parse(body);
+ const payload={id:itemId,expectedRevision:data.expectedRevision};
+ const old=await replay(db,actor,data.requestId,'knowledge.unpublished',payload);if(old)return old;
+ const current=(await db.query('SELECT id,revision,published_version_id FROM knowledge_items WHERE workspace_id=$1 AND id=$2 FOR UPDATE',[actor.workspace_id,itemId])).rows[0];
+ if(!current)throw new HttpError(404,'NOT_FOUND');
+ if(current.revision!==data.expectedRevision)throw new HttpError(409,'VERSION_CONFLICT');
+ if(!current.published_version_id)throw new HttpError(409,'NOT_PUBLISHED');
+ const updated=(await db.query('UPDATE knowledge_items SET published_version_id=NULL,published_at=NULL,published_by=NULL,revision=revision+1,updated_at=now() WHERE workspace_id=$1 AND id=$2 RETURNING id,revision,draft_version_id,published_version_id,audience,active',[actor.workspace_id,itemId])).rows[0];
+ return finish(db,actor,data.requestId,'knowledge.unpublished',payload,itemId,updated);
+}
+

@@ -93,8 +93,16 @@ export interface GenerateAnswerResult {
 
 export interface TeachFaqInput {
   question: string;
-  answer: string;
+  answer?: string;
+  steps?: Array<{
+    stepNumber: number;
+    title: string;
+    description: string;
+    imageUrl?: string;
+  }>;
+  allowedImages?: string[];
   categoryId?: string | null;
+  audience?: 'PUBLIC' | 'INTERNAL';
 }
 
 /**
@@ -391,15 +399,34 @@ export class AiPipelineService {
     input: TeachFaqInput
   ): Promise<IngestDocumentResult> {
     const question = z.string().trim().min(2).max(100).parse(input.question);
-    const answer = z.string().trim().min(2).max(1800).parse(input.answer);
+    const contentParts: string[] = [`CÂU HỎI THƯỜNG GẶP (FAQ):`, `- Câu hỏi: ${question}`];
 
-    const formattedContent = `CÂU HỎI THƯỜNG GẶP (FAQ):\n- Hỏi: ${question}\n- Trả lời: ${answer}`;
+    if (input.answer && input.answer.trim()) {
+      contentParts.push(`- Tóm tắt: ${input.answer.trim()}`);
+    }
+
+    if (input.steps && input.steps.length > 0) {
+      contentParts.push(`- Các bước thực hiện:`);
+      for (const step of input.steps) {
+        contentParts.push(`  + Bước ${step.stepNumber}: ${step.title} - ${step.description}`);
+        if (step.imageUrl) {
+          contentParts.push(`    [Ảnh minh họa: ${step.imageUrl}]`);
+        }
+      }
+    }
+
+    if (input.allowedImages && input.allowedImages.length > 0) {
+      contentParts.push(`- Hình ảnh được phép đính kèm: ${input.allowedImages.join(', ')}`);
+    }
+
+    const formattedContent = contentParts.join('\n');
+    const finalContent = formattedContent.slice(0, 1950);
 
     return this.ingestDocument(db, workspaceId, userId, {
       title: `FAQ: ${question.slice(0, 90)}`,
-      content: formattedContent,
+      content: finalContent,
       categoryId: input.categoryId,
-      audience: 'PUBLIC',
+      audience: input.audience || 'PUBLIC',
     });
   }
 }
