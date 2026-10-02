@@ -3,7 +3,7 @@ import {transaction} from '../core/db';
 import {receiveMetaWebhook,verifyMetaWebhook} from '../modules/meta/messenger';
 import {META_CONNECTORS} from '../modules/meta/connectors';
 import {authed} from '../middlewares/auth.middleware';
-import {listQuarantinedMetaEvents,replayQuarantinedMetaEvent} from '../modules/meta/quarantine';
+import {listQuarantinedMetaEvents,replayQuarantinedMetaEvent,claimQuarantinedMetaEvent} from '../modules/meta/quarantine';
 export const metaRouter=Router();
 // Public capability catalogue: never includes credentials or workspace data.
 metaRouter.get('/meta/connectors',(_req,res)=>res.json({connectors:META_CONNECTORS}));
@@ -21,3 +21,4 @@ metaRouter.post('/meta/webhook',(req,res,next)=>{
 });
 metaRouter.get('/meta/quarantine',authed((db,i)=>listQuarantinedMetaEvents(db,i)));
 metaRouter.post('/meta/quarantine/:id/replay',authed((db,i,req)=>replayQuarantinedMetaEvent(db,i,String(req.params.id))));
+metaRouter.post('/meta/quarantine/:id/claim',authed((db,i,req)=>claimQuarantinedMetaEvent(db,i,String(req.params.id),String(req.body.connectionId))));
