@@ -48,6 +48,7 @@ export async function replayQuarantinedMetaEvent(db:PoolClient, actor:{workspace
  WHERE q.workspace_id=$1 AND q.id=$2 AND q.replayed_at IS NULL AND q.expires_at>now() AND mc.status='connected' FOR UPDATE`,[actor.workspace_id,id])).rows[0];
  if(!row) throw new HttpError(404,'META_QUARANTINE_NOT_FOUND_OR_UNAVAILABLE');
  const result=await ingestMetaBody(db,row.payload,[]);
+ if(result.processed===0) return {id:row.id,replayed:false,result};
  await db.query('UPDATE meta_webhook_quarantine SET replayed_at=now() WHERE id=$1',[row.id]);
  return {id:row.id,replayed:true,result};
 }
