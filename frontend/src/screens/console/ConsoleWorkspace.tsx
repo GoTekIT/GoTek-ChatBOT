@@ -52,6 +52,7 @@ export function ConsoleWorkspace({
   // Members are loaded from the tenant-scoped API by MembersSettings.
   const staffList: StaffMember[] = [];
 
+  const [inboxSources,setInboxSources]=useState<Array<{connectionId:string;platform:string;accountName:string}>>([]);
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
   const selectedConvIdRef = useRef<string>(selectedConvId);
@@ -83,9 +84,19 @@ export function ConsoleWorkspace({
   };
 
   // Fetch real conversations from Backend while preserving existing messages in state
+  const sourceQueryRef = useRef('');
+  const sourceRequestRef = useRef(0);
   const loadConversations = async () => {
+    const request = ++sourceRequestRef.current;
     try {
-      const data: Conversation[] = await api('/conversations');
+      const data: Conversation[] = await api('/conversations'+sourceQueryRef.current);
+      if(request !== sourceRequestRef.current) return;
+      if(data.length===0){
+        setConversations([]);
+        selectedConvIdRef.current='';
+        setSelectedConvId('');
+        return;
+      }
       if (data && data.length > 0) {
         setConversations((prev) => {
           return data.map((newConv) => {
@@ -134,9 +145,13 @@ export function ConsoleWorkspace({
   };
 
   useEffect(() => {
+    let cancelled=false;
+    sourceQueryRef.current='';
+    setInboxSources([]);
+    void api('/inbox/sources').then(data=>{if(!cancelled)setInboxSources(data);}).catch(()=>{if(!cancelled)setInboxSources([]);});
     void loadConversations();
     const interval = setInterval(loadConversations, 15000);
-    return () => clearInterval(interval);
+    return () => {cancelled=true;sourceRequestRef.current++;clearInterval(interval);};
   }, [me?.workspaceId]);
 
   // Load real messages whenever selectedConvId changes
@@ -516,7 +531,16 @@ export function ConsoleWorkspace({
             {!canOpenModule(me, activeModule) && <main className="p-6" role="alert">Bạn không có quyền truy cập chức năng này. <button onClick={() => handleSelectModule('inbox')}>Về hộp thư</button></main>}
             {activeModule === 'inbox' && canOpenModule(me, 'inbox') && (
               <InboxView
+                key={me?.workspaceId}
+                sources={inboxSources}
                 conversations={conversations}
+                onSourceFilterChange={(platforms,connectionIds)=>{
+                  const query=new URLSearchParams();
+                  platforms.forEach(value=>query.append('platforms',value));
+                  connectionIds.forEach(value=>query.append('connectionIds',value));
+                  sourceQueryRef.current=query.size?'?'+query.toString():'';
+                  void loadConversations();
+                }}
                 selectedConvId={selectedConvId}
                 setSelectedConvId={setSelectedConvId}
                 onSendMessage={handleSendMessage}

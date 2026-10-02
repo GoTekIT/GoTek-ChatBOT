@@ -1,3 +1,58 @@
+## Receipt source integrity guard (2026-10-02)
+- Migration 069 checks each receipt source against its message conversation, beyond tenant-only FK validation, and prevents changing a conversation's original connection after creation.
+- Added negative database tests for assigning a receipt or conversation to another valid same-tenant connection. Migration applied only to isolated PostgreSQL 55439.
+- This is incremental integrity work; account linking, durable ingestion/quarantine, complete UI and full acceptance/PR review remain outstanding.
+
+## Early receipt reconciliation evidence (2026-10-02)
+- Added shared reconciliation after status ingestion and outbound receipt persistence. It folds durable connection-scoped events, preserves read/delivered precedence and serializes with connection dispatch locks.
+- Database regression sends callbacks before receipt creation, then verifies read projection; a sibling connection with the same provider message ID remains accepted. Meta suite 5/5 and backend typecheck passed.
+- Inbox source projections now also require conversation.connection_id rather than relying only on visitor token parsing.
+- Not complete: HTTP/worker end-to-end early-callback concurrency, unmapped quarantine/replay, linking UI/OAuth, media fetch and browser acceptance remain outstanding. All edits remain local pending review.
+
+## Receipt source binding (2026-10-02)
+- Migration 068 backfills non-null receipt connection_id from conversation source, enforces tenant FK and scopes provider message uniqueness by connection. Applied only to disposable test database.
+- Worker records original connection; callback updates match workspace + connection + provider message ID. Repeated worker receipt insertion no longer resets delivered/read to accepted.
+- Receipt regression now creates an actual projection row and verifies read remains read after delivered/sent callbacks, rather than testing event persistence alone.
+- Outstanding: callback-before-receipt reconciliation, collision regression across accounts, provider failures/unknown outcome and quarantine/replay. Not production acceptance.
+
+## Original-connection dispatch (2026-10-02)
+- Inbox public sends and Meta worker now join meta_connections by conversations.connection_id plus workspace/channel, rather than all connected accounts on a channel. Worker still checks visitor binding, ownership version and live connection status under lock.
+- Agent jobs carry connectionId instead of recipient/token reference hints; dispatch resolves authoritative recipient/credential from scoped rows.
+- Regression now verifies the original token is used even with a second connected account on the channel, and disconnecting the original still blocks replacement-account dispatch. Meta database suite and backend typecheck recorded for this change.
+- Remaining: explicit source in all read projections, receipts, durable webhook quarantine/worker and complete linking workflow. Not merge-ready.
+
+## Explicit conversation source checkpoint (2026-10-02)
+- Migration 067 adds conversations.connection_id with workspace/channel/connection composite FK and backfills only exact visitor identity bindings, including disconnected accounts. Unresolved Meta bindings abort migration without choosing a replacement.
+- New inbound conversations persist connection_id. Migration applied to the disposable routing test database; existing source lookup/dispatch still needs conversion to this explicit column.
+- Remaining gates include migration failure/race tests, explicit receipt connection key, quarantine/worker ingestion and account linking. No live migration executed.
+
+## Permission-scoped source catalog (2026-10-02)
+- GET /api/inbox/sources lists enabled channel sources in the authenticated workspace. Owner/Admin see all; Agent needs channel membership. Response excludes credentials and token references and includes disconnected sources for history filtering.
+- Inbox source options now use this catalog rather than the last 100 conversations. Workspace changes clear filter/catalog state and invalidate earlier list responses.
+- Extended database regression checks owner catalog, unassigned Agent denial and absence of secret reference. Browser acceptance and full multi-workspace linking remain pending.
+
+## Source filter wiring checkpoint (2026-10-02)
+- Multi-select platform/account controls now send repeated query parameters to inbox API; backend accepts one or multiple values. Polling uses current filters and ignores responses superseded by newer requests.
+- Empty results clear previous conversations/selection instead of retaining stale inbox rows.
+- Remaining: account options currently derive from loaded conversations and must be replaced with a permission-scoped connection catalog; browser/API end-to-end filter validation pending. Full build passed before final empty-state adjustment; frontend rebuild recorded separately.
+
+## Inbox source account projection (2026-10-02)
+- List/detail expose connectionId, platform, accountName, externalAccountId and connectionStatus from original visitor binding, including disconnected connections. Existing business tags stay separate.
+- Inbox list service supports multiple connectionIds/platforms; frontend renders platform plus account name in existing source labels. Filter controls and HTTP query serialization still pending.
+- PostgreSQL ingestion suite 5/5 passed, now also checking source consistency in list/detail and connection/platform filtering across two tenants. Full backend/frontend build passed. Browser rendering has not yet been verified.
+
+## Database routing evidence (2026-10-02)
+- Disposable PostgreSQL 16 initialized at /tmp/gotek-routing-test.GLJrzo on port 55439; all migrations through 066 applied. No existing database modified.
+- Meta ingestion suite: 5/5 passed, including a signed envelope containing three Pages across two workspaces, replay dedupe, tenant-isolated reads, and rejection of duplicate external account ownership. Workspace creation API suite also passed (1/1).
+- Fixed reusable test fixtures to use unique external account IDs under the new global uniqueness constraint. Backend typecheck passed.
+- Remaining: quarantine/replay, durable worker ingestion, source connection foreign keys, linking UI and full API/provider/UI acceptance. SQL routing was tested with the local migrator owner; deployment role ownership still requires verification.
+
+## Multi-workspace routing correction (2026-10-02)
+- Fixed the resolver contract: SQL returns `connection_id`, while ingestion expects `id`. The previous build-only check missed this runtime defect.
+- Extracted typed connection route resolution; regression tests verify connection identity and per-event workspace scope switching (2/2 passed); backend typecheck passed.
+- Not accepted yet: real database routing/RLS, quarantine/replay, explicit conversation/receipt source keys, account linking UI and multi-account end-to-end acceptance remain pending. No live database migration executed.
+- Next: provision disposable test PostgreSQL, validate migration 066 under gotek_app including SECURITY DEFINER ownership/RLS, then signed mixed-workspace webhook ingestion. Do not treat mocked routing tests as end-to-end evidence.
+
 ## Composer media URL checkpoint
 - Inbox composer now exposes media type + HTTPS URL fields behind the attachment button and forwards the attachment with the existing send idempotency key.
 - This is URL-based media dispatch; local file upload/storage is intentionally not claimed. Frontend build and 10 tests pass.

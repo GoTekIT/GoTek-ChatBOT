@@ -1,4 +1,5 @@
 import {Router} from 'express';
+import {listInboxSources} from '../modules/meta/connections';
 import {authed, identity, Identity} from '../middlewares/auth.middleware';
 import {transaction} from '../core/db';
 import {uuid} from '../core/security';
@@ -17,6 +18,7 @@ import {
 } from '../modules/chat/inbox';
 
 export const inboxRouter = Router();
+inboxRouter.get('/inbox/sources',authed((db,i)=>listInboxSources(db,i)));
 
 inboxRouter.get(
   '/conversations',
@@ -113,4 +115,3 @@ inboxRouter.get('/stream', async (req, res, next) => {
     next(e);
   }
 });
-

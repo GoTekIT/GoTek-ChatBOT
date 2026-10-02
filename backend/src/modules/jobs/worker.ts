@@ -1,3 +1,4 @@
+import {reconcileMetaReceipt} from '../meta/receipts';
 import {transaction,scope} from '../../core/db';
 import {claimJob,finishJob,recoverStaleJobs} from './jobs';
 import {appendMessage} from '../../modules/chat/chat-store';
@@ -132,7 +133,7 @@ export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaTex
     v.token_hash AS identity_binding,mc.id AS connection_id,v.profile->>'metaUserId' AS recipient,mc.page_access_token_ref,mc.channel_kind,mc.external_page_id
     FROM messages m JOIN conversations c ON c.id=m.conversation_id AND c.workspace_id=m.workspace_id
     JOIN visitors v ON v.id=c.visitor_id AND v.workspace_id=c.workspace_id
-    JOIN meta_connections mc ON mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id
+    JOIN meta_connections mc ON mc.id=c.connection_id AND mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id
     WHERE m.id=$1 AND m.workspace_id=$2 AND c.id=$3 AND mc.status='connected'
     FOR UPDATE OF c,mc`,[String(job.payload.messageId),workspace,String(job.payload.conversationId)])).rows;
    if(candidates.length!==1)throw new HttpError(409,'META_DISPATCH_INVALID');
@@ -149,9 +150,10 @@ export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaTex
    const result=media
     ? await sendMetaMedia({recipientId:row.recipient,mediaType:media.kind,mediaUrl:media.url,...(row.channel_kind==='whatsapp_business'&&media.kind!=='audio'?{caption:row.body}:{}),pageAccessTokenRef:row.page_access_token_ref,channelKind:row.channel_kind,externalAccountId:row.external_page_id})
     : await send({recipientId:row.recipient,text:row.body,pageAccessTokenRef:row.page_access_token_ref,channelKind:row.channel_kind,externalAccountId:row.external_page_id});
-   if(result.status!=='accepted')throw new HttpError(502,result.errorCode||'META_DELIVERY_UNKNOWN');
-   await db.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,provider_message_id,status)
-     VALUES(gen_random_uuid(),$1,$2,$3,'accepted') ON CONFLICT(workspace_id,message_id) DO UPDATE SET provider_message_id=EXCLUDED.provider_message_id,status='accepted',updated_at=now()`,[workspace,job.payload.messageId,result.providerMessageId]);
+   if(result.status!=='accepted'||!result.providerMessageId)throw new HttpError(502,result.errorCode||'META_DELIVERY_UNKNOWN');
+   await db.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,provider_message_id,status,connection_id)
+     VALUES(gen_random_uuid(),$1,$2,$3,'accepted',$4) ON CONFLICT(workspace_id,message_id) DO NOTHING`,[workspace,job.payload.messageId,result.providerMessageId,row.connection_id]);
+   await reconcileMetaReceipt(db,workspace,row.connection_id,result.providerMessageId);
    return {receipt:`meta:${result.providerMessageId}`};
   });
  }});

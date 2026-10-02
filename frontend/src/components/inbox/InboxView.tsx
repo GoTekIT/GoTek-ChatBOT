@@ -7,6 +7,8 @@ import { useRealtimeChat } from '../../hooks/useRealtimeChat';
 
 interface InboxViewProps {
   conversations: Conversation[];
+  sources?: Array<{connectionId:string;platform:string;accountName:string}>;
+  onSourceFilterChange?: (platforms:string[],connectionIds:string[])=>void;
   selectedConvId: string;
   setSelectedConvId: (id: string) => void;
   onSendMessage: (convId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>, sentViaWs?: boolean) => Promise<boolean>;
@@ -37,6 +39,8 @@ function playNotificationChime() {
 
 export const InboxView: React.FC<InboxViewProps> = ({
   conversations,
+  sources = [],
+  onSourceFilterChange,
   selectedConvId,
   setSelectedConvId,
   onSendMessage,
@@ -47,6 +51,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
 }) => {
   // Filter tabs: all, queue (cần handoff), bot (AI đang phục vụ), mine (đã gán)
   const [filterTab, setFilterTab] = useState<'all' | 'queue' | 'bot' | 'mine'>('all');
+  const [sourcePlatforms,setSourcePlatforms]=useState<string[]>([]);
+  const [sourceConnections,setSourceConnections]=useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [composerMode, setComposerMode] = useState<'public' | 'internal'>('public');
   const [messageText, setMessageText] = useState('');
@@ -396,6 +402,28 @@ export const InboxView: React.FC<InboxViewProps> = ({
               </button>
             </div>
 
+            <div className="flex flex-col gap-2 text-xs">
+              <label>Nền tảng
+                <select multiple aria-label="Lọc nền tảng" value={sourcePlatforms} className="w-full bg-transparent border rounded p-1" onChange={e=>{
+                  const values=Array.from(e.target.selectedOptions,o=>o.value);
+                  setSourcePlatforms(values); onSourceFilterChange?.(values,sourceConnections);
+                }}>
+                  <option value="facebook_messenger">Facebook Messenger</option>
+                  <option value="instagram_messaging">Instagram</option>
+                  <option value="whatsapp_business">WhatsApp</option>
+                </select>
+              </label>
+              <label>Page / tài khoản
+                <select multiple aria-label="Lọc Page hoặc tài khoản" value={sourceConnections} className="w-full bg-transparent border rounded p-1" onChange={e=>{
+                  const values=Array.from(e.target.selectedOptions,o=>o.value);
+                  setSourceConnections(values); onSourceFilterChange?.(sourcePlatforms,values);
+                }}>
+                  {sources.map(source=><option key={source.connectionId} value={source.connectionId}>{source.platform === 'facebook_messenger' ? 'Facebook Messenger' : source.platform === 'instagram_messaging' ? 'Instagram' : source.platform === 'whatsapp_business' ? 'WhatsApp' : source.platform} · {source.accountName}</option>)}
+                </select>
+              </label>
+              <button type="button" onClick={()=>{setSourcePlatforms([]);setSourceConnections([]);onSourceFilterChange?.([],[]);}}>Xóa bộ lọc nguồn</button>
+            </div>
+
             {/* Natural Search Input */}
             <div className="relative group">
               <span className="material-symbols-outlined absolute left-2.5 top-2 text-slate-400 dark:text-slate-500 text-[17px] pointer-events-none group-focus-within:text-[#1664ff] dark:group-focus-within:text-blue-400 transition-colors">
@@ -589,7 +617,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                           )}
 
                           <span className="px-2 py-0.5 rounded-md text-[10.5px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50 font-medium ml-auto">
-                            {conv.channel}
+                            {conv.channel}{conv.accountName ? ` · ${conv.accountName}` : ''}
                           </span>
                         </div>
                       </div>
@@ -1450,7 +1478,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">
                 <span>Kênh tiếp nhận</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.channel}</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.channel}{activeConv.accountName ? ` · ${activeConv.accountName}` : ''}</span>
               </div>
 
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">

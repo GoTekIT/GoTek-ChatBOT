@@ -1,4 +1,6 @@
-import {listMetaConnections,disconnectMetaConnection} from '../src/modules/meta/connections';
+import {reconcileMetaReceipt} from '../src/modules/meta/receipts';
+import {inboxList,inboxDetail} from '../src/modules/chat/inbox';
+import {listMetaConnections,disconnectMetaConnection,listInboxSources} from '../src/modules/meta/connections';
 import {test,after} from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
@@ -87,9 +89,12 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  const ambiguous=randomUUID();
  await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Ambiguous','META_OTHER_TOKEN')",[ambiguous,workspace,channel,randomUUID()]);
  await transaction(async db=>{await scope(db,workspace);await enqueueJob(db,workspace,{kind:'meta.message.send',key:randomUUID(),payload:{conversationId:conversation,messageId:message,ownerVersion:1},external:true,maxAttempts:1});});
- const blocked=await runMetaWorkerOnce(workspace,async()=>{sends++;throw new Error('Ambiguous mapping must not dispatch');});
- assert.equal(blocked.state,'dead');assert.equal(sends,1);
- await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT id FROM jobs WHERE kind='meta.message.send' AND error_code='META_DISPATCH_INVALID'")).rowCount,1);});
+ const boundSend=await runMetaWorkerOnce(workspace,async input=>{
+  assert.equal(input.pageAccessTokenRef,'META_FIXTURE_TOKEN');
+  assert.equal(input.recipientId,'fixture-user');
+  return {status:'accepted',providerMessageId:'bound-source-receipt'};
+ });
+ assert.equal(boundSend.state,'succeeded');
  await admin!.query("UPDATE meta_connections SET status='disconnected' WHERE id=$1",[connection]);
  await transaction(async db=>{await scope(db,workspace);await enqueueJob(db,workspace,{kind:'meta.message.send',key:randomUUID(),payload:{conversationId:conversation,messageId:message,ownerVersion:1},external:true,maxAttempts:1});});
  const switched=await runMetaWorkerOnce(workspace,async()=>{sends++;throw new Error('Replacement account must not dispatch old conversation');});
@@ -164,6 +169,9 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
  await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2),($3,$4)',[workspace,'Multi Meta fixture',other,'Other Meta fixture']);
  const cases=[{kind:'instagram_messaging',account:'100001',body:{object:'instagram',entry:[{id:'100001',messaging:[{sender:{id:'shared-user'},recipient:{id:'100001'},message:{mid:'same-mid',text:'Instagram fixture'}}]}]}},{kind:'whatsapp_business',account:'100002',body:{object:'whatsapp_business_account',entry:[{id:'waba-id-not-phone-id',changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'100002'},messages:[{from:'shared-user',id:'same-mid',type:'text',text:{body:'WhatsApp fixture'}}]}}]}]}}];
  for(const fixture of cases){
+  const uniqueAccount=randomUUID();
+  fixture.body=JSON.parse(JSON.stringify(fixture.body).replaceAll(fixture.account,uniqueAccount));
+  fixture.account=uniqueAccount;
   const channel=randomUUID(),connection=randomUUID();
   await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Meta fixture','https://example.test','Hello','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
   await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,channel_kind,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,$5,'Fixture','META_FIXTURE_TOKEN')",[connection,workspace,channel,fixture.kind,fixture.account]);
@@ -185,7 +193,7 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
   assert.equal((await db.query("SELECT id FROM jobs WHERE kind='ai.reply'")).rowCount,2);
  });
  const sendNamed=async(name:string,id:string)=>{
-  const raw=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'100002'},contacts:[{wa_id:'shared-user',profile:{name}}],messages:[{from:'shared-user',id,type:'text',text:{body:'Name refresh'}}]}}]}]}));
+  const raw=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:cases[1].account},contacts:[{wa_id:'shared-user',profile:{name}}],messages:[{from:'shared-user',id,type:'text',text:{body:'Name refresh'}}]}}]}]}));
   const sig='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(raw).digest('hex');
   return transaction(db=>receiveMetaWebhook(db,raw,sig));
  };
@@ -196,7 +204,7 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
  });
  await sendNamed('Provider new name','name-refresh-2');
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT profile->>'name' AS name FROM visitors WHERE profile->>'source'='whatsapp_business'")).rows[0].name,'Staff label');});
- const mediaBody={object:'whatsapp_business_account',entry:[{id:'waba-id-not-phone-id',changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'100002'},messages:[{from:'shared-user',id:'wa-image',type:'image',image:{id:'image-id'}},{from:'shared-user',id:'wa-video',type:'video',video:{id:'video-id'}}]}}]}]};
+ const mediaBody={object:'whatsapp_business_account',entry:[{id:'waba-id-not-phone-id',changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:cases[1].account},messages:[{from:'shared-user',id:'wa-image',type:'image',image:{id:'image-id'}},{from:'shared-user',id:'wa-video',type:'video',video:{id:'video-id'}}]}}]}]};
  const rawMedia=Buffer.from(JSON.stringify(mediaBody));
  const mediaSig='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(rawMedia).digest('hex');
  assert.equal((await transaction(db=>receiveMetaWebhook(db,rawMedia,mediaSig))).processed,2);
@@ -227,17 +235,32 @@ test('WhatsApp persists each receipt transition once, including reverse arrival 
   const other=randomUUID();await scope(db,other);
   assert.equal((await listMetaConnections(db,{workspace_id:other,role:'Owner'})).connections.length,0);
  });
+ const inbound=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:phone},messages:[{from:'fixture-recipient',id:'receipt-source-inbound',type:'text',text:{body:'Fixture'}}]}}]}]}));
+ await transaction(db=>receiveMetaWebhook(db,inbound,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(inbound).digest('hex')));
  for(const status of ['read','delivered','sent','sent','read']){
   const raw=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:phone},statuses:[{id:'same-mid',status,recipient_id:'fixture-recipient'}]}}]}]}));
   const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
   await transaction(db=>receiveMetaWebhook(db,raw,signature));
  }
+ await admin!.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,connection_id,provider_message_id,status)
+ SELECT $1,$2,m.id,$3,'same-mid','accepted' FROM messages m WHERE m.workspace_id=$2 LIMIT 1`,[randomUUID(),workspace,connection]);
+ const sibling=randomUUID(),siblingPhone=randomUUID();
+ await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,channel_kind) VALUES($1,$2,$3,$4,'Sibling','META_FIXTURE_TOKEN','whatsapp_business')",[sibling,workspace,channel,siblingPhone]);
+ const siblingRaw=Buffer.from(inbound.toString().replaceAll(phone,siblingPhone));
+ await transaction(db=>receiveMetaWebhook(db,siblingRaw,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(siblingRaw).digest('hex')));
+ await admin!.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,connection_id,provider_message_id,status)
+ SELECT $1,$2,m.id,$3,'same-mid','accepted' FROM messages m JOIN conversations c ON c.id=m.conversation_id WHERE c.connection_id=$3 LIMIT 1`,[randomUUID(),workspace,sibling]);
+ await assert.rejects(admin!.query('UPDATE meta_message_deliveries SET connection_id=$1 WHERE workspace_id=$2 AND connection_id=$3',[sibling,workspace,connection]),{code:'23514'});
+ await assert.rejects(admin!.query('UPDATE conversations SET connection_id=$1 WHERE workspace_id=$2 AND connection_id=$3',[sibling,workspace,connection]),{code:'23514'});
+ await transaction(async db=>{await scope(db,workspace);await reconcileMetaReceipt(db,workspace,connection,'same-mid');});
  await transaction(async db=>{
   await scope(db,workspace);
-  const receipts=(await db.query('SELECT event_kind,payload FROM meta_events WHERE connection_id=$1 ORDER BY event_kind',[connection])).rows;
+  assert.equal((await db.query('SELECT status FROM meta_message_deliveries WHERE connection_id=$1',[connection])).rows[0].status,'read');
+  assert.equal((await db.query('SELECT status FROM meta_message_deliveries WHERE connection_id=$1',[sibling])).rows[0].status,'accepted');
+  const receipts=(await db.query("SELECT event_kind,payload FROM meta_events WHERE connection_id=$1 AND event_kind LIKE 'status:%' ORDER BY event_kind",[connection])).rows;
   assert.deepEqual(receipts.map(r=>r.event_kind),['status:delivered','status:read','status:sent']);
   assert.ok(receipts.every(r=>r.payload.providerMessageId==='same-mid'&&!r.payload.entry));
-  assert.equal((await db.query('SELECT id FROM messages')).rowCount,0);
+  assert.equal((await db.query('SELECT id FROM messages')).rowCount,2);
  });
 });
 
@@ -255,4 +278,48 @@ test('disconnect is scoped, audited once and preserves connection history',{skip
   assert.equal((await db.query('SELECT id FROM meta_connections WHERE id=$1',[connection])).rowCount,1);
   assert.equal((await db.query("SELECT id FROM audit_events WHERE object_id=$1 AND action='meta.connection_disconnected'",[connection])).rowCount,1);
  });
+});
+
+test('one signed envelope routes three Pages across two workspaces without configured tenant',{skip:!enabled},async()=>{
+ delete process.env.META_WORKSPACE_ID;
+ process.env.META_APP_SECRET='mixed-workspace-fixture';
+ const workspaces=[randomUUID(),randomUUID()];
+ const pages=[randomUUID(),randomUUID(),randomUUID()];
+ for(const workspace of workspaces) await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[workspace,'Routing fixture']);
+ for(let i=0;i<pages.length;i++){
+  const workspace=workspaces[i===2?1:0],channel=randomUUID();
+  await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Route','https://example.test','Hello','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
+  await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Route','META_FIXTURE_TOKEN')",[randomUUID(),workspace,channel,pages[i]]);
+ }
+ const raw=Buffer.from(JSON.stringify({object:'page',entry:pages.map(page=>({id:page,messaging:[{sender:{id:'same-person'},recipient:{id:page},message:{mid:'mid-'+page,text:'From '+page}}]}))}));
+ const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,raw,signature))).processed,3);
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,raw,signature))).processed,0);
+ for(let i=0;i<workspaces.length;i++) await transaction(async db=>{
+  await scope(db,workspaces[i]);
+  const expected=i===0?2:1;
+  const actor={workspace_id:workspaces[i],user_id:randomUUID(),role:'Owner'};
+  const bound=(await db.query('SELECT connection_id FROM conversations')).rows;
+  assert.ok(bound.every(row=>row.connection_id));
+  const sources=await listInboxSources(db,actor);
+  assert.equal(sources.length,expected);
+  assert.equal((await listInboxSources(db,{...actor,role:'Agent'})).length,0);
+  assert.equal(JSON.stringify(sources).includes('META_FIXTURE_TOKEN'),false);
+  const inbox=await inboxList(db,actor);
+  assert.equal(inbox.length,expected);
+  for(const conversation of inbox){
+   assert.equal(conversation.accountName,'Route');
+   assert.equal(conversation.platform,'facebook_messenger');
+   assert.ok(conversation.connectionId);
+   const detail=await inboxDetail(db,actor,conversation.id);
+   assert.equal(detail.connectionId,conversation.connectionId);
+   assert.equal(detail.externalAccountId,conversation.externalAccountId);
+  }
+  assert.equal((await inboxList(db,actor,{connectionIds:[inbox[0].connectionId]})).length,1);
+  assert.equal((await inboxList(db,actor,{platforms:['whatsapp_business']})).length,0);
+  for(const table of ['conversations','visitors','messages','meta_identities','meta_events'])
+   assert.equal((await db.query(`SELECT id FROM ${table}`)).rowCount,expected,table);
+ });
+ const source=(await admin!.query('SELECT * FROM meta_connections WHERE external_page_id=$1',[pages[0]])).rows[0];
+ await assert.rejects(admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) SELECT $1,workspace_id,channel_id,$2,'Conflict','META_FIXTURE_TOKEN' FROM meta_connections WHERE external_page_id=$3",[randomUUID(),source.external_page_id,pages[2]]),{code:'23505'});
 });

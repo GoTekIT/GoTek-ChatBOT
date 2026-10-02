@@ -1,8 +1,9 @@
+import {reconcileMetaReceipt} from './receipts';
 import {signatureValid} from './webhook-security';
 export {verifyMetaWebhook} from './webhook-security';
 import type {PoolClient} from 'pg';
 import {z} from 'zod';
-import {scope} from '../../core/db';
+import {resolveConnectionRoute} from './connection-route';
 import {uuid,HttpError} from '../../core/security';
 import {createHash} from 'node:crypto';
 import {appendMessage} from '../chat/chat-store';
@@ -17,21 +18,12 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
  if(!signatureValid(raw,signature)) throw new HttpError(403,'META_SIGNATURE_INVALID');
  const body=z.unknown().parse(JSON.parse(raw.toString('utf8')));
  const statuses=normalizeMetaStatuses(body);
- const route=async(surface:string,externalAccountId:string)=>{
-  const row=(await db.query(`SELECT * FROM resolve_meta_connection_route($1,$2)`,[surface,externalAccountId])).rows[0];
-  if(row) await scope(db,row.workspace_id);
-  return row;
- };
  for(const status of statuses){
-  const c=await route(status.surface,status.externalAccountId);
+  const c=await resolveConnectionRoute(db,status.surface,status.externalAccountId);
   if(!c) continue;
   const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,status.eventId,'status:'+status.status,status])).rowCount;
   if(inserted){
-   await db.query(`UPDATE meta_message_deliveries SET status=CASE
-      WHEN status='read' THEN 'read'
-      WHEN status='delivered' AND $1 IN ('sent') THEN 'delivered'
-      ELSE $1 END,error_code=$2,updated_at=now()
-      WHERE workspace_id=$3 AND provider_message_id=$4`,[status.status,status.error||null,c.workspace_id,status.providerMessageId]);
+   await reconcileMetaReceipt(db,c.workspace_id,c.id,status.providerMessageId);
    afterCommit.push(()=>realtimeHub.broadcastToWorkspace(c.workspace_id,'inbox:message_receipt',status));
   }
  }
@@ -39,7 +31,7 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
  if(!normalized.length) return {accepted:true,processed:0};
  let processed=0;
  for(const event of normalized){
-  const c=await route(event.surface,event.externalAccountId);
+  const c=await resolveConnectionRoute(db,event.surface,event.externalAccountId);
   if(!c) continue;
   const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,event.eventId,'message',event])).rowCount;
   if(!inserted) continue;
@@ -47,7 +39,7 @@ export async function receiveMetaWebhook(db:PoolClient,raw:Buffer,signature:stri
   await db.query('INSERT INTO meta_identities(id,connection_id,workspace_id,external_user_id,profile) VALUES($1,$2,$3,$4,$5) ON CONFLICT(connection_id,external_user_id) DO UPDATE SET profile=EXCLUDED.profile||meta_identities.profile,updated_at=now()',[uuid(),c.id,c.workspace_id,event.senderId, profile]);
   const conv=(await db.query("SELECT c.id,c.visitor_id,c.owner_version,c.reply_owner FROM conversations c JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND c.channel_id=$2 AND v.token_hash=$3 ORDER BY c.updated_at DESC LIMIT 1",[c.workspace_id,c.channel_id,'meta:'+c.id+':'+event.senderId])).rows[0];
   let conversation=conv;
-  if(!conversation){const visitorId=uuid();conversation={id:uuid(),visitor_id:visitorId,owner_version:1,reply_owner:'AI_ACTIVE'};await db.query('INSERT INTO visitors(id,workspace_id,channel_id,token_hash,profile,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval \'30 days\')',[visitorId,c.workspace_id,c.channel_id,'meta:'+c.id+':'+event.senderId,{...profile,metaUserId:event.senderId}]);await db.query("INSERT INTO conversations(id,workspace_id,channel_id,visitor_id,reply_owner) VALUES($1,$2,$3,$4,'AI_ACTIVE')",[conversation.id,c.workspace_id,c.channel_id,visitorId]);}
+  if(!conversation){const visitorId=uuid();conversation={id:uuid(),visitor_id:visitorId,owner_version:1,reply_owner:'AI_ACTIVE'};await db.query('INSERT INTO visitors(id,workspace_id,channel_id,token_hash,profile,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval \'30 days\')',[visitorId,c.workspace_id,c.channel_id,'meta:'+c.id+':'+event.senderId,{...profile,metaUserId:event.senderId}]);await db.query("INSERT INTO conversations(id,workspace_id,channel_id,visitor_id,reply_owner,connection_id) VALUES($1,$2,$3,$4,'AI_ACTIVE',$5)",[conversation.id,c.workspace_id,c.channel_id,visitorId,c.id]);}
   else if(event.displayName) await db.query("UPDATE visitors SET profile=jsonb_set(profile,'{name}',$1::jsonb) WHERE id=$2 AND (profile->>'name' IS NULL OR profile->>'name'='Meta user')",[JSON.stringify(event.displayName),conversation.visitor_id]);
   if(event.surface!=='whatsapp_business') await enqueueJob(db,c.workspace_id,{kind:'meta.profile.fetch',key:`meta-profile:${c.id}:${event.senderId}:${new Date().toISOString().slice(0,10)}`,payload:{connectionId:c.id,userId:event.senderId},external:false});
   const digest=createHash('sha256').update(`${c.id}:${event.eventId}`).digest('hex');const clientId=`${digest.slice(0,8)}-${digest.slice(8,12)}-4${digest.slice(13,16)}-8${digest.slice(17,20)}-${digest.slice(20,32)}`;
