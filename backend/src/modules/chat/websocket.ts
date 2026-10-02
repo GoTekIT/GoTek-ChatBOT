@@ -135,10 +135,11 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
             const author = clientCtx.isVisitor ? 'visitor' : 'agent';
             const actor = clientCtx.isVisitor ? undefined : clientCtx.userId;
             const msgId = uuid();
-            const nowIso = new Date().toISOString();
+
 
             // 1. ASYNCHRONOUS DATABASE PERSISTENCE & BROADCAST
             void (async () => {
+              const afterCommit: Array<() => void> = [];
               try {
                 await transaction(async (db) => {
                   // Scope transaction to current tenant workspace for RLS isolation
@@ -155,6 +156,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                   // If staff sends public message, auto-takeover if not already assigned or not human active
                   if (!clientCtx.isVisitor && visibility === 'public' && (c.reply_owner !== 'HUMAN_ACTIVE' || c.assigned_to !== clientCtx.userId)) {
                     await takeover(db, clientCtx.workspaceId, convId, clientCtx.userId!, c.owner_version);
+                    afterCommit.push(() => {
                     realtimeHub.broadcastToConversation(convId, 'conversation:takeover', {
                       conversationId: convId,
                       assignedTo: clientCtx.userId,
@@ -165,6 +167,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                       conversationId: convId,
                       assignedTo: clientCtx.userId,
                     }, { channelId: c.channel_id });
+                    });
                   }
 
                   const savedMessage = await appendMessage(db, {
@@ -179,17 +182,18 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                   });
 
                   // Send confirmation ACK back to sender with confirmed sequence
-                  ws.send(JSON.stringify({
+                  afterCommit.push(() => {
+                  if (ws.readyState === 1) ws.send(JSON.stringify({
                     type: 'message:ack',
                     clientId: msgClientId,
-                    id: msgId,
+                    id: savedMessage.id,
                     sequence: savedMessage.sequence,
                     createdAt: savedMessage.created_at,
                   }));
 
                   // Broadcast real-time message event with real sequence
                   realtimeHub.broadcastToConversation(convId, 'message:new', {
-                    id: msgId,
+                    id: savedMessage.id,
                     workspace_id: clientCtx.workspaceId,
                     conversation_id: convId,
                     client_id: msgClientId,
@@ -211,6 +215,8 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                     createdAt: savedMessage.created_at,
                   }, { channelId: c.channel_id });
 
+                  });
+
                   // If visitor and AI is active, enqueue AI job
                   if (clientCtx.isVisitor && c.reply_owner === 'AI_ACTIVE') {
                     await enqueueJob(db, clientCtx.workspaceId, {
@@ -226,6 +232,10 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                     });
                   }
                 });
+                // Publication failures must not turn committed data into a persist error.
+                for (const publish of afterCommit) {
+                  try { publish(); } catch { console.warn('WS_POST_COMMIT_PUBLISH_FAILED'); }
+                }
               } catch (persistErr: any) {
                 console.error('[WebSocket] Background persistence error:', persistErr?.message || persistErr);
                 ws.send(JSON.stringify({

@@ -1,6 +1,7 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import {scope, transaction} from './core/db';
 
 // Middlewares
 import {identity, type Identity} from './middlewares/auth.middleware';
@@ -16,6 +17,7 @@ import {widgetEmbed} from './modules/widget/widget-embed';
 // Modular Domain Routers
 import {apiRouter} from './routes/index';
 import {metaRouter} from './routes/meta.routes';
+import {realtimeHub} from './modules/chat/realtime';
 
 // Re-export identity for backward compatibility with existing tests
 export {identity, type Identity};
@@ -39,6 +41,30 @@ export function createApp() {
   }));
   app.use(express.json({limit: '128kb', verify: (req, _res, buf) => { (req as any).rawBody = Buffer.from(buf); }}));
   app.use(cookieParser());
+
+  // Worker processes do not share the API process' in-memory RealtimeHub.
+  // Authenticate worker notifications and resolve channel scope from tenant data.
+  app.post('/internal/meta/realtime', async (req, res) => {
+    const expected = process.env.META_REALTIME_INTERNAL_SECRET;
+    if (!expected || req.get('x-gotek-worker-secret') !== expected) return res.status(404).end();
+    const body = req.body as {workspaceId?: string; connectionId?: string};
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!body || typeof body.workspaceId !== 'string' || typeof body.connectionId !== 'string' ||
+        !uuid.test(body.workspaceId) || !uuid.test(body.connectionId)) return res.status(400).end();
+    const channelId = await transaction(async db => {
+      await scope(db, body.workspaceId!);
+      return (await db.query('SELECT channel_id FROM meta_connections WHERE workspace_id=$1 AND id=$2',
+        [body.workspaceId, body.connectionId])).rows[0]?.channel_id as string | undefined;
+    });
+    if (!channelId) return res.status(404).end();
+    realtimeHub.broadcastToWorkspace(body.workspaceId, 'inbox:refresh', {
+      connectionId: body.connectionId,
+      source: 'meta',
+      realtime: true,
+      updatedAt: new Date().toISOString()
+    }, {channelId});
+    return res.status(204).end();
+  });
 
   // Root Service Status Page & Specs
   app.get('/', StatusController.getRoot);

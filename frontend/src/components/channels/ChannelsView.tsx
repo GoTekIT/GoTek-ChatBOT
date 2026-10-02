@@ -1,20 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../../api/api';
+import '../../styles/tokens.css';
+import { channelsApi, type ChannelRow } from '../../api/channels.api';
 
-interface ChannelRow {
-  id: string;
-  name: string;
-  origin: string;
-  greeting: string;
-  color: string;
-  enabled: boolean;
-}
 
 export const ChannelsView: React.FC = () => {
   const [channels, setChannels] = useState<ChannelRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
-  const [installSnippet, setInstallSnippet] = useState<{ id: string; name: string; snippet: string; origin: string } | null>(null);
+  const [installSnippet, setInstallSnippet] = useState<Awaited<ReturnType<typeof channelsApi.installation>> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: '',
@@ -32,7 +25,7 @@ export const ChannelsView: React.FC = () => {
   const loadChannels = async () => {
     try {
       setLoading(true);
-      const rows: ChannelRow[] = await api('/channels');
+      const rows: ChannelRow[] = await channelsApi.list();
       setChannels(rows);
     } catch (e: any) {
       triggerToast(`Lỗi tải danh sách kênh: ${e.message || 'Không thể kết nối'}`);
@@ -47,7 +40,7 @@ export const ChannelsView: React.FC = () => {
 
   const handleToggleChannel = async (id: string, currentEnabled: boolean) => {
     try {
-      await api(`/channels/${id}/state`, 'PATCH', { enabled: !currentEnabled });
+      await channelsApi.setEnabled(id, !currentEnabled);
       triggerToast(currentEnabled ? 'Đã tắt kênh hội thoại' : 'Đã kích hoạt kênh hội thoại');
       await loadChannels();
     } catch (e: any) {
@@ -57,7 +50,7 @@ export const ChannelsView: React.FC = () => {
 
   const handleShowSnippet = async (id: string) => {
     try {
-      const data = await api(`/channels/${id}/installation`);
+      const data = await channelsApi.installation(id);
       setInstallSnippet(data);
     } catch (e: any) {
       triggerToast(`Lỗi lấy mã nhúng: ${e.message}`);
@@ -69,7 +62,7 @@ export const ChannelsView: React.FC = () => {
     if (!createForm.name.trim() || !createForm.origin.trim()) return;
     setBusy(true);
     try {
-      await api('/channels', 'POST', {
+      await channelsApi.create({
         requestId: crypto.randomUUID(),
         name: createForm.name.trim(),
         origin: createForm.origin.trim(),
@@ -94,27 +87,27 @@ export const ChannelsView: React.FC = () => {
   };
 
   return (
-    <main className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-[#faf8ff] dark:bg-[#080c14] text-xs transition-colors">
+    <main className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-[var(--color-bg)] dark:bg-[var(--color-bg-dark)] text-xs transition-colors">
       {toast && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[#131b2e] dark:bg-slate-900 text-white text-xs px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border border-blue-500/50">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[var(--color-text-strong)] dark:bg-slate-900 text-white text-xs px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border border-blue-500/50">
           <span className="material-symbols-outlined text-[16px] text-emerald-400">check_circle</span>
           <span>{toast}</span>
         </div>
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#c7c4d8]/60 dark:border-slate-800 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--color-border-strong)]/60 dark:border-slate-800 pb-6">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-[#131b2e] dark:text-slate-100 tracking-tight">
+          <h1 className="text-xl md:text-2xl font-bold text-[var(--color-text-strong)] dark:text-slate-100 tracking-tight">
             Kênh giao tiếp & Tích hợp Widget
           </h1>
-          <p className="text-[#464555] dark:text-slate-400 mt-1">
+          <p className="text-[var(--color-text-muted)] dark:text-slate-400 mt-1">
             Quản lý các điểm chạm khách hàng: Web Chat Widget được bảo vệ bằng Domain Whitelist và RAG phân quyền.
           </p>
         </div>
         <button
           onClick={() => setIsCreating(true)}
-          className="px-4 py-2 bg-[#4f46e5] text-white rounded-lg font-semibold hover:bg-[#4338ca] flex items-center gap-2 shadow-xs shrink-0 cursor-pointer"
+          className="px-4 py-2 bg-[var(--color-primary-alt)] text-white rounded-lg font-semibold hover:bg-[var(--color-primary-alt-hover)] flex items-center gap-2 shadow-xs shrink-0 cursor-pointer"
         >
           <span className="material-symbols-outlined text-[18px]">add</span>
           <span>Thêm kênh mới</span>
@@ -126,7 +119,7 @@ export const ChannelsView: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-[#131b2e] dark:text-slate-100">Tạo kênh Website Widget mới</h3>
+              <h3 className="text-base font-bold text-[var(--color-text-strong)] dark:text-slate-100">Tạo kênh Website Widget mới</h3>
               <button onClick={() => setIsCreating(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -183,7 +176,7 @@ export const ChannelsView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="px-4 py-2 bg-[#4f46e5] text-white rounded-lg font-semibold hover:bg-[#4338ca] disabled:opacity-50"
+                  className="px-4 py-2 bg-[var(--color-primary-alt)] text-white rounded-lg font-semibold hover:bg-[var(--color-primary-alt-hover)] disabled:opacity-50"
                 >
                   {busy ? 'Đang lưu...' : 'Tạo kênh'}
                 </button>
@@ -199,7 +192,7 @@ export const ChannelsView: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="text-base font-bold text-[#131b2e] dark:text-slate-100">Mã nhúng: {installSnippet.name}</h3>
+                <h3 className="text-base font-bold text-[var(--color-text-strong)] dark:text-slate-100">Mã nhúng: {installSnippet.name}</h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">Chỉ hoạt động trên domain đã khai báo: <code>{installSnippet.origin}</code></p>
               </div>
               <button onClick={() => setInstallSnippet(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -218,7 +211,7 @@ export const ChannelsView: React.FC = () => {
                   navigator.clipboard.writeText(installSnippet.snippet);
                   triggerToast('Đã sao chép mã nhúng vào clipboard');
                 }}
-                className="px-4 py-2 bg-[#4f46e5] text-white rounded-lg font-semibold hover:bg-[#4338ca] flex items-center gap-1.5"
+                className="px-4 py-2 bg-[var(--color-primary-alt)] text-white rounded-lg font-semibold hover:bg-[var(--color-primary-alt-hover)] flex items-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]">content_copy</span>
                 <span>Sao chép mã nhúng</span>
@@ -254,7 +247,7 @@ export const ChannelsView: React.FC = () => {
           </p>
           <button
             onClick={() => setIsCreating(true)}
-            className="px-4 py-2 bg-[#4f46e5] text-white rounded-lg font-semibold hover:bg-[#4338ca] inline-flex items-center gap-2"
+            className="px-4 py-2 bg-[var(--color-primary-alt)] text-white rounded-lg font-semibold hover:bg-[var(--color-primary-alt-hover)] inline-flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
             <span>Tạo kênh đầu tiên</span>
@@ -268,13 +261,13 @@ export const ChannelsView: React.FC = () => {
           {channels.map((ch) => (
             <div
               key={ch.id}
-              className="p-5 bg-white dark:bg-slate-900 border border-[#c7c4d8]/70 dark:border-slate-800 rounded-xl shadow-xs flex flex-col justify-between space-y-4 hover:border-[#3525cd] transition-all"
+              className="p-5 bg-white dark:bg-slate-900 border border-[var(--color-border-strong)]/70 dark:border-slate-800 rounded-xl shadow-xs flex flex-col justify-between space-y-4 hover:border-[#3525cd] transition-all"
             >
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center text-white"
-                    style={{ backgroundColor: ch.color || '#0057E1' }}
+                    style={{ backgroundColor: ch.color || 'var(--color-primary)' }}
                   >
                     <span className="material-symbols-outlined text-[22px]">language</span>
                   </div>
@@ -288,9 +281,9 @@ export const ChannelsView: React.FC = () => {
                     {ch.enabled ? 'Hoạt động' : 'Tạm tắt'}
                   </span>
                 </div>
-                <h3 className="text-sm font-bold text-[#131b2e] dark:text-slate-100">{ch.name}</h3>
+                <h3 className="text-sm font-bold text-[var(--color-text-strong)] dark:text-slate-100">{ch.name}</h3>
                 <p className="text-[11px] text-[#777587] dark:text-slate-400 font-mono mt-0.5 truncate">{ch.origin}</p>
-                <p className="text-[#464555] dark:text-slate-300 mt-2 leading-relaxed line-clamp-2">
+                <p className="text-[var(--color-text-muted)] dark:text-slate-300 mt-2 leading-relaxed line-clamp-2">
                   {ch.greeting || 'Xin chào! Chúng tôi có thể giúp gì cho bạn?'}
                 </p>
               </div>

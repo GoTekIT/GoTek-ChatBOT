@@ -15,6 +15,7 @@ test('subscription persists only an explicit provider success',async()=>{
    let mutations=0;
    const db={query:async(sql:string)=>{
     if(sql.startsWith('SELECT id,channel_kind'))return {rows:[{id,channel_kind:'facebook_messenger',external_page_id:'123',page_access_token_ref:ref,status:'connected'}]};
+    if(sql.startsWith('SELECT encrypted_token'))return {rows:[]};
     mutations++;return {rows:[]};
    }} as unknown as PoolClient;
    globalThis.fetch=async()=>response;

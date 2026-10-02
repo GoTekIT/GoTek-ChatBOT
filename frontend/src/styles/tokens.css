@@ -16,3 +16,11 @@
   --space-2: 12px;
   --space-3: 20px;
 }
+
+:root {
+  --color-bg-dark: #080c14;
+  --color-text-strong: #131b2e;
+  --color-border-strong: #c7c4d8;
+  --color-primary-alt: #4f46e5;
+  --color-primary-alt-hover: #4338ca;
+}

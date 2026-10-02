@@ -1,8 +1,8 @@
 # GOTEK CHATBOT — MA TRẬN TEST & TRAINING CASES TOÀN DIỆN (25 SCENARIOS)
-**Mã tài liệu**: `DOC-AI-TRAINING-CASES-V1`  
-**Dự án**: GoTek Enterprise Multi-Tenant CSKH Chatbot  
-**Cập nhật lần cuối**: 2026-09-30  
-**Trạng thái**: READY FOR DATASET SYNTHESIS & TRACKING  
+**Mã tài liệu**: `DOC-AI-TRAINING-CASES-V1`
+**Dự án**: GoTek Enterprise Multi-Tenant CSKH Chatbot
+**Cập nhật lần cuối**: 2026-09-30
+**Trạng thái**: READY FOR DATASET SYNTHESIS & TRACKING
 
 ---
 

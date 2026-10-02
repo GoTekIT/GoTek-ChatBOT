@@ -1,3 +1,4 @@
+import {metaDeliveryStatus} from '../meta/delivery-status';
 import type {PoolClient} from 'pg';
 import {z} from 'zod';
 import {HttpError,audit,uuid} from '../../core/security';
@@ -64,9 +65,9 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
  h.name AS channel_name, h.origin AS website_url,
  COALESCE(source.channel_kind,legacy.channel_kind,h.widget_mode) AS channel_type,
  v.profile AS visitor_profile,
- (SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,'author_type',m.author_type,'visibility',m.visibility) FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_meta,
- (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body,
- (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at,
+ (SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,'author_type',m.author_type,'visibility',m.visibility) FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC,m.sequence DESC LIMIT 1) AS last_message_meta,
+ (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC,m.sequence DESC LIMIT 1) AS last_message_body,
+ (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC,m.sequence DESC LIMIT 1) AS last_message_created_at,
  COALESCE((SELECT jsonb_agg(ct.name ORDER BY ct.name) FROM conversation_tags ct WHERE ct.workspace_id=c.workspace_id AND ct.conversation_id=c.id),'[]'::jsonb) AS conversation_tags
  FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id
  JOIN visitors v ON v.id=c.visitor_id
@@ -146,6 +147,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
         senderType: r.last_message_meta.visibility==='internal'?'internal_note':r.last_message_meta.author_type==='visitor'?'customer':r.last_message_meta.author_type,
         senderName: r.last_message_meta.author_type==='visitor'?name:r.last_message_meta.author_type==='ai'?'GoTek AI Copilot':'Nhân viên',
         timestamp: timeStr,
+        timestampIso: r.last_message_created_at,
         content: r.last_message_body
       }] : []
     };
@@ -158,13 +160,26 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
   const visitorRow=(await db.query('SELECT profile FROM visitors WHERE id=$1',[c.visitor_id])).rows[0];
   const visitorName=visitorRow?.profile?.fullName||visitorRow?.profile?.name||'Khách hàng';
 
+  const source = c.connection_id ? (await db.query(
+    'SELECT page_name,channel_kind FROM meta_connections WHERE id=$1 AND workspace_id=$2',
+    [c.connection_id,a.workspace_id])).rows[0] : undefined;
+
   const staffMap:Record<string,string>={};
   const staffRows=(await db.query('SELECT m.user_id,u.email FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=$1',[a.workspace_id])).rows;
   for(const s of staffRows){
     staffMap[s.user_id]=s.email.split('@')[0];
   }
 
-  const rows=(await db.query("SELECT m.id,m.client_id,m.sequence,m.author_type,m.visibility,m.body,m.actor_id,m.visitor_received_at,m.created_at,COALESCE((SELECT jsonb_agg(jsonb_build_object('type',a.kind,'url',a.url) ORDER BY a.created_at) FROM message_attachments a WHERE a.message_id=m.id AND a.workspace_id=m.workspace_id),'[]'::jsonb) AS attachments FROM messages m WHERE m.conversation_id=$1 AND m.sequence>$2 ORDER BY m.sequence LIMIT 100",[id,cursor])).rows;
+  const rows=(await db.query("SELECT m.id,m.client_id,m.sequence,m.author_type,m.visibility,m.body,m.actor_id,m.visitor_received_at,m.created_at,(SELECT d.status FROM meta_message_deliveries d WHERE d.workspace_id=m.workspace_id AND d.message_id=m.id AND d.connection_id=$3) AS meta_delivery_status,COALESCE((SELECT jsonb_agg(jsonb_build_object('type',a.kind,'url',a.url) ORDER BY a.created_at) FROM message_attachments a WHERE a.message_id=m.id AND a.workspace_id=m.workspace_id),'[]'::jsonb) AS attachments FROM messages m WHERE m.conversation_id=$1 AND m.sequence>$2 ORDER BY m.sequence LIMIT 100",[id,cursor,c.connection_id||null])).rows;
+
+  const dispatchStates=new Map<string,string>();
+  if(c.connection_id && rows.length){
+    const jobs=(await db.query(`SELECT payload->>'messageId' AS message_id,state FROM jobs
+      WHERE workspace_id=$1 AND kind='meta.message.send' AND payload->>'conversationId'=$2
+      AND payload->>'messageId'=ANY($3::text[]) ORDER BY created_at,id`,
+      [a.workspace_id,id,rows.map((m:any)=>String(m.id))])).rows;
+    for(const job of jobs)dispatchStates.set(job.message_id,job.state);
+  }
 
   return rows.map((m:any)=>{
     let senderType:'customer'|'ai'|'agent'|'internal_note'|'system_event'='customer';
@@ -187,19 +202,25 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
         senderType='agent';
         senderName=staffMap[m.actor_id]?staffMap[m.actor_id]:'Nhân viên';
         senderRole='Chuyên viên Hỗ trợ';
+        if(!m.actor_id && source){
+          senderName=source.page_name || metaPlatformLabel(source.channel_kind);
+          senderRole='Tin từ tài khoản nền tảng';
+        }
       }
     }
 
     const timeDate=new Date(m.created_at);
     const timeFormatted=timeDate.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
-    const status = m.visitor_received_at ? 'delivered' : 'sent';
+    const isMetaOutbound = !!c.connection_id && ['agent','ai'].includes(m.author_type) && m.visibility === 'public';
+    const status = isMetaOutbound ? metaDeliveryStatus(m.meta_delivery_status,dispatchStates.get(String(m.id))) : (m.visitor_received_at ? 'delivered' : 'sent');
 
     return {
       ...m,
       senderType,
       senderName,
       senderRole,
-      timestamp:timeFormatted,
+    timestamp:timeFormatted,
+    timestampIso:m.created_at,
       content:m.body,
       status
     };
@@ -228,11 +249,21 @@ export async function inboxTakeover(db:PoolClient,a:Actor,id:string,body?:unknow
 }
 
 export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown,afterCommit:Array<()=>void>=[]){
-  const c=await access(db,a,id);
+  let c=await access(db,a,id);
   const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal']),media:z.object({type:z.enum(['image','video','audio','file']),url:z.string().url().max(8192)}).optional()}).strict().parse(body);
   // Serialize retries before checking current connector availability. A committed
   // request remains replayable after disconnect without creating a new send job.
   await db.query('SELECT id FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,a.workspace_id]);
+  // A public agent reply is an explicit human takeover.  The composer must
+  // work even when the agent did not click the separate takeover control;
+  // advance the ownership fence before creating the external send job.
+  if(data.visibility==='public' && c.reply_owner!=='HUMAN_ACTIVE'){
+    const owner=await takeover(db,a.workspace_id,id,a.user_id,c.owner_version);
+    c={...c,...owner};
+    afterCommit.push(()=>realtimeHub.broadcastToWorkspace(a.workspace_id,'inbox:takeover',{conversationId:id,assignedTo:a.user_id},{channelId:c.channel_id}));
+  } else if(data.visibility==='public' && (c.assigned_to!==a.user_id || c.reply_owner!=='HUMAN_ACTIVE')) {
+    throw new HttpError(409,'STALE_REPLY_OWNER');
+  }
   const existing=(await db.query('SELECT id FROM messages WHERE workspace_id=$1 AND conversation_id=$2 AND client_id=$3',[a.workspace_id,id,data.clientId])).rowCount;
   if(existing) return appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,attachments:data.media?[data.media]:[]});
   let meta: {id:string;page_access_token_ref:string;recipient_id:string} | undefined;
@@ -248,7 +279,7 @@ export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown,aft
   const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId,attachments:data.media?[data.media]:[]});
   if(data.visibility==='public'){
 
-    if(meta?.recipient_id) await enqueueJob(db,a.workspace_id,{kind:'meta.message.send',key:`meta-send:${id}:${data.clientId}`,payload:{conversationId:id,messageId:message.id,connectionId:meta.id},external:true,maxAttempts:3});
+    if(meta?.recipient_id) await enqueueJob(db,a.workspace_id,{kind:'meta.message.send',key:`meta-send:${id}:${data.clientId}`,payload:{conversationId:id,messageId:message.id,connectionId:meta.id,ownerVersion:c.owner_version},external:true,maxAttempts:3});
   }
 
   // Only a newly inserted message publishes, with the durable ID and sequence.
@@ -345,6 +376,8 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
 
   const source=(await db.query("SELECT mc.id,mc.channel_kind,mc.page_name,mc.external_page_id,mc.status FROM meta_connections mc JOIN visitors v ON v.workspace_id=mc.workspace_id AND v.channel_id=mc.channel_id AND (($4::uuid IS NOT NULL AND mc.id=$4) OR ($4::uuid IS NULL AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId'))) WHERE v.id=$1 AND mc.workspace_id=$2 AND mc.channel_id=$3 ORDER BY (mc.id=$4) DESC,mc.created_at ASC,mc.id ASC LIMIT 1",[c.visitor_id,a.workspace_id,c.channel_id,c.connection_id])).rows[0];
   const prof=visitorRow?.profile||{};
+  const latest=(await db.query('SELECT created_at FROM messages WHERE workspace_id=$1 AND conversation_id=$2 ORDER BY created_at DESC,sequence DESC LIMIT 1',[a.workspace_id,id])).rows[0];
+  const lastMessageAt=latest?.created_at || c.updated_at;
   const name=prof.fullName?.trim()||prof.name?.trim()||'Khách vãng lai';
   const email=prof.emailAddress?.trim()||prof.email?.trim()||'';
   const phone=prof.phoneNumber?.trim()||prof.phone?.trim()||'';
@@ -371,10 +404,13 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
     customerPhone:phone,
     customerLocation:prof.location||'',
     customerAvatar:prof.avatarUrl||avatar,
+    customerOnline:prof.online===true||prof.isOnline===true,
+    customerLastSeenAt:prof.lastSeenAt||prof.last_seen_at||undefined,
+    customerExternalId:prof.metaUserId||undefined,
     clientTier:prof.clientTier||'',
     websiteUrl:channelRow?.channel_kind?'':channelRow?.origin||'',
     lastMessageSnippet:messages[messages.length-1]?.content||'Bắt đầu cuộc trò chuyện...',
-    lastMessageTime:'1m ago',
+    lastMessageTime:lastMessageAt?new Date(lastMessageAt).toLocaleString('vi-VN',{dateStyle:'short',timeStyle:'short'}):'Chưa có tin nhắn',
     channel:channelRow?.channel_kind==='facebook_messenger'?'Facebook Messenger':channelRow?.channel_kind==='instagram_messaging'?'Instagram':channelRow?.channel_kind==='whatsapp_business'?'WhatsApp':channelRow?.channel_kind==='threads'?'Threads':channelRow?.widget_mode==='slack'?'Slack App':channelRow?.widget_mode==='email'?'Email':'Widget',
     status:uiStatus,
     assignedTo:c.assigned_to||undefined,

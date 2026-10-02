@@ -1,3 +1,4 @@
+import {loadMessagePages} from '../../utils/message-pages';
 import React, { useState, useEffect, useRef } from 'react';
 import { ConsoleModule, SettingsSubTab, KnowledgeDocument, StaffMember, Conversation, ChatMessage } from '../../types';
 import { TopNav } from '../../components/TopNav';
@@ -58,6 +59,12 @@ export function ConsoleWorkspace({
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [workspaceCreateError, setWorkspaceCreateError] = useState('');
+  const [workspaceCreateBusy, setWorkspaceCreateBusy] = useState(false);
+  const workspaceCreateLock = useRef(false);
+  const createdWorkspaceRef = useRef<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Keep selectedConvIdRef in sync with state
@@ -65,20 +72,30 @@ export function ConsoleWorkspace({
     selectedConvIdRef.current = selectedConvId;
   }, [selectedConvId]);
 
-  // Helper to load full message history for a specific conversation
+  const messageRequests = useRef(new Map<string, number>());
+  const messageWorkspace = useRef(me?.workspaceId);
+  messageWorkspace.current = me?.workspaceId;
+  useEffect(() => () => { messageRequests.current.clear(); }, [me?.workspaceId]);
+
   const loadMessagesForConv = async (convId: string) => {
     if (!convId || !/^[0-9a-f-]{36}$/i.test(convId)) return;
+    const workspace = me?.workspaceId;
+    const request = (messageRequests.current.get(convId) || 0) + 1;
+    messageRequests.current.set(convId, request);
+    const current = () => messageWorkspace.current === workspace && messageRequests.current.get(convId) === request;
     try {
-      const msgs: ChatMessage[] = await api(`/conversations/${convId}/messages`);
-      if (Array.isArray(msgs)) {
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === convId ? { ...c, messages: msgs } : c
-          )
-        );
-      }
+      const msgs = await loadMessagePages<ChatMessage>(
+        after => api(`/conversations/${convId}/messages?after=${after}`), current);
+      if (!msgs || !current()) return;
+      setConversations(prev => prev.map(c => {
+        if(c.id !== convId) return c;
+        const ids = new Set(msgs.map(m => m.id));
+        const clientIds = new Set(msgs.map(m => m.clientId).filter(Boolean));
+        const pending = c.messages.filter(m => m.status === 'sending' && !ids.has(m.id) && (!m.clientId || !clientIds.has(m.clientId)));
+        return {...c, messages: [...msgs, ...pending]};
+      }));
     } catch (err) {
-      console.warn('Load messages error', err);
+      if(current()) setToastMessage('Không tải được đầy đủ lịch sử tin nhắn. Vui lòng thử lại.');
     }
   };
 
@@ -172,6 +189,7 @@ export function ConsoleWorkspace({
           void loadMessagesForConv(activeId);
         }
       };
+      es.addEventListener('inbox:refresh', refreshList);
       es.addEventListener('inbox:visitor_message', refreshList);
       es.addEventListener('inbox:message_sent', refreshList);
       es.addEventListener('inbox:message_receipt', refreshList);
@@ -541,6 +559,7 @@ export function ConsoleWorkspace({
         onOpenAuditLogs={() => { if (can(me, 'audit.read')) setIsAuditModalOpen(true); }}
         me={me}
         onLogout={onLogout}
+        onSwitchWorkspace={() => setWorkspaceModalOpen(true)}
       />
 
       {/* Main Workspace Frame */}
@@ -697,11 +716,45 @@ export function ConsoleWorkspace({
             </div>
 
             {/* Modal Actions */}
+            {createWorkspaceOpen && <form className="space-y-3" onSubmit={async event => {
+              event.preventDefault();
+              if (workspaceCreateLock.current) return;
+              workspaceCreateLock.current = true;
+              setWorkspaceCreateBusy(true);
+              setWorkspaceCreateError('');
+              try {
+                if (!createdWorkspaceRef.current) {
+                  const created = await api('/workspaces', 'POST', {name: workspaceName.trim()});
+                  createdWorkspaceRef.current = created.id;
+                }
+                const id = createdWorkspaceRef.current!;
+                if (onSwitchWorkspace) await onSwitchWorkspace(id);
+                else { await api('/workspace/switch', 'POST', {workspaceId: id}); window.location.assign('/app/inbox'); }
+                createdWorkspaceRef.current = null;
+                setWorkspaceName(''); setCreateWorkspaceOpen(false); setWorkspaceModalOpen(false);
+              } catch {
+                setWorkspaceCreateError(createdWorkspaceRef.current
+                  ? 'Workspace đã tạo. Bấm thử lại để chuyển vào workspace này.'
+                  : 'Chưa xác nhận được việc tạo workspace. Kiểm tra danh sách trước khi thử lại.');
+              } finally { workspaceCreateLock.current = false; setWorkspaceCreateBusy(false); }
+            }}>
+              <label className="block text-sm">Tên workspace
+                <input required minLength={2} maxLength={160} value={workspaceName}
+                  disabled={workspaceCreateBusy || !!createdWorkspaceRef.current}
+                  onChange={event => setWorkspaceName(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent p-2" />
+              </label>
+              <p className="text-xs text-slate-500">Bạn sẽ là chủ sở hữu workspace mới. Hội thoại và các kết nối được quản lý riêng.</p>
+              {workspaceCreateError && <p role="alert" className="text-sm text-red-600">{workspaceCreateError}</p>}
+              <button type="submit" disabled={workspaceCreateBusy || workspaceName.trim().length < 2}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50">
+                {workspaceCreateBusy ? 'Đang xử lý…' : createdWorkspaceRef.current ? 'Chuyển vào workspace' : 'Tạo và mở workspace'}
+              </button>
+            </form>}
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
               <button
                 onClick={() => {
-                  showGlobalToast('Mở trình tạo không gian làm việc mới');
-                  setWorkspaceModalOpen(false);
+                  setCreateWorkspaceOpen(true);
                 }}
                 className="px-4 py-2 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-[#1664ff] dark:hover:border-blue-400 text-xs font-semibold text-[#1664ff] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 flex items-center gap-1.5 transition-colors"
                 type="button"

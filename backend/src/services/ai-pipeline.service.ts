@@ -89,6 +89,8 @@ export interface GenerateAnswerResult {
   tokensUsed: ProviderUsageMetadata;
   latencyMs: number;
   modelUsed?: string;
+  degraded?: boolean;
+  providerError?: 'AI_PROVIDER_UNAVAILABLE' | 'AI_PROVIDER_TIMEOUT' | 'AI_PROVIDER_REJECTED';
 }
 
 export interface TeachFaqInput {
@@ -344,7 +346,12 @@ export class AiPipelineService {
         latencyMs: Date.now() - startTime,
         modelUsed: modelRow.id,
       };
-    } catch {
+    } catch (error) {
+      // Preserve a usable grounded fallback, but expose provider degradation so
+      // callers do not mistake it for a successful external-model response.
+      const providerError = error instanceof Error && /timeout/i.test(error.message)
+        ? 'AI_PROVIDER_TIMEOUT' as const
+        : 'AI_PROVIDER_UNAVAILABLE' as const;
       // Graceful fallback to grounded summary
       const top = sources[0];
       return {
@@ -357,6 +364,8 @@ export class AiPipelineService {
         tokensUsed: {promptTokens: 0, completionTokens: 0, totalTokens: 0},
         latencyMs: Date.now() - startTime,
         modelUsed: AI_CONSTANTS.FALLBACK_GROUNDED_MODEL,
+        degraded: true,
+        providerError,
       };
     }
   }
@@ -378,13 +387,26 @@ export class AiPipelineService {
       rules.rules
     );
 
-    const result = await this.generateAnswer(db, workspaceId, {
-      message: question,
-      requireGrounded: false,
-    });
-
+    // Playground is a side-effect-free preview: never invoke a billable provider,
+    // reserve quota, enqueue work, or persist a reply.
+    const topSource = sources[0];
+    const answer = topSource
+      ? `Dạ theo thông tin từ cẩm nang [1] "${topSource.title}":\n\n${topSource.text.slice(0, 300)}…`
+      : 'Dạ em có thể hỗ trợ gì thêm cho Anh/Chị không ạ?';
+    const citations = sources.map((source, index) => ({
+      reference: index + 1,
+      title: source.title,
+      snippet: source.text.slice(0, 160) + (source.text.length > 160 ? '…' : ''),
+      similarity: source.similarity,
+    }));
     return {
-      ...result,
+      answer,
+      citations,
+      confidence: Number((sources.length ? sources.reduce((sum, source) => sum + source.similarity, 0) / sources.length : 0).toFixed(2)),
+      isHandoff: false,
+      tokensUsed: {promptTokens: 0, completionTokens: 0, totalTokens: 0},
+      latencyMs: 0,
+      modelUsed: AI_CONSTANTS.FALLBACK_LOCAL_MODEL,
       groundedPromptPreview: promptPreview,
     };
   }

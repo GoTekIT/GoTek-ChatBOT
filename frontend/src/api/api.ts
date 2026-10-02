@@ -1,4 +1,12 @@
 const messages: Record<string, string> = {
+  META_OAUTH_NOT_CONFIGURED: 'Quản trị viên cần cấu hình Facebook App và địa chỉ callback trước khi liên kết.',
+  META_CREDENTIAL_KEY_NOT_CONFIGURED: 'Máy chủ chưa cấu hình khóa mã hóa token. Vui lòng liên hệ quản trị viên.',
+  META_OAUTH_SESSION_UNAVAILABLE: 'Phiên liên kết đã hết hạn hoặc workspace đã thay đổi. Hãy đăng nhập Facebook lại.',
+  META_OAUTH_STATE_INVALID: 'Phiên liên kết không khớp. Quay lại workspace ban đầu và bắt đầu liên kết lại.',
+  META_OAUTH_ACCOUNT_NOT_OFFERED: 'Page này không có trong danh sách được cấp quyền của phiên liên kết.',
+  META_OAUTH_PROVIDER_REJECTED: 'Facebook chưa chấp nhận yêu cầu. Kiểm tra quyền của ứng dụng và tài khoản.',
+  META_WEBHOOK_SUBSCRIPTION_FAILED: 'Chưa đăng ký được webhook của Page. Kiểm tra quyền pages_manage_metadata rồi kết nối lại.',
+
   VERSION_CONFLICT: 'Quy tắc đã được thay đổi ở phiên khác. Tải lại danh sách trước khi thử lại.',
   RESPONSE_TOO_LARGE: 'Nguồn vượt quá giới hạn dung lượng.',
   REDIRECT_LIMIT: 'Nguồn chuyển hướng quá số lần cho phép.',

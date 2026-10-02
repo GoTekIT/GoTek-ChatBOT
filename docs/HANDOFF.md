@@ -1,3 +1,39 @@
+## Inbox UI/profile checkpoint (2026-10-02)
+- Inbox profile now shows source context, avatar, online indicator when provider profile supplies it, last-seen fallback, external user ID and exact latest-message local time.
+- Message rows preserve both visitor and agent/AI sides, use provider event created_at when available, and render image/video attachments.
+- Channels UI groups multiple connections by Facebook/Instagram/WhatsApp/Threads with platform badges and account status.
+- Frontend tests 10/10, full build and preview HTTP 200. Live provider acceptance remains separate and is not claimed.
+
+## Meta integration rerun checkpoint (2026-10-02)
+- Batch preflight (4/4), batch rollback/concurrency, history (6/6), and reconnect tests passed on the disposable PostgreSQL instance.
+- The broader ingestion file was rerun against an already-used disposable database and had fixture count failures (expected rows were already present/consumed); this run is not clean-suite evidence and is not claimed as a regression. A fresh database run is required before merge.
+- No application database, push, or main branch was changed.
+
+## Meta account picker contract checkpoint (2026-10-02)
+- Official Graph reference indicates Page discovery requires a user authorization flow with Page permissions such as `pages_show_list`; Page webhook fields and Page-level subscription remain separate from discovering accounts. The current repository has no Meta OAuth client ID/redirect configuration or session-bound callback storage.
+- Do not expose the user token or turn the manual token-reference form into a fake picker. Implementing the picker requires configured Meta app credentials, redirect URI and an explicit token storage/encryption contract.
+- Current batch linking remains the verified path for test accounts; OAuth picker remains pending external Meta app configuration.
+
+## Multi-account linking UI checkpoint (2026-10-02)
+- Channels UI now supports an Owner/Admin batch mode. Each line is `platform|external account ID|account name|server token reference`; it calls the atomic batch API, verifies each connection and subscribes supported Messenger/Instagram webhooks.
+- Single-account flow remains available. No provider token is entered or returned in the browser.
+- Frontend build passed. OAuth/account picker is still separate and not claimed; live Meta acceptance remains required.
+
+## Batch linking database evidence (2026-10-02)
+- Isolated PostgreSQL 16 with migrations 001-082 applied on a temporary port. Batch rollback test now passes: a conflict in the second account leaves channel/member/connection counts unchanged; a valid two-account batch creates two distinct channels.
+- This validates transaction rollback in the local disposable database only. It does not prove Meta OAuth/account picker or live provider acceptance.
+- Temporary database is disposable and separate from the application database. No push or merge.
+
+## Batch database regression added (2026-10-02)
+- Added integration scenario: create existing account, attempt a batch whose second item conflicts, verify channel/member/connection counts unchanged, then verify successful two-account batch creates distinct channels.
+- Backend typecheck passes. Database test was SKIPPED because META_TEST_ADMIN_URL and DB_RUNTIME_FILE are not configured; this is not rollback evidence. Earlier disposable /tmp/gotek-routing-test directory is absent.
+- Next: provision isolated PostgreSQL/runtime config, apply migrations, run the named batch scenario and tenant/concurrent linking suites. Do not point these fixtures at live chat database.
+
+## Batch connection validation checkpoint (2026-10-02)
+- POST /api/meta/connections/batch uses the authenticated transaction and shared connection schema. All items, duplicate platform/account keys, duplicate explicit channels and token references are checked before mutation.
+- Focused batch validation suite: 4/4 passed; backend typecheck passed. These tests prove preflight rejection only, not database rollback/concurrent ownership or OAuth discovery.
+- Next: database/API batch rollback and concurrency coverage, then session-bound OAuth/account picker. Existing manual test linking does not satisfy self-service OAuth acceptance. No push or merge.
+
 ## Webhook subscription state checkpoint (2026-10-02)
 - Migration 073 adds `meta_connections.webhook_subscribed_at`; the connection catalog now exposes this timestamp without exposing credentials.
 - Owner/Admin can call `POST /api/meta/connections/:id/subscribe-webhook` after Graph credential verification. Facebook/Instagram call Meta `subscribed_apps`; WhatsApp remains app-level and Threads catalog-only.
@@ -676,3 +712,303 @@ Sau khi documentation pause được gỡ bằng một checkpoint mới: hoàn t
 - Subscription timestamp/audit now require HTTP success and JSON success=true; false, missing success, malformed JSON and HTTP errors leave no subscription mutation.
 - Verified: backend npm run build; meta-subscription-result.test.ts (1 passed, 0 skipped). This is a mocked provider test, not live Meta acceptance.
 - No push or merge. OAuth picker, durable ingress/claim/replay, authenticated media delivery and live multi-Page acceptance remain incomplete. Subscription field selection still needs platform-specific verification.
+- Meta connection linking now provisions a dedicated channel automatically when the operator leaves Channel xử lý empty; this keeps each Page/account isolated without requiring a website channel first.
+## Durable Meta ingress and subscription gate checkpoint (2026-10-02)
+- Local branch `codex/meta-messenger-pilot` now has migrations 076–079 for a per-event Meta ingress queue, lease/retry/dead/quarantine states, expiry recovery, and an Owner/Admin claim path for events received before a Page/account mapping existed. Existing quarantine rows are imported; no payload is discarded.
+- Webhook POST validates the raw-body signature and persists every normalized message/status/unsupported event before ACK. The worker claims one event under `app.meta_worker`, resolves the exact platform + external account mapping, processes it in the original workspace/connection, and publishes realtime callbacks only after commit. Unmapped or unsupported events remain quarantined instead of being assigned to a tenant.
+- Migration 078 separates credential verification from live routing. `verifyMetaConnection` returns `verified`; `subscribeMetaWebhook` changes the row to `connected` only after Meta returns an explicit success. This prevents a verified token without a subscribed webhook from receiving traffic. WhatsApp remains app-level subscription; Threads remains catalog-only.
+- Local evidence: `npm run build:all` passed; `tests/meta-ingress-queue.test.ts` passed 1/1 with a signed envelope containing three Page IDs across two workspaces, tenant-isolated processing, unmapped quarantine and duplicate redelivery; `tests/meta-subscription-result.test.ts` passed 1/1; `git diff --check` passed. RabbitMQ emitted reconnect warnings during the test but the test completed successfully.
+- Live Meta acceptance is still pending: each of the three user-owned Pages needs a server-side token reference, a public HTTPS callback that reaches this worker, and a real Page subscription. The local test does not prove Meta live delivery. Name/avatar are stored only when Meta returns them; email/phone are never inferred. WhatsApp media still needs an authenticated download/proxy path before UI acceptance.
+- Working tree contains uncommitted implementation and test changes only. No push, merge, or `main` update was performed. Next continuation: run the review diff, then perform the authenticated tester flow when public callback and per-Page credentials are available.
+
+## Worker least-privilege checkpoint (2026-10-02)
+- Review found that a custom `app.meta_worker` GUC could be forged by the application role. Migration 080 adds a dedicated `gotek_meta_worker` role and makes claim/recover/finish require `session_user` to be that role; legacy quarantine reads are no longer granted by GUC alone. Replay and annotation use tenant-scoped SECURITY DEFINER functions.
+- `runMetaIngressOnce` now uses a separate `META_WORKER_DATABASE_URL` pool. If that secret is absent, the worker fails closed with `META_WORKER_DATABASE_NOT_CONFIGURED`. Provision the login/password outside Git and inject it only into the worker process. The migration intentionally creates the role as NOLOGIN until operations provisions it.
+- Backend build and `git diff --check` pass after this correction. Live tester remains gated on worker credential provisioning, public HTTPS callback and per-Page tokens.
+
+## Three-workspace routing evidence checkpoint (2026-10-02)
+- `backend/tests/meta-ingress-queue.test.ts` now exercises one signed envelope containing three mapped Facebook Page accounts across three workspaces plus one unmapped Page. Each workspace receives exactly its own message and connection; the unmapped event remains quarantined. The test passes 1/1 with the dedicated worker database role.
+- Workspace creation and workspace switching remain covered by the authenticated API test (2/2). No external Meta message was sent during this fixture run.
+
+## Live Meta two-way realtime checkpoint (2026-10-02)
+- Three Facebook Page events were sent from the authenticated Facebook tester and routed to their separate workspaces: GoTek, FSUB.vn - Học AI Từ Số 0, and FSUB.vn - Digital Marketing Solutions.
+- Webhook ingress rows for all three Page IDs reached `succeeded`; inbox source labels retain platform, Page name, and external account ID. Profile name/avatar were received; contact fields remain unavailable when Meta does not return them.
+- The local Meta worker is now intended to run continuously through `npm run dev:meta` or `npm run dev:with-meta`. Worker-to-API realtime bridge emits `inbox:refresh`, and the frontend listens for it.
+- A real web-originated reply produced an `accepted` Meta delivery with a provider message ID on FSUB.vn - Học AI Từ Số 0. This proves one outbound Page, not every Page/media path.
+- Local quick tunnels are temporary; live acceptance requires keeping the current tunnel process alive. No push or merge to `main`.
+
+## History recovery safety checkpoint (2026-10-02)
+- History sync is NOT accepted or enabled by default. Worker calls are gated by META_ENABLE_HISTORY_SYNC=true while implementation is completed.
+- Historical inbound imports suppress AI reply jobs. Paging rejects non-Graph hosts and redirects; access_token is removed before persisting a paging URL.
+- Remaining blockers: nested message pagination, outbound history, media and original timestamps, bounded scheduling/backoff, worker-role grants and tenant composite FK, restart/integration acceptance. The current draft must not be represented as complete historical recovery.
+- Validation: backend typecheck and two history cursor security tests pass. No live historical import was run in this checkpoint; no push/merge.
+
+## History checkpoint validation (2026-10-02, continuation)
+- Dispatch pass runs before history; a history exception is caught per workspace instead of aborting subsequent history work. History requests remain sequential and can still delay the next realtime pass; separate scheduling remains required.
+- Reject malformed Graph success payloads before advancing cursor. Added tests for busy locks, recent-completion cooldown, and malformed responses preserving cursor.
+- Five focused history tests and backend typecheck pass; these are mocked unit tests, not restart/database/Meta acceptance.
+- Migration 082 is authored but not applied in this checkpoint. History import remains opt-in and incomplete (nested paging, outbound/media/timestamps).
+
+## History worker isolation checkpoint (2026-10-02)
+- History recovery now has a separate `worker:meta-history` process and never waits inside the realtime Meta ingress/send loop.
+- `worker:meta-history` is opt-in and requires `META_ENABLE_HISTORY_SYNC=true`; the regular worker remains realtime-only.
+- Backend typecheck and diff validation pass. Live history sync remains unverified and still lacks nested pagination/media/original timestamps.
+
+## Live history sync checkpoint (2026-10-02)
+- Migration 082 applied to the local runtime database.
+- Opt-in history worker ran against real configured Meta connections: workspace 3 imported 306 visitor messages and retained a Graph paging cursor (`pending`); workspace 1 imported 12 and reached `complete`; workspace 2 reached `complete` with no additional rows.
+- Import is deduplicated through the existing Meta event/message keys and does not enqueue AI replies for historical rows.
+- This is real local Meta evidence, not a fixture, but it is not yet full acceptance: the workspace 3 cursor needs later pages, media/original timestamps are not imported, and restart replay plus live UI verification remain open.
+
+## History cursor completion checkpoint (2026-10-02)
+- Continued the real Meta history cursor for workspace 3: imported 367 messages, then 93 messages; its checkpoint is now `complete` with no next cursor and 767 visitor messages visible under tenant scope.
+- Workspace 1 remains `complete` with 15 visitor messages; workspace 2 remains `complete` with 1 visitor message.
+- No provider token was persisted in cursor URLs. Realtime worker remains separate from history worker.
+- Full historical acceptance is still not claimed: media/original provider timestamps and restart replay require additional work; live history import evidence is local runtime only.
+
+## Runtime recovery and Meta callback checkpoint (2026-10-02)
+- Direct Meta Developer inspection confirmed existing Messenger subscriptions on GoTek, FSUB.vn - Học AI Từ Số 0 and FSUB.vn - Digital Marketing Solutions. Earlier blanket claims that subscriptions were absent were not supported.
+- The saved callback host jessica-island-thriller-produced.trycloudflare.com did not resolve; local ports 4317 and 3001 were also down. Restarted the local app and Meta worker, without database seeding or source changes. Preview returned HTTP 200; the worker processed idle cycles.
+- Started a replacement temporary tunnel at https://fluid-function-register-blocking.trycloudflare.com. Authenticated verification GET returned HTTP 200 and the exact requested challenge. This proves callback reachability, not message delivery.
+- The replacement URL is entered in Meta Developer but NOT saved: Verify and Save remains disabled until the existing META_WEBHOOK_VERIFY_TOKEN is entered into the verification field. Browser virtual clipboard could not consume the local clipboard; local clipboard was cleared. No token value was printed.
+- Next: complete the Meta verification form, observe save success, then test the three authorized Pages and reconcile inbound/outbound provider IDs with their original workspace. Do not regenerate working Page tokens without evidence of expiry. Temporary tunnel depends on its running process. No push or merge performed.
+
+## Nested Messenger history pagination correction (2026-10-02)
+- Found a concrete source defect: only the first expanded messages page was read, so a conversation with more than 100 messages could be marked complete with missing older messages.
+- History importer now follows nested message paging before updating the outer checkpoint; validates Graph host, strips URL tokens, rejects redirect/error/malformed responses, and bounds repeated paging.
+- Validation: meta-history.test.ts 7/7 passed, backend TypeScript build passed. Tests use mocked provider/database, not live or restart acceptance.
+- Still incomplete: historical Page-originated replies are explicitly skipped in history.ts; two-way historical acceptance must not be claimed. Nested paging currently completes within one transaction and has a 100-page bound; resumable per-conversation paging remains needed for larger histories. Meta callback save remains pending. No push/merge.
+
+## Page-originated history implementation (2026-10-02)
+- Historical Page replies are no longer skipped. The importer resolves the single non-Page participant, rejects ambiguous recipients, and records public agent-side history with no local staff attribution. It retains the provider timestamp, attachments and connection-scoped message ID.
+- A dedicated history repository records these already-sent messages without enqueueing outbound/AI jobs or changing conversation ownership. Existing GoTek receipts are checked to avoid duplicating a reply already sent from the inbox.
+- Evidence: history and history-reply focused tests 10/10 PASS; backend build and diff check PASS. These are mocked tests, not database/concurrent/restart/live acceptance.
+- Next: database integration for historical customer/Page pairs, provider receipt race, attachments and restart dedupe; validate timeline ordering and external Page attribution in UI. No live history run was triggered, no push or merge.
+
+## Historical two-sided database regression (2026-10-02)
+- Added opt-in meta-history-database.test.ts. Ran with META_HISTORY_DB_TEST=true against local PostgreSQL using gotek_app, in a transaction rolled back in finally (no fixture rows committed).
+- PASS 1/1: Page and customer history persist with correct author side/original timestamps; repeated scan keeps two messages; no AI/send jobs; owner remains unchanged; another tenant cannot read the fixture messages. Provider transport is mocked.
+- This does not cover live Meta delivery, restart across committed transactions, concurrent receipt races, or full API/worker/UI acceptance. Next: verify timeline ordering, which may still use insertion sequence for historical rows. No push or merge.
+
+### 2026-10-02 — Inbox timeline and complete message pagination
+- Inbox rendering orders messages by provider timestamp, preserving durable sequence as the pagination cursor. Latest-message SQL uses timestamp then sequence.
+- Frontend now loads beyond the first 100 messages, rejects non-advancing cursors, discards stale requests after workspace changes, and preserves unconfirmed sending messages.
+- Validation: frontend tests 15/15 PASS; backend and frontend build PASS (existing bundle-size warning). Full ingestion suite and live two-way Meta acceptance remain pending.
+- Public callback challenge checked again: HTTP 200 and exact challenge match. Browser CDP timed out before command dispatch, so Meta console save is not confirmed by this check. No push or merge.
+
+### 2026-10-02 — Provider delivery status in Inbox
+- Message history API reads Meta receipt by workspace, message and original connection. Public agent/AI messages without receipt report queued instead of sent.
+- UI distinguishes accepted, failed and unknown from delivered/read. This fixes misleading presentation; it does not prove live delivery.
+- Validation: build:all PASS; scalar receipt lookup backed by UNIQUE(workspace_id,message_id). Live receipt-to-UI verification and full integration tests remain pending. Branch codex/meta-messenger-pilot; no push/merge.
+
+### 2026-10-02 — Receipt projection database coverage
+- Extended opt-in rollback database test to call inboxMessages and verify accepted/sent/delivered/read/failed/unknown projection, existing receipt invisibility under another tenant, and foreign-workspace conversation rejection.
+- Initial test attempted DELETE on receipts; gotek_app correctly denied it. Removed that fixture operation without widening database grants. Receipt-free queued fallback still needs a dedicated fixture.
+
+### 2026-10-02 — Historical Page sender attribution
+- Historical public agent messages without a local actor now identify the source Page/account and display “Tin từ tài khoản nền tảng”, avoiding fabricated staff attribution. Lookup is scoped to conversation connection and workspace.
+- Conversation detail latest-message timestamp comes from all persisted messages by provider time, not the first 100-message response.
+- Opt-in database rollback test PASS including sender attribution and six receipt states; backend typecheck PASS. OAuth/account picker is still absent: connections currently resolve server environment token references. Live acceptance remains unverified.
+
+### 2026-10-02 — Compact Inbox source filters and running history recovery
+- Replaced native multi-select boxes with platform toggle chips and expandable Page/account checkboxes; source IDs remain secondary text and names wrap. Frontend build PASS.
+- Process inspection found outbound worker running but no history worker. Started dev:meta-history (session 27104); observed one workspace complete/imported=5 and failures for other iterations. Full history is NOT confirmed.
+- Read-only outbound diagnostic session 40418 in progress; initial workspace result: six succeeded jobs and one running. This is not recipient-delivery proof. Continue with per-connection history failures and provider error diagnostics; do not reset jobs or resend unknown outcomes. No push/merge.
+
+### 2026-10-02 — Isolate inbound dispatch latency
+- Found combined Meta loop awaits profile fetch/outbound provider calls before next ingress sweep. Added ingress-only and dispatch-only process modes; dev:meta now launches separate lanes. Ingress advances tenant cursor instead of always scanning first 100 tenants. Internal realtime bridge now has 5-second timeout.
+- Backend typecheck PASS. Ingress-only one-shot smoke process session 40850 still running at checkpoint; previous combined runtime not yet replaced. Do not claim live fix deployed. Next: inspect DB waits, finish smoke test, gracefully replace combined process, verify real tester inbound and outbound.
+
+### 2026-10-02 — Runtime lanes and callback verified
+- Graph API app subscriptions GET returned HTTP 200, object page active=true, callback https://fluid-function-register-blocking.trycloudflare.com/meta/webhook. No credential values logged.
+- Gracefully stopped old combined worker PID 85058 and verified exit. Started independent inbound session 24690 and outbound session 80761; history remains session 27104. dev:meta uses npx concurrently because root binary was absent.
+- Live tester-to-Inbox-to-tester proof remains pending; active callback and running workers alone are insufficient.
+
+### 2026-10-02 — Live Page permission diagnostic
+- Read-only GET subscribed_apps for Page IDs 1267396789788615,107825635331883,1285832874604365 returned HTTP 403, Graph code 200 with current server token refs. GoTek error explicitly: Requires pages_manage_metadata permission to manage the object.
+- This demonstrates insufficient metadata permission for this operation, NOT absence of Page subscriptions and NOT proof pages_messaging is missing. App-level callback was independently active. Need inspect/re-authorize Page token scopes and verify per-Page subscriptions/live tests. No token printed.
+- Several connected rows are old fixture accounts with missing env token refs; do not delete them automatically.
+
+### 2026-10-02 — Token and ingress evidence
+- GoTek debug_token HTTP200: valid PAGE token for app1678095707658415, pages_messaging present, pages_manage_metadata absent. Do not equate subscription-inspection403 with missing send permission.
+- Scoped read-only ingress aggregation for workspace24f7d642-00aa-47c6-ae77-d32d4047aeec:10 succeeded,27 quarantined META_EVENT_UNSUPPORTED; latest succeeded received2026-10-02T14:13:06.845Z. This proves some events reach processing, not UI delivery or full coverage. Inspect unsupported event normalization next, especially echoes.
+- History worker now logs only stable HttpError code/workspace on failure, no payload or secrets. Backend typecheck PASS; running history process needs graceful restart to load logging change.
+
+### 2026-10-02 — Provider webhook timestamps
+- Normalization previously dropped Messenger/Instagram event timestamp and WhatsApp message timestamp. Now preserves valid provider time (milliseconds vs seconds), avoiding arrival-time substitution after delayed delivery. Six inbound tests PASS and backend typecheck PASS.
+- Quarantined payload structure inspection showed message, delivery and read event families. Payload is individual event, not entry wrapper; next inspect echo flag and watermark keys without logging message contents. Echo and watermark support remains incomplete; no live completion claimed.
+
+### 2026-10-02 — Valid Page echo ingestion
+- Normalizer accepts provider echo only when sender equals entry account, recipient is a distinct customer and provider timestamp valid. Marks Page reply direction; processing records agent-side message through receipt dedupe, suppresses AI/send jobs and publishes message_sent refresh.
+- Ten focused tests PASS, backend typecheck PASS; rollback DB test PASS including duplicate live echo, agent direction and absence of AI/outbound jobs.
+- Running ingress process must be refreshed to load handler change; unknown quarantined echoes have NOT been replayed. Live two-way verification and watermark receipts remain pending.
+
+### 2026-10-02 — Echo worker runtime refreshed
+- Gracefully stopped ingress PID90627, verified exit, started updated ingress session27181; observed repeated successful idle sweeps.
+- Current quarantined aggregate in scoped workspace:7 echoes,13 delivery watermark,11 read watermark. Counts changed with new arrivals; these are not31 lost customer messages.
+- Existing replay explicitly rejects unknown event kinds. Need controlled re-normalization/reclassification and watermark support; do not blindly requeue unchanged unknown events or change old records directly. Echo handling is loaded in worker; live client proof still pending.
+
+### 2026-10-02 — Receipt customer binding correction
+- Actual quarantined webhook structure confirms customer sender / Page recipient. Normalizer now assigns recipientId from sender and rejects missing sender or mismatched Page recipient. Previously it assigned Page ID as recipient.
+- Eight inbound and two status tests PASS; backend typecheck PASS. Renamed misleading normalization test: it does not prove projection monotonicity. Watermark-only callbacks and replay remain unfinished.
+
+### 2026-10-02 — Outbound receipt realtime notification
+- Outbound worker now notifies API realtime bridge after successful send transaction and successful job settlement, so Inbox can reload accepted receipt without waiting for another inbound callback.
+- Bridge reports missing configuration and non-2xx HTTP via stable codes, with 5s timeout; no payload/secrets logged. Backend typecheck PASS. Live UI verification and worker runtime reload remain pending.
+
+### 2026-10-02 — Runtime outage recovery
+- Fresh process/port inspection found all app, Meta workers and tunnel stopped. Restarted app session17134; Vite3001/API4317 report listening. RabbitMQ unavailable.
+- Docker daemon unavailable at user socket; launched Docker Desktop. No database reset/seed performed. Direct inbound29923/outbound63072 processes currently report iteration failure while dependencies are unavailable.
+- Concurrent npx startup hit cache ENOTEMPTY; used direct worker scripts without deleting npm cache. Tunnel absent, callback restoration remains pending after database recovery. Do not claim live receipt fixed.
+
+### 2026-10-02 — Restored public callback after runtime outage
+- Docker postgres/redis/rabbitmq healthy; direct inbound29923/outbound63072 recovered from connection failures to idle sweeps.
+- New tunnel session38442 URL https://jews-truck-invision-available.trycloudflare.com. Challenge returned exact expected value. Read existing App page subscription fields, preserved them and updated callback via authenticated Graph API:HTTP200 success=true. No token output, no permission expansion.
+- API/frontend session17134 running. History process still needs restart; live tester roundtrip and full goal acceptance remain pending.
+
+### 2026-10-02 — History connection isolation and restart
+- History worker uses one transaction per connection, preserving completed Page imports if another Page fails. Returns per-connection stable error codes and emits realtime refresh after committed imports.
+- Backend typecheck PASS. Runtime session66898 restarted history: two live connections complete, one more/paginating in first observed sweep; fixture connections report META_TOKEN_NOT_CONFIGURED. No claim all historical content verified.
+- Failure-isolation integration test still required. No data reset or push/merge.
+
+### 2026-10-02 — History retry cooldown
+- Retry checkpoint cooldown now runs before credential validation, so missing credentials do not fail every worker sweep. Failed connections wait 60 seconds; retries retain the saved paging cursor.
+- Focused history tests PASS 9/9, including missing-token cooldown and expired retry resuming the saved cursor. Backend typecheck PASS.
+- Running history process has not been refreshed for this change. Full integration suite, durable nested pagination, OAuth picker and receipt watermark handling remain open; live acceptance deferred. No push or merge.
+
+### 2026-10-02 — Channel-scoped worker refresh
+- Internal worker realtime bridge validates UUIDs and resolves connection channel within a tenant-scoped database transaction before publishing; missing mappings return 404.
+- Workspace broadcasts exclude visitor subscriptions; channel-scoped broadcasts deny Agents with missing channel membership rather than failing open.
+- Realtime scope regression PASS across Owner, assigned Agent, other-channel Agent, missing memberships, visitor and foreign workspace. Backend typecheck PASS. HTTP bridge integration test and live acceptance remain pending. No push/merge.
+
+### 2026-10-02 — Realtime HTTP contract regression
+- Added HTTP test through createApp: unauthorized requests avoid DB, malformed identifiers return 400, missing mapping returns 404 without broadcast, valid mapping resolves tenant channel and publishes after COMMIT.
+- HTTP and hub tests PASS 2/2; backend typecheck PASS. HTTP test mocks database transport and does not prove real RLS or end-to-end Meta delivery. Those integration gates remain open; live acceptance deferred.
+
+### 2026-10-02 — Retained Facebook echo replay
+- Owner/Admin replay now permits previously unknown raw Facebook messages only when the current normalizer recovers exactly one event matching immutable Page and external message IDs. Worker re-normalizes independently before ordinary connection validation and deduplicated processing.
+- Unsupported events remain quarantined; Instagram/WhatsApp recovery is unchanged. No stored payload overwritten and no live replay triggered.
+- Normalizer and inbound regression tests run this checkpoint; full replay API/database/worker integration remains required.
+
+### 2026-10-02 — Outbound failure visibility
+- Inbox resolves receipt-less Meta send status from scoped dispatcher jobs: dead/cancelled -> failed, unknown or succeeded without provider receipt -> unknown, pending/running -> queued. Provider receipt remains authoritative.
+- Meta worker emits refresh after terminal failure/unknown settlement when source connection resolved; media validation/caption rejections are known terminal failures.
+- Delivery status unit tests PASS; backend typecheck PASS. Extended rollback database test PASS for queued/dead/unknown/succeeded-without-receipt inbox projection. Initial fixture failed jobs receipt constraint, corrected fixture; all inserted data rolled back. No real sends, push or merge.
+- OAuth picker, durable nested history, watermark receipts and whole-pipeline tests remain open.
+
+### 2026-10-02 — Durable nested history pagination
+- Added migration 083 pending_threads checkpoint; applied transactionally to local database with migration ledger. Existing messages preserved.
+- History does one Graph request per pass, saves nested message-page cursors and participant identity separately from outer conversation cursor, then resumes pending threads before advancing outer pages. Removes all-pages-in-one-transaction and 100-page ceiling. Tokens stripped from persisted cursors; self-repeating cursor rejected.
+- History tests PASS 10/10, rollback database integration PASS including persisted nested resume, duplicate messages, both directions and tenant isolation; backend typecheck PASS.
+- Rollback: deploy previous history code only after nested work drained or explicitly restart scan; preserve checkpoint column/data. Do not drop pending cursors while work remains. Runtime worker has not been reloaded. Longer cursor cycles, expired provider cursors, Graph historical media format and live acceptance remain unverified. No push or merge.
+
+### 2026-10-02 — Encrypted Page credential foundation
+- Migration084 adds tenant-scoped encrypted credential storage with composite connection FK and worker read-only access; applied locally without migrating existing env tokens.
+- AES-256-GCM envelope binds token to workspace/connection/purpose. Missing key or authentication failure fails closed; key comes from META_CREDENTIAL_ENCRYPTION_KEY (32-byte base64), never database. Existing env credentials remain fallback only when no stored credential exists.
+- Verification/subscription, history, profile and outgoing text/media now resolve stored credentials server-side. Tokens do not enter jobs or API responses.
+- Vault/history tests PASS11/11; rollback DB test PASS for encrypted resolution and cross-tenant invisibility; backend typecheck PASS. No real token persisted, no key configured yet. OAuth state/callback/account picker still needs implementation. No push/merge.
+- Provider account-discovery reference: https://www.postman.com/meta/facebook/request/bqfxwbp/get-access-tokens-of-pages-you-manage . Official Meta login manual documentation returned429; callback contract needs further verification.
+
+### 2026-10-02 — Facebook OAuth and multi-Page picker implementation
+- Added tenant/session/user-bound OAuth state with 15-minute expiry, one-use callback, encrypted Page account list, paginated server discovery and account selection restricted to the offered set. API callback returns only session UUID to Channels; no provider tokens enter frontend.
+- Owner/Admin can select multiple Pages in new FacebookConnect UI. Each Page connects independently; verification and subscription must succeed before connected status. Existing Page in same workspace reconnects in place; global uniqueness preserves cross-workspace ownership. Legacy server test configuration retained.
+- Migration085 applied locally. OAuth unit test PASS; real PostgreSQL rollback test with mocked Graph PASS for two Pages/two channels, credential resolution, wrong session, unoffered Page and cross-tenant session isolation. Backend/frontend build PASS (existing large bundle warning). No live OAuth tested or real tokens stored.
+- Required runtime config: META_APP_ID, META_APP_SECRET, META_OAUTH_REDIRECT_URI ending /api/meta/oauth/callback on the same browser origin as GoTek session, META_CREDENTIAL_ENCRYPTION_KEY (32 random bytes base64; back up securely). Redirect must be allowlisted in Meta App. HTTPS required except localhost development. All API/worker processes must share encryption key before storing actual tokens.
+- Remaining OAuth gates: HTTP callback/session expiry tests, concurrent cross-workspace Page claim, rejected subscription rollback, browser picker verification, expired-token handling and configurable Graph version consolidation. Full Facebook objective still open; no push/merge and live acceptance deferred.
+
+### 2026-10-02 — Review remediation: configuration and Graph version consistency
+- Removed runnable database/broker/runtime defaults from .env.example; placeholders are empty and local credentials remain generated by db:setup.
+- Profile lookup now uses validated META_GRAPH_API_VERSION with the same v25.0 fallback as the send adapter, avoiding hard-coded version drift.
+- Removed trailing whitespace and blank EOF issues reported by git diff --check. Backend and full build:all PASS; focused profile/OAuth/vault tests PASS.
+- Remaining review findings are architectural (route/controller/repository split), receipt watermark reconciliation, live OAuth/browser integration and media end-to-end. No push/merge.
+
+
+### Facebook watermark receipt continuation (2026-10-02)
+- Normalize durable delivery/read watermark callbacks with customer-scoped stable event IDs; avoid also quarantining recognized callbacks as unknown.
+- Reconcile only against provider Page-echo timestamps on the same workspace/connection/customer. Local message creation time is not sufficient evidence of provider send time. Receipt state cannot regress from read.
+- Reconcile again when delayed echoes arrive and when outbound receipts are recorded. Missing echo evidence leaves the existing status unchanged.
+- Verified: backend typecheck; 6/6 focused tests including rollback-only PostgreSQL history/receipt test (watermark before/after echo, later message exclusion, monotonic status, tenant isolation). No live Meta acceptance in this pass; full suite not rerun.
+- Remaining: full Facebook OAuth/UI and ingestion regression review; history media completeness; retained pre-change watermark replay. No commit/push/merge.
+
+
+### Facebook history media continuation (2026-10-02)
+- Added Graph-history attachment normalization for image_data.url, video_data.url, file_url; preserved webhook-shaped compatibility, HTTPS validation and video precedence over image thumbnails.
+- History requests now honor validated META_GRAPH_API_VERSION (same v25.0 fallback as OAuth), removing the hardcoded v26.0 initial request.
+- Rollback PostgreSQL test now verifies customer video and Page image reach message_attachments and inboxMessages; provider transport is mocked.
+- Verified 21/21 focused tests with no skips: history, media, OAuth two-Page linking, encrypted credentials and receipts. Backend typecheck and diff whitespace check pass.
+- Meta documentation fetch returned HTTP 429; actual provider media payload/live playback remains unverified and is deferred with live acceptance. Parser support does not establish full historical media availability.
+- Remaining: browser OAuth/UI regression, full ingestion integration coverage, retained watermark replay, attachment pagination/unavailable-media behavior. No commit, push or merge.
+
+
+### Review remediation — WebSocket commit boundary (2026-10-02)
+- Deferred takeover, message ACK, conversation and inbox publications until transaction resolves after COMMIT. Rollback does not publish queued callbacks; publication errors cannot be reported as persistence failures.
+- ACK/message IDs now use appendMessage's persisted ID, including idempotent retries, instead of a newly generated unused ID.
+- Verified backend typecheck and existing WebSocket membership-revocation/channel-isolation integration test. Dedicated forced-commit-failure regression still required; existing test does not prove that scenario.
+- Review remains open. No commit/push/merge; full-suite database environment failures are unresolved.
+
+
+### Review loop update (2026-10-02)
+- Moved AI and bot controller Zod DTOs to `backend/src/dtos/` and replaced controller `Promise<any>` with service-derived return types.
+- Added opt-in `META_WORKER_ENABLED=true` scheduler in backend startup for durable Meta ingress and Facebook history passes; it remains disabled unless a trusted worker database URL and explicit environment are configured.
+- Fixed WebSocket post-commit publication boundary; ACK and realtime broadcasts now run only after COMMIT.
+- Focused Meta/Realtime suite: 73 passed, 9 skipped (database-dependent skips), 0 failed. `npm run build:all` passed; only existing frontend chunk-size warning remains. Full `npm run test:all` still requires the configured PostgreSQL test socket and is not a clean environmental run.
+- Remaining review P2: frontend channel component/API-layer separation and tokenized color cleanup. Remaining Facebook acceptance: browser/provider live test and fresh clean DB migration run. No commit, push or merge.
+
+
+### Scheduler corrective review (2026-10-02)
+- Replaced overlapping setInterval passes with serial loops; persisted tenant pagination cursor between passes so tenants beyond the first 100 are serviced.
+- History loop is independent from ingress; shutdown waits for active work before closing the worker pool. Meta startup no longer waits for RabbitMQ initialization.
+- Corrected widget form default back to a literal hex value: CSS var() is styling syntax, not valid color-input/API configuration data. Earlier token substitution broke this contract.
+- Backend typecheck and two scheduler concurrency/pagination/drain regression tests passed. Not a full review completion; outgoing dispatch still uses the separate explicit worker process.
+- No commit/push/merge. Remaining findings and full integration/clean-database checks remain open.
+
+
+### Facebook Graph configuration review (2026-10-02)
+- Centralized version selection for send, profile, OAuth, connection verification/subscription and new history scans. META_GRAPH_API_VERSION wins; legacy META_GRAPH_VERSION remains supported; malformed configuration falls back to v25.0 consistently with existing send contract. Saved history paging URLs remain unchanged.
+- Removed subscription/verification hardcoded v20.0 divergence. WhatsApp media resolver remains outside this Facebook-focused change.
+- Backend typecheck and 22 focused tests passed without skips. Full review still open; no Git publication.
+
+
+### Receipt queue dedupe correction (2026-10-02)
+- Found P1: ingress uniqueness used provider message ID + generic status kind, so delivery could consume the same queue key as a later read callback.
+- Status queue identity now hashes provider event ID, status and recipient; original provider IDs remain unchanged in normalized payload/meta_events for reconciliation. Hash bounds queue key length.
+- Verified six normalization/queue tests and rollback PostgreSQL regression: delivery + read produce exactly two durable rows even after duplicate envelope replay. Backend typecheck passed.
+- Existing callbacks already discarded by old dedupe cannot be reconstructed from missing payload; subsequent provider callbacks are required. No data deletion/migration or Git publication.
+
+
+### Ingress retry atomicity (2026-10-03)
+- Added a PostgreSQL savepoint around each claimed Meta ingress projection. If normalization/profile/message/status processing fails, projection and dedupe writes roll back before the event is marked retry/quarantined; post-commit notifications are cleared. A lost lease now aborts cleanly rather than publishing.
+- Added rollback database regression proving a failed projection leaves no `meta_events` dedupe row and remains retryable.
+- Backend typecheck and database regression pass. No commit/push/merge.
+
+
+### Worker role validation (2026-10-03)
+- Meta ingress/history transactions now verify authenticated session_user and effective current_user are gotek_meta_worker with neither superuser nor BYPASSRLS privileges. Misconfiguration fails before projection/history queries.
+- Added documented disabled-by-default scheduler/worker URL settings to .env.example without secrets.
+- Backend typecheck and four focused role/scheduler tests pass; role tests use mocked DB responses and do not replace dedicated-role database integration acceptance.
+- Review remains open; no commit/push/merge.
+
+
+### Retained Facebook receipt replay (2026-10-03)
+- Quarantine replay and ingress worker now recognize retained raw delivery/read events, including watermark-only callbacks. Route and immutable original envelope hash/provider event identity must match.
+- Recovered statuses use existing monotonic reconciliation; no message creation path is invoked. Existing authorization/expiry/tenant gates remain.
+- Nine parser/queue regression tests and backend typecheck passed; full worker/database replay integration remains to verify. No live replay or Git publication performed.
+
+
+### Expired Meta ingress cleanup (2026-10-03)
+- Added migration 086 with a bounded, worker-role-only cleanup function for expired quarantined/succeeded/dead ingress rows. Processing/retry rows are retained until settled.
+- Scheduler invokes cleanup before each ingress pass; payloads are not exposed to the app role.
+- Backend typecheck and scheduler/role tests pass. Migration must be applied on the target database before enabling the scheduler. No commit/push/merge.
+
+### Final Facebook code-audit checkpoint (2026-10-03)
+- npm run build:all passed. Facebook/Meta, scheduler, replay, history, OAuth, receipt, realtime and role test selection: 79 passed, 9 skipped only where PostgreSQL integration environment is not enabled; 0 failed. git diff --check passed.
+- Source remains on codex/meta-messenger-pilot; 85 changed/untracked entries are still local. No commit, push, pull or merge was performed in this checkpoint.
+- Code-level Facebook work is substantially complete for the requested pre-acceptance stage. Live Meta webhook/provider delivery, applying migrations 076-086 to a clean target database, and browser acceptance remain explicit gates before production/live claim.
+
+### Final local verification (2026-10-03)
+- Frontend suite: 15/15 passed. git diff --check passed.
+- No source publication was performed. Live Meta and clean-database migration gates remain intentionally separate from local verification.
+
+### Scheduler cleanup regression (2026-10-03)
+- Added a regression proving expiry cleanup executes before each ingress pass and remains serialized.
+- Backend typecheck and three scheduler tests pass; diff whitespace check passes.

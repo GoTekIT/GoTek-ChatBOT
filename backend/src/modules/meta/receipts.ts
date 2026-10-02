@@ -21,4 +21,25 @@ export async function reconcileMetaReceipt(db:PoolClient,workspace:string,connec
   WHEN e.failed THEN e.error_code ELSE d.error_code END,updated_at=now()
  FROM evidence e WHERE d.workspace_id=$1 AND d.connection_id=$2 AND d.provider_message_id=$3`,
  [workspace,connection,providerMessage]);
+ // A local creation time cannot prove when Meta sent a message (queued retries
+ // may send much later). Only provider echo timestamps qualify for watermarks.
+ await db.query(`WITH evidence AS (
+  SELECT d.id,bool_or(w.event_kind='status:read') AS read
+  FROM meta_message_deliveries d
+  JOIN meta_events echo ON echo.workspace_id=d.workspace_id
+   AND echo.connection_id=d.connection_id AND echo.event_kind='message'
+   AND echo.external_event_id=d.provider_message_id
+   AND echo.payload->>'isPageReply'='true'
+  JOIN meta_events w ON w.workspace_id=d.workspace_id AND w.connection_id=d.connection_id
+   AND w.event_kind IN ('status:delivered','status:read')
+   AND w.payload->>'recipientId'=echo.payload->>'senderId'
+   AND (w.payload->>'watermarkAt')::timestamptz >= (echo.payload->>'createdAt')::timestamptz
+  WHERE d.workspace_id=$1 AND d.connection_id=$2
+   AND ($3='' OR d.provider_message_id=$3)
+  GROUP BY d.id
+ ) UPDATE meta_message_deliveries d SET
+  status=CASE WHEN d.status='read' OR e.read THEN 'read' ELSE 'delivered' END,
+  error_code=NULL,updated_at=now()
+ FROM evidence e WHERE d.id=e.id AND d.workspace_id=$1 AND d.connection_id=$2`,
+ [workspace,connection,providerMessage]);
 }
