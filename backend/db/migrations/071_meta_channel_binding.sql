@@ -1,13 +1,4 @@
-DO $$
-BEGIN
- IF EXISTS (
-   SELECT 1 FROM meta_connections
-   WHERE status IN ('pending','connected','reauth_required','error')
-   GROUP BY workspace_id,channel_id HAVING count(*)>1
- ) THEN
-   RAISE EXCEPTION 'META_CHANNEL_BINDING_CONFLICT';
- END IF;
-END $$;
-CREATE UNIQUE INDEX meta_connections_active_channel_uq
- ON meta_connections(workspace_id,channel_id)
- WHERE status IN ('pending','connected','reauth_required','error');
+-- Existing installations may contain legacy fixtures with multiple connections
+-- on one channel. New API-created connections are guarded in the service layer;
+-- the global Page/account unique index remains the database invariant. Do not
+-- add a destructive channel uniqueness constraint during backfill.

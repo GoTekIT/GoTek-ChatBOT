@@ -14,8 +14,8 @@
 - `npm run build:all` passed.
 
 ## Per-connection channel guard checkpoint (2026-10-02)
-- Migration 071 and the create API now reject multiple active Meta connections bound to the same workspace channel; duplicate legacy bindings abort migration rather than choosing a source.
-- This preserves one Page/account → one channel → one connection routing invariant. Workspace admins must create/select a separate channel before linking another account.
+- The create API rejects new active Meta connections bound to an already occupied workspace channel. Migration 071 deliberately does not add a destructive uniqueness index because legacy installations/fixtures may contain existing bindings.
+- The global Page/account unique index remains the database invariant; existing legacy channel bindings continue using explicit connection routing where available.
 - `npm run build:all` passed; no live Meta verification was performed.
 
 ## Multi-connection management checkpoint (2026-10-02)
