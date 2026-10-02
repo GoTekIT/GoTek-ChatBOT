@@ -8,7 +8,7 @@ import { enqueueJob } from '../src/modules/jobs/jobs';
 import { runAiWorkerOnce } from '../src/modules/jobs/worker';
 import { digest, opaque } from '../src/core/security';
 
-const admin = new pg.Pool({ host: '/tmp', port: 55432, user: 'gotek_migrator', database: 'gotek_chatbot' });
+const admin = new pg.Pool({ host: '127.0.0.1', port: 55432, user: 'gotek_migrator', database: 'gotek_chatbot' });
 
 test('distinct scheduler jobs for one visitor turn cannot both invoke provider', async () => {
   const workspace = randomUUID();

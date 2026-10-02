@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
+import { api } from '../api/api';
 import { ConsoleModule } from '../types';
 import { ThreeNeuralCore } from './common/ThreeNeuralCore';
 import { VectorSpace3DModal } from './modals/VectorSpace3DModal';
@@ -30,6 +31,30 @@ export const TopNav: React.FC<TopNavProps> = ({
   const [showVectorModal, setShowVectorModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [activeQueueTab, setActiveQueueTab] = useState<'live' | 'handoffs' | 'resolved'>('live');
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+  const [inviteActionBusy, setInviteActionBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Load pending invitations for any authenticated user on mount
+    api('/invitations/pending')
+      .then((rows: any[]) => setPendingInvites(rows || []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (showNotifications && can(me, 'audit.read')) {
+      api('/audit')
+        .then((logs: any[]) => setAuditLogs(logs.slice(0, 5)))
+        .catch(() => setAuditLogs([]));
+    }
+    if (showNotifications) {
+      // Refresh pending invitations whenever panel opens
+      api('/invitations/pending')
+        .then((rows: any[]) => setPendingInvites(rows || []))
+        .catch(() => {});
+    }
+  }, [showNotifications]);
 
   const displayName = me?.user?.fullName || me?.user?.full_name || me?.user?.name || me?.user?.email?.split('@')[0] || 'Chưa xác định';
   const displayEmail = me?.user?.email || 'Chưa xác định';
@@ -89,7 +114,6 @@ export const TopNav: React.FC<TopNavProps> = ({
         <div className="flex items-center gap-3">
           {/* Interactive Three.js 3D Neural Core Orb */}
           <button
-            style={{display: can(me, 'knowledge.manage') ? undefined : 'none'}}
             onClick={() => setShowVectorModal(true)}
             className="flex items-center gap-2.5 px-3 py-1 bg-gradient-to-r from-blue-50/90 to-indigo-50/90 dark:from-blue-950/40 dark:to-indigo-950/40 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/50 dark:hover:to-indigo-900/50 border border-blue-200/80 dark:border-blue-800/60 rounded-full transition-all group shadow-xs cursor-pointer"
             title="Khám phá Không gian Vector Tri thức 3D (Three.js WebGL)"
@@ -124,7 +148,6 @@ export const TopNav: React.FC<TopNavProps> = ({
               Console
             </button>
             <button
-              style={{display: can(me, 'channels.manage') ? undefined : 'none'}}
               onClick={() => setActiveModule('widget-demo')}
               className={`px-3 py-1 rounded-md font-semibold flex items-center gap-1 transition-all ${
                 activeModule === 'widget-demo'
@@ -165,7 +188,13 @@ export const TopNav: React.FC<TopNavProps> = ({
               type="button"
             >
               <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-[#ba1a1a] rounded-full ring-2 ring-white dark:ring-slate-900"></span>
+              {pendingInvites.length > 0 ? (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] flex items-center justify-center bg-[#1664ff] rounded-full ring-2 ring-white dark:ring-slate-900 text-[10px] font-bold text-white px-0.5">
+                  {pendingInvites.length}
+                </span>
+              ) : (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-[#ba1a1a] rounded-full ring-2 ring-white dark:ring-slate-900"></span>
+              )}
             </button>
 
             {showNotifications && (
@@ -176,27 +205,83 @@ export const TopNav: React.FC<TopNavProps> = ({
                     Realtime
                   </span>
                 </div>
-                <div className="divide-y divide-slate-100 dark:divide-slate-800/70 text-xs max-h-64 overflow-y-auto">
-                  <div className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
-                    <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold mb-1">
-                      <span className="material-symbols-outlined text-[15px]">priority_high</span>
-                      <span>SLA Escalation Triggered</span>
+                {/* In-App Invitation Inbox */}
+                {pendingInvites.length > 0 && (
+                  <div className="border-b border-slate-200 dark:border-slate-700">
+                    <div className="px-4 py-1.5 text-[10px] font-bold text-[#1664ff] dark:text-blue-400 uppercase tracking-wider flex items-center gap-1 bg-blue-50/60 dark:bg-blue-950/30">
+                      <span className="material-symbols-outlined text-[13px]">mail</span>
+                      Lời mời ({pendingInvites.length})
                     </div>
-                    <p className="text-slate-600 dark:text-slate-300 text-[11px]">
-                      Nguyễn Minh Tuấn (Techcombank) requested NDA review. SLA countdown &lt; 2m.
-                    </p>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">1 phút trước</span>
+                    {pendingInvites.map((inv) => (
+                      <div key={inv.id} className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-800/60 bg-blue-50/30 dark:bg-blue-950/10">
+                        <p className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
+                          🎉 Tham gia <span className="text-[#1664ff] dark:text-blue-400">{inv.workspace_name}</span>
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                          Vai trò: <span className="font-semibold">{inv.role}</span>
+                          {' · '}
+                          Hết: {new Date(inv.expires_at).toLocaleDateString('vi-VN')}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={inviteActionBusy === inv.id}
+                            onClick={async () => {
+                              setInviteActionBusy(inv.id);
+                              try {
+                                await api('/invitations/accept-in-app', 'POST', { invitationId: inv.id });
+                                await api('/workspace/switch', 'POST', { workspaceId: inv.workspace_id });
+                                setPendingInvites((p) => p.filter((i) => i.id !== inv.id));
+                                window.location.reload();
+                              } catch {
+                                setShowNotifications(false);
+                                window.location.href = `/app/invitation#workspaceId=${inv.workspace_id}`;
+                              } finally {
+                                setInviteActionBusy(null);
+                              }
+                            }}
+                            className="flex-1 py-1 px-2 bg-[#1664ff] hover:bg-[#3370ff] text-white text-[11.5px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
+                          >
+                            {inviteActionBusy === inv.id
+                              ? <span className="material-symbols-outlined text-[13px] animate-spin">sync</span>
+                              : <span className="material-symbols-outlined text-[13px]">check_circle</span>}
+                            Chấp nhận
+                          </button>
+                          <button
+                            type="button"
+                            disabled={inviteActionBusy === inv.id}
+                            onClick={() => setPendingInvites((p) => p.filter((i) => i.id !== inv.id))}
+                            className="py-1 px-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11.5px] font-medium rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Để sau
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
-                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
-                      <span className="material-symbols-outlined text-[15px]">check_circle</span>
-                      <span>Vector Store Re-indexed</span>
+                )}
+
+                <div className="divide-y divide-slate-100 dark:divide-slate-800/70 text-xs max-h-48 overflow-y-auto">
+                  {auditLogs.length === 0 ? (
+                    <div className="p-4 text-center text-slate-400 text-xs">
+                      Không có thông báo mới.
                     </div>
-                    <p className="text-slate-600 dark:text-slate-300 text-[11px]">
-                      142 documents synced to text-embedding-3-large pgvector index.
-                    </p>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">12 phút trước</span>
-                  </div>
+                  ) : (
+                    auditLogs.map((log) => (
+                      <div key={log.id} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold mb-1">
+                          <span className="material-symbols-outlined text-[15px]">info</span>
+                          <span className="font-mono text-[11px]">{log.action}</span>
+                        </div>
+                        <p className="text-slate-600 dark:text-slate-300 text-[11px] truncate">
+                          Đối tượng: {log.object_id}
+                        </p>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
+                          {new Date(log.created_at).toLocaleString('vi-VN')}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -295,8 +380,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                     <span className="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">receipt_long</span>
                     <span>Nhật ký Kiểm toán (Audit)</span>
                   </button>
-                  <button style={{display: can(me, 'channels.manage') ? undefined : 'none'}}
-                    onClick={() => {
+                  <button onClick={() => {
                       setActiveModule('widget-demo');
                       setShowProfileMenu(false);
                     }}

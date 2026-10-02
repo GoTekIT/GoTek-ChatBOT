@@ -46,6 +46,7 @@ export interface StaffMember {
 
 export interface ChatMessage {
   id: string;
+  clientId?: string;
   senderType: 'customer' | 'ai' | 'agent' | 'internal_note' | 'system_event';
   senderName: string;
   senderAvatar?: string;
@@ -58,6 +59,7 @@ export interface ChatMessage {
     similarity?: string;
     verified?: boolean;
   }>;
+  status?: 'sending' | 'sent' | 'delivered' | 'read';
 }
 
 export interface Conversation {
@@ -75,7 +77,10 @@ export interface Conversation {
   unreadCount?: number;
   channel: 'Widget' | 'Slack App' | 'Email' | 'API Chat';
   status: 'handoff' | 'ai_active' | 'in_review' | 'resolved';
+  reply_owner?: string;
+  replyOwner?: string;
   assignedTo?: string;
+  ownerVersion?: number;
   slaCountdown?: string;
   slaUrgent?: boolean;
   activeUrl: string;

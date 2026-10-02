@@ -11,7 +11,7 @@ import {pool} from '../src/core/db';
 import {runAiWorkerOnce,defaultWorkspaceProviderInvoke} from '../src/modules/jobs/worker';
 
 test('published enterprise data flows through granted adapter to widget, then human takeover',async t=>{
- const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+ const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
  t.after(async()=>{await pool.end();await admin.end();});
  const email=randomUUID()+'@example.test';
  const app=createApp(),owner=request.agent(app),password='Local-grounded-fixture-2026';

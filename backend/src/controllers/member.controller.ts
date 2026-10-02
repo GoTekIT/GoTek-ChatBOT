@@ -32,6 +32,11 @@ export class MemberController {
     return MemberService.listInvitations(db);
   }
 
+  /** Any authenticated user can query their own pending invitations */
+  static async listPendingInvitations(db: PoolClient, i: Identity): Promise<any> {
+    return MemberService.listPendingForUser(db, i.user_id);
+  }
+
   static async createInvitation(db: PoolClient, i: Identity, req: Request): Promise<any> {
     requireRole(i.role);
     const data = z
@@ -62,6 +67,13 @@ export class MemberController {
       .parse(req.body);
 
     await MemberService.acceptInvitation(db, i.user_id, data.workspaceId, data.token);
+    return successResponse;
+  }
+
+  /** In-app accept: uses invitation ID — no raw token required, email ownership enforced in service */
+  static async acceptInvitationInApp(db: PoolClient, i: Identity, req: Request): Promise<any> {
+    const { invitationId } = z.object({ invitationId: uidSchema }).strict().parse(req.body);
+    await MemberService.acceptInvitationById(db, i.user_id, invitationId);
     return successResponse;
   }
 }

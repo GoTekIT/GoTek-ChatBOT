@@ -9,17 +9,17 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
+  theme: 'light',
   toggleTheme: () => {},
   setTheme: () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Default to 'dark' for cosmic harmony with Three.js Auth screen and eye-friendly contrast
+  // Default to clean, modern light theme
   const [theme, setThemeState] = useState<Theme>(() => {
     const saved = localStorage.getItem('gotek-theme');
     if (saved === 'dark' || saved === 'light') return saved;
-    return 'dark'; // Always default to dark mode
+    return 'light'; // Default to light mode
   });
 
   useEffect(() => {

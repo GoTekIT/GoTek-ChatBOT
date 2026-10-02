@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {pool} from '../src/core/db';
 import {defaultWorkspaceProviderInvoke} from '../src/modules/jobs/worker';
 
-const admin = new pg.Pool({host:'/tmp', port:55432, user:'gotek_migrator', database:'gotek_chatbot'});
+const admin = new pg.Pool({host:'127.0.0.1', port:55432, user:'gotek_migrator', database:'gotek_chatbot'});
 test.after(async () => { await pool.end(); await admin.end(); });
 
 test('workspace provider boundary refuses an expired grant before provider I/O', async () => {

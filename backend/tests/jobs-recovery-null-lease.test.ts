@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { pool, scope, transaction } from '../src/core/db';
 import { enqueueJob, claimJob, recoverStaleJobs } from '../src/modules/jobs/jobs';
 
-const admin = new pg.Pool({ host: '/tmp', port: 55432, user: 'gotek_migrator', database: 'gotek_chatbot' });
+const admin = new pg.Pool({ host: '127.0.0.1', port: 55432, user: 'gotek_migrator', database: 'gotek_chatbot' });
 
 test('recovery reclaims a running row with a missing lease inside its tenant scope', async () => {
   const workspace = randomUUID();

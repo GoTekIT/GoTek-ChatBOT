@@ -100,8 +100,8 @@ export async function importKnowledgeFile(db:PoolClient,actor:any,body:unknown){
 }
 
 /**
- * Permanently delete a draft knowledge item if it has never been published.
- * Enforces FR-KNOW-05/06: Never allows deleting knowledge that was published or has active citations.
+ * Permanently delete a knowledge item and its versions/chunks.
+ * Safeguards active citations: rejects deletion if referenced in active_citation_sources.
  */
 export async function deleteKnowledgeItem(db: PoolClient, actor: any, id: string) {
  requireRole(actor.role);

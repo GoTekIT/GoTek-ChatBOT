@@ -29,10 +29,11 @@ const config = existsSync(file)
     };
 
 // Admin connection options (supports Windows TCP, Docker TCP and Unix socket)
-const adminHost = process.env.PGHOST || (existsSync('/tmp/.s.PGSQL.55432') ? '/tmp' : '127.0.0.1');
-const adminPort = Number(process.env.PGPORT) || 55432;
-const adminUser = process.env.PGUSER || 'gotek_migrator';
-const adminPassword = process.env.PGPASSWORD || 'gotek_dev_password';
+const defaultHost = process.platform === 'win32' || !existsSync('/tmp/.s.PGSQL.55432') ? '127.0.0.1' : '/tmp';
+const adminHost = process.env.GOTEK_DB_HOST || process.env.PGHOST || defaultHost;
+const adminPort = Number(process.env.GOTEK_DB_PORT || process.env.PGPORT) || 55432;
+const adminUser = process.env.GOTEK_DB_ADMIN_USER || process.env.PGUSER || 'gotek_migrator';
+const adminPassword = process.env.GOTEK_DB_ADMIN_PASSWORD || process.env.PGPASSWORD || 'gotek_dev_password';
 
 const admin = new Client({
   host: adminHost,

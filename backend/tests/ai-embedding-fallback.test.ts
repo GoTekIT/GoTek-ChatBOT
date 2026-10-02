@@ -6,7 +6,7 @@ import {transactionalAiReplyHandler} from '../src/modules/ai/ai-reply-worker';
 import {appendMessage} from '../src/modules/chat/chat-store';
 import {pool,scope,transaction} from '../src/core/db';
 
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 test.after(async()=>{await pool.end();await admin.end();});
 
 test('embedding transport failures fall back only to existing grounded lexical context',async()=>{

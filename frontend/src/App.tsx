@@ -78,6 +78,7 @@ export function App() {
     }
   }
 
+
   // 1. Platform Admin Group Routes (/platform/*)
   if (path.startsWith('/platform') && loading) return <p role="status">Đang kiểm tra quyền…</p>;
   if (path.startsWith('/platform') && me) {
@@ -106,7 +107,7 @@ export function App() {
   // 3. Auth Group Routes (/app/auth/*)
   if (path.startsWith('/app/auth/') || path === '/app/login' || (!me && !loading)) {
     return (
-      <div style={{position: 'relative', width: '100%', minHeight: '100vh'}}>
+      <div style={{position: 'relative', width: '100%', height: '100vh', overflow: 'hidden'}}>
         <Auth path={path} onLogin={refresh} />
       </div>
     );

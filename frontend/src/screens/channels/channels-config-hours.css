@@ -1,0 +1,374 @@
+/* Compact, elegant Business Hours schedule styles */
+
+.hours-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  flex-wrap: wrap;
+}
+
+.hours-tz-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #475569;
+}
+
+.hours-tz-picker .config-icon {
+  font-size: 16px;
+  color: #1764df;
+}
+
+.hours-tz-picker select {
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 2px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  color: #1e293b !important;
+  cursor: pointer;
+  outline: none;
+}
+
+.hours-tz-picker select:focus {
+  border-color: #1764df !important;
+  box-shadow: 0 0 0 2px rgba(23, 100, 223, 0.15);
+}
+
+.hours-presets {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hours-presets-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.preset-chip {
+  padding: 3px 9px;
+  font-size: 11.5px;
+  font-weight: 550;
+  border-radius: 6px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.preset-chip:hover:not(:disabled) {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+  transform: translateY(-1px);
+}
+
+.preset-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Schedule List Container */
+.hours-list-container,
+.hours-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  margin-top: 0 !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  overflow: hidden !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+}
+
+.hours-list-container.is-disabled,
+.hours-grid.is-disabled {
+  opacity: 0.55;
+}
+
+/* Single Day Row */
+.hours-day-row,
+.day-card {
+  position: static !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 7px 14px !important;
+  min-height: 40px !important;
+  border: none !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  border-radius: 0 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  transition: background 0.15s ease !important;
+  opacity: 1 !important;
+}
+
+.hours-day-row:last-child,
+.day-card:last-child {
+  border-bottom: none !important;
+}
+
+.hours-day-row.is-off,
+.day-card:not(.day-active) {
+  background: #fbfcfe !important;
+}
+
+.hours-day-row:hover,
+.day-card:hover {
+  background: #f8fafc !important;
+}
+
+/* Day Left: Toggle + Name */
+.day-left,
+.day-card-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 140px !important;
+  margin-bottom: 0 !important;
+}
+
+.day-toggle {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin: 0;
+}
+
+.day-toggle input,
+.day-card-header input[type="checkbox"] {
+  position: relative !important;
+  appearance: none !important;
+  width: 36px !important;
+  height: 20px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: #cbd5e1 !important;
+  cursor: pointer !important;
+  transition: background 0.18s ease !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.day-toggle input:after,
+.day-card-header input[type="checkbox"]:after {
+  position: absolute !important;
+  top: 3px !important;
+  left: 3px !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  content: "" !important;
+  transition: transform 0.18s ease !important;
+}
+
+.day-toggle input:checked,
+.day-card-header input[type="checkbox"]:checked {
+  background: #1764df !important;
+}
+
+.day-toggle input:checked:after,
+.day-card-header input[type="checkbox"]:checked:after {
+  transform: translateX(16px) !important;
+}
+
+.day-toggle input:disabled,
+.day-card-header input[type="checkbox"]:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+.day-name,
+.day-card-header strong {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  min-width: 70px;
+  letter-spacing: normal !important;
+}
+
+.hours-day-row.is-off .day-name,
+.day-card:not(.day-active) .day-card-header strong {
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+/* Day Right: Inputs or Closed text */
+.day-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  justify-content: flex-end !important;
+  flex: 1 !important;
+}
+
+.day-closed-text,
+.day-closed {
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+  padding: 3px 10px !important;
+  background: #f1f5f9 !important;
+  border-radius: 999px !important;
+  border: 1px solid #e2e8f0 !important;
+  white-space: nowrap;
+}
+
+.day-open-badge,
+.day-open {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #15803d !important;
+  background: #f0fdf4 !important;
+  padding: 3px 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid #bbf7d0 !important;
+  white-space: nowrap;
+}
+
+.day-open-badge .config-icon {
+  font-size: 14px;
+}
+
+.day-time-inputs,
+.day-time-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 0 !important;
+}
+
+.day-time-inputs input[type="time"],
+.day-time-row input[type="time"] {
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 2px 8px !important;
+  font-size: 12px !important;
+  font-family: inherit !important;
+  font-weight: 500 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  color: #1e293b !important;
+  width: 104px !important;
+  text-align: center;
+}
+
+.day-time-inputs input[type="time"]:focus,
+.day-time-row input[type="time"]:focus {
+  border-color: #1764df !important;
+  outline: 0 !important;
+  box-shadow: 0 0 0 2px rgba(23, 100, 223, 0.15) !important;
+}
+
+.day-time-sep {
+  color: #94a3b8 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.day-full-checkbox,
+.day-full {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #475569 !important;
+  cursor: pointer !important;
+  padding: 3px 8px !important;
+  margin: 0 !important;
+  border-radius: 5px !important;
+  user-select: none !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  transition: all 0.15s ease !important;
+  width: auto !important;
+  white-space: nowrap;
+}
+
+.day-full-checkbox:hover,
+.day-full:hover {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.day-full-checkbox input[type="checkbox"],
+.day-full input[type="checkbox"] {
+  width: 14px !important;
+  height: 14px !important;
+  accent-color: #1764df !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+}
+
+.hours-disabled-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #92400e;
+}
+
+.hours-disabled-hint .config-icon {
+  font-size: 16px;
+  color: #d97706;
+}
+
+@media (max-width: 640px) {
+  .hours-subbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .hours-presets {
+    width: 100%;
+  }
+  .hours-day-row,
+  .day-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+  }
+  .day-right {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+}

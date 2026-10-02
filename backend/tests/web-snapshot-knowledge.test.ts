@@ -6,7 +6,7 @@ import {pool,scope,transaction} from '../src/core/db';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 import {importWebSnapshotKnowledge} from '../src/modules/web-sources/web-snapshot-knowledge';
 import {updateKnowledge} from '../src/modules/knowledge/knowledge';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
 after(async()=>{await pool.end();await admin.end();});
 test('web snapshot import preserves Unicode, remains private draft, rejects invalid input atomically and replays original provenance',async()=>{
  const workspace=randomUUID(),other=randomUUID(),user=randomUUID(),source=randomUUID();

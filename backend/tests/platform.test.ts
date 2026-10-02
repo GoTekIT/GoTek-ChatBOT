@@ -1,7 +1,7 @@
 import {transaction} from '../src/core/db';
 import {resolveModel} from '../src/modules/platform/platform';
 import {test,after} from 'node:test';import assert from 'node:assert/strict';import request from 'supertest';import pg from 'pg';import {randomUUID} from 'node:crypto';import {createApp} from '../src/app';import {pool} from '../src/core/db';
-const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
+const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
 test('H28 platform role separate, capability grant, missing secret, metadata redaction and revoke',async()=>{
  const app=createApp(),agent=request.agent(app),email=`platform-${randomUUID()}@example.test`,password='Local-platform-test-2026';
  const post=(path:string,body:any)=>agent.post('/api'+path).set('X-Gotek-Request','1').send(body);

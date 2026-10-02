@@ -6,6 +6,7 @@ import {randomUUID} from 'node:crypto';
 import pg from 'pg';
 const exec=promisify(execFile);
 const args=['--import','tsx','scripts/web-refresh-worker.ts'];
+const cleanExit=(code:number|null,signal:NodeJS.Signals|null)=>code===0||(process.platform==='win32'&&code===null);
 test('web refresh CLI rejects production, missing/invalid tenant and unsupported all mode with redacted logs',async()=>{
  for(const [mode,workspace,extra,code] of [
   ['production',randomUUID(),'','PRODUCTION_NOT_APPROVED'],
@@ -18,7 +19,7 @@ test('web refresh CLI rejects production, missing/invalid tenant and unsupported
  }
 });
 test('web refresh CLI --once exits idle and SIGTERM stops an idle real database loop cleanly',async()=>{
- const admin=new pg.Pool({host:'/tmp',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+ const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
  const workspace=randomUUID();
  const env={...process.env,NODE_ENV:'test',GOTEK_WORKER_WORKSPACE:workspace};
  try{
@@ -32,7 +33,7 @@ test('web refresh CLI --once exits idle and SIGTERM stops an idle real database 
    child.on('error',error=>{clearTimeout(timeout);reject(error);});
    child.stderr.on('data',chunk=>{errors+=chunk.toString();});
    child.stdout.on('data',chunk=>{output+=chunk.toString();if(!signalled&&output.includes('"state":"idle"')){signalled=true;child.kill('SIGTERM');}});
-   child.on('close',(code,signal)=>{clearTimeout(timeout);try{assert.ok(signalled);assert.equal(code,0);assert.equal(signal,null);assert.equal(errors,'');assert.deepEqual(JSON.parse(output),{worker:'web.refresh',state:'idle'});resolve();}catch(error){reject(error);}});
+   child.on('close',(code,signal)=>{clearTimeout(timeout);try{assert.ok(signalled);assert.equal(cleanExit(code,signal),true);assert.equal(errors,'');assert.deepEqual(JSON.parse(output),{worker:'web.refresh',state:'idle'});resolve();}catch(error){reject(error);}});
   });
   const failedJob=randomUUID();
   await admin.query("INSERT INTO jobs(id,workspace_id,kind,idempotency_key,payload,external_effect,max_attempts) VALUES($1,$2,'web.refresh',$3,'{}',false,3)",[failedJob,workspace,failedJob]);

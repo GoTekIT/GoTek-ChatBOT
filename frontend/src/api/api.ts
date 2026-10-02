@@ -52,9 +52,61 @@ const messages: Record<string, string> = {
   AI_KNOWLEDGE_NOT_FOUND: 'Không tìm thấy thông tin phù hợp trong dữ liệu của doanh nghiệp.'
 };
 
+const fieldLabelsMap: Record<string, string> = {
+  widgetTitle: 'Tiêu đề hiển thị',
+  widgetPosition: 'Vị trí hiển thị',
+  widgetMode: 'Kích thước widget',
+  color: 'Màu thương hiệu',
+  widgetColor: 'Màu thương hiệu',
+  assignmentEnabled: 'Phân công tự động',
+  assignmentLimit: 'Giới hạn phân công',
+  businessHours: 'Giờ làm việc',
+  prechat: 'Biểu mẫu thông tin',
+  name: 'Tên kênh',
+  origin: 'Địa chỉ website',
+  greeting: 'Lời chào'
+};
+
+function formatFieldErrors(fields?: Record<string, any>): string {
+  if (!fields || typeof fields !== 'object') return '';
+  const entries = Object.entries(fields);
+  if (!entries.length) return '';
+  const list: string[] = [];
+  for (const [key, val] of entries) {
+    let text = '';
+    if (Array.isArray(val)) {
+      text = val.filter(Boolean).join(', ');
+    } else if (typeof val === 'string') {
+      text = val;
+    } else if (val && typeof val === 'object') {
+      text = Object.values(val).flat().filter(Boolean).join(', ');
+    }
+    if (!text) continue;
+    if (!key || key === '_errors') {
+      list.push(text);
+    } else {
+      const friendlyName = fieldLabelsMap[key] || key;
+      list.push(`${friendlyName}: ${text}`);
+    }
+  }
+  return list.join('; ');
+}
+
 export class ApiError extends Error {
-  constructor(public code: string, public fields: Record<string, string[]> = {}) {
-    super(messages[code] || code);
+  code: string;
+  fields: Record<string, string[]>;
+
+  constructor(code: string, fields: Record<string, string[]> = {}) {
+    let msg = messages[code] || code;
+    if (code === 'VALIDATION' && fields && Object.keys(fields).length > 0) {
+      const formatted = formatFieldErrors(fields);
+      if (formatted) {
+        msg = `Lỗi thuộc tính (${formatted})`;
+      }
+    }
+    super(msg);
+    this.code = code;
+    this.fields = fields;
   }
 }
 
