@@ -1,3 +1,8 @@
+## Inbox source fallback checkpoint (2026-10-02)
+- Legacy Meta conversations with a null `conversation.connection_id` now resolve the original connection for account name, external account ID, status, source label, and platform/Page filters through an exact visitor binding.
+- This prevents old records from appearing as an unlabeled generic channel while preserving tenant scope and explicit connection precedence.
+- `npm run build:all` passed.
+
 ## Graph credential verification checkpoint (2026-10-02)
 - Connection verification now calls the Meta Graph endpoint with the server-side bearer token and confirms the returned account ID matches the configured Page/account. Invalid, expired, mismatched, or network-unknown credentials remain unconnected.
 - Threads remains catalog-only and cannot be marked connected. Graph verification does not yet prove webhook subscription/App Review/live inbound acceptance.

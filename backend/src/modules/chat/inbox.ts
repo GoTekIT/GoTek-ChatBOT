@@ -43,11 +43,11 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
 
   if(q.connectionIds?.length){
     p.push(q.connectionIds);
-    filterClause+=` AND source.id=ANY($${p.length}::uuid[])`;
+    filterClause+=` AND COALESCE(source.id,legacy.id)=ANY($${p.length}::uuid[])`;
   }
   if(q.platforms?.length){
     p.push(q.platforms);
-    filterClause+=` AND source.channel_kind=ANY($${p.length}::text[])`;
+    filterClause+=` AND COALESCE(source.channel_kind,legacy.channel_kind)=ANY($${p.length}::text[])`;
   }
 
   if(q.search){
@@ -55,7 +55,24 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
     filterClause+=` AND (h.name ILIKE $${p.length} OR coalesce(v.profile->>'fullName','') ILIKE $${p.length} OR coalesce(v.profile->>'name','') ILIKE $${p.length} OR coalesce(v.profile->>'emailAddress','') ILIKE $${p.length} OR coalesce(v.profile->>'phoneNumber','') ILIKE $${p.length} OR EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id=c.id AND m.body ILIKE $${p.length}))`;
   }
 
-  const sql=`SELECT source.id AS connection_id, source.page_name AS account_name, source.external_page_id AS external_account_id, source.status AS connection_status, c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at, h.name AS channel_name, h.origin AS website_url, COALESCE(source.channel_kind, (SELECT mc.channel_kind FROM meta_connections mc WHERE c.connection_id IS NULL AND mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId') ORDER BY mc.created_at ASC, mc.id ASC LIMIT 1), h.widget_mode) AS channel_type, v.profile AS visitor_profile, (SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,'author_type',m.author_type,'visibility',m.visibility) FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_meta, (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body, (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id JOIN visitors v ON v.id=c.visitor_id LEFT JOIN meta_connections source ON source.workspace_id=c.workspace_id AND source.channel_id=c.channel_id AND (source.id=c.connection_id OR (c.connection_id IS NULL AND v.token_hash='meta:'||source.id::text||':'||(v.profile->>'metaUserId'))) WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
+  const sql=`SELECT source.id AS connection_id,
+ COALESCE(source.page_name,legacy.page_name) AS account_name,
+ COALESCE(source.external_page_id,legacy.external_page_id) AS external_account_id,
+ COALESCE(source.status,legacy.status) AS connection_status,
+ c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at,
+ h.name AS channel_name, h.origin AS website_url,
+ COALESCE(source.channel_kind,legacy.channel_kind,h.widget_mode) AS channel_type,
+ v.profile AS visitor_profile,
+ (SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,'author_type',m.author_type,'visibility',m.visibility) FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_meta,
+ (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body,
+ (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at
+ FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id
+ JOIN visitors v ON v.id=c.visitor_id
+ LEFT JOIN meta_connections source ON source.workspace_id=c.workspace_id AND source.channel_id=c.channel_id AND source.id=c.connection_id
+ LEFT JOIN LATERAL (SELECT mc.id,mc.page_name,mc.external_page_id,mc.status,mc.channel_kind FROM meta_connections mc
+  WHERE c.connection_id IS NULL AND mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id
+  AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId') ORDER BY mc.created_at ASC,mc.id ASC LIMIT 1) legacy ON true
+ WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3) ) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
 
   const rows=(await db.query(sql,p)).rows;
 
@@ -94,6 +111,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       accountName:r.account_name,
       externalAccountId:r.external_account_id,
       connectionStatus:r.connection_status,
+      sourceLabel:r.channel_type && r.account_name ? `${r.channel_type} · ${r.account_name}` : null,
       channel_name:r.channel_name,
       reply_owner:r.reply_owner,
       owner_version:r.owner_version,
