@@ -6,6 +6,7 @@ import {enqueueJob} from '../jobs/jobs';
 import {realtimeHub} from './realtime';
 
 export type Actor={workspace_id:string,user_id:string,role:string};
+function metaPlatformLabel(value:string|null|undefined){return value==='facebook_messenger'?'Facebook Messenger':value==='instagram_messaging'?'Instagram':value==='whatsapp_business'?'WhatsApp':value==='threads'?'Threads':value||'';}
 
 export async function access(db:PoolClient,a:Actor,id:string){
  z.string().uuid().parse(id);
@@ -111,7 +112,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       accountName:r.account_name,
       externalAccountId:r.external_account_id,
       connectionStatus:r.connection_status,
-      sourceLabel:r.channel_type && r.account_name ? `${r.channel_type} · ${r.account_name}` : null,
+      sourceLabel:r.channel_type && r.account_name ? `${metaPlatformLabel(r.channel_type)} · ${r.account_name}` : null,
       channel_name:r.channel_name,
       reply_owner:r.reply_owner,
       owner_version:r.owner_version,
@@ -353,7 +354,7 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
     accountName:source?.page_name||null,
     externalAccountId:source?.external_page_id||null,
     connectionStatus:source?.status||null,
-    sourceLabel:source?.channel_kind&&source?.page_name?`${source.channel_kind} · ${source.page_name}`:null,
+    sourceLabel:source?.channel_kind&&source?.page_name?`${metaPlatformLabel(source.channel_kind)} · ${source.page_name}`:null,
     customerName:name,
     customerCompany:company,
     customerEmail:email,
