@@ -332,7 +332,7 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
   const channelRow=(await db.query("SELECT name, origin, widget_mode, (SELECT mc.channel_kind FROM meta_connections mc WHERE mc.channel_id=channels.id AND mc.workspace_id=channels.workspace_id AND (mc.id=c.connection_id OR (c.connection_id IS NULL AND EXISTS(SELECT 1 FROM visitors v WHERE v.id=$2 AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId')))) ORDER BY mc.created_at ASC, mc.id ASC LIMIT 1) AS channel_kind, EXISTS(SELECT 1 FROM meta_connections mc WHERE mc.channel_id=channels.id AND mc.workspace_id=channels.workspace_id AND mc.status='connected') AS is_facebook_messenger FROM channels JOIN conversations c ON c.channel_id=channels.id AND c.id=$3 WHERE channels.id=$1",[c.channel_id,c.visitor_id,id])).rows[0];
   const visitorRow=(await db.query('SELECT profile FROM visitors WHERE id=$1',[c.visitor_id])).rows[0];
 
-  const source=(await db.query("SELECT mc.id,mc.channel_kind,mc.page_name,mc.external_page_id,mc.status FROM meta_connections mc JOIN visitors v ON v.workspace_id=mc.workspace_id AND v.channel_id=mc.channel_id AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId') WHERE v.id=$1 AND mc.workspace_id=$2 AND mc.id=$3",[c.visitor_id,a.workspace_id,c.connection_id])).rows[0];
+  const source=(await db.query("SELECT mc.id,mc.channel_kind,mc.page_name,mc.external_page_id,mc.status FROM meta_connections mc JOIN visitors v ON v.workspace_id=mc.workspace_id AND v.channel_id=mc.channel_id AND (($4::uuid IS NOT NULL AND mc.id=$4) OR ($4::uuid IS NULL AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId'))) WHERE v.id=$1 AND mc.workspace_id=$2 AND mc.channel_id=$3 ORDER BY (mc.id=$4) DESC,mc.created_at ASC,mc.id ASC LIMIT 1",[c.visitor_id,a.workspace_id,c.channel_id,c.connection_id])).rows[0];
   const prof=visitorRow?.profile||{};
   const name=prof.fullName?.trim()||prof.name?.trim()||'Khách vãng lai';
   const email=prof.emailAddress?.trim()||prof.email?.trim()||'';
@@ -353,6 +353,7 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
     accountName:source?.page_name||null,
     externalAccountId:source?.external_page_id||null,
     connectionStatus:source?.status||null,
+    sourceLabel:source?.channel_kind&&source?.page_name?`${source.channel_kind} · ${source.page_name}`:null,
     customerName:name,
     customerCompany:company,
     customerEmail:email,
