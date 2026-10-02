@@ -52,18 +52,22 @@ jobs:
       - name: Install System Dependencies & Setup Postgres Socket Bridge
         run: |
           sudo apt-get update
-          sudo apt-get install -y socat postgresql-client
+          sudo apt-get install -y socat postgresql-client psmisc
           
           # Bridge Unix domain socket /tmp/.s.PGSQL.55432 to PostgreSQL dynamic host TCP port
           socat UNIX-LISTEN:/tmp/.s.PGSQL.55432,fork,reuseaddr,mode=777 TCP:127.0.0.1:${{ job.services.postgres.ports[5432] }} &
           
-          # Wait for PostgreSQL Unix socket to be ready and accepting connections
+          # Bridge TCP 127.0.0.1:55432 to PostgreSQL dynamic host TCP port for test suites connecting via TCP
+          sudo fuser -k 55432/tcp 2>/dev/null || true
+          socat TCP4-LISTEN:55432,bind=127.0.0.1,fork,reuseaddr TCP:127.0.0.1:${{ job.services.postgres.ports[5432] }} &
+          
+          # Wait for PostgreSQL to be ready on both Unix socket and TCP port 55432
           for i in {1..30}; do
-            if pg_isready -h /tmp -p 55432 -U gotek_migrator; then
-              echo "PostgreSQL Unix socket is ready and accepting connections!"
+            if pg_isready -h /tmp -p 55432 -U gotek_migrator && pg_isready -h 127.0.0.1 -p 55432 -U gotek_migrator; then
+              echo "PostgreSQL Unix socket and TCP port 55432 are ready and accepting connections!"
               break
             fi
-            echo "Waiting for PostgreSQL Unix socket..."
+            echo "Waiting for PostgreSQL connections..."
             sleep 1
           done
 
@@ -75,9 +79,11 @@ jobs:
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: ${{ job.services.postgres.ports[5432] }}
-          PGHOST: /tmp
+          PGHOST: 127.0.0.1
           PGPORT: 55432
           PGUSER: gotek_migrator
+          PGPASSWORD: ci_password
+          GOTEK_DB_ADMIN_PASSWORD: ci_password
           PGDATABASE: postgres
 
       - name: Backend Typecheck & Tests
@@ -89,9 +95,11 @@ jobs:
           DB_PORT: ${{ job.services.postgres.ports[5432] }}
           DB_NAME: gotek_chatbot
           DB_USER: gotek_app
-          PGHOST: /tmp
+          PGHOST: 127.0.0.1
           PGPORT: 55432
           PGUSER: gotek_migrator
+          PGPASSWORD: ci_password
+          GOTEK_DB_ADMIN_PASSWORD: ci_password
           PGDATABASE: gotek_chatbot
           GOTEK_DEFAULT_AI_RESPONSE_QUOTA: 1000
           REDIS_HOST: 127.0.0.1
