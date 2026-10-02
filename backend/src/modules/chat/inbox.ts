@@ -222,13 +222,13 @@ export async function inboxTakeover(db:PoolClient,a:Actor,id:string,body?:unknow
   realtimeHub.broadcastToWorkspace(a.workspace_id,'inbox:takeover',{
     conversationId:id,
     assignedTo:a.user_id,
-  });
+  }, { channelId: c.channel_id });
 
   return result;
 }
 
 export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown,afterCommit:Array<()=>void>=[]){
-  await access(db,a,id);
+  const c=await access(db,a,id);
   const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal']),media:z.object({type:z.enum(['image','video','audio','file']),url:z.string().url().max(8192)}).optional()}).strict().parse(body);
   // Serialize retries before checking current connector availability. A committed
   // request remains replayable after disconnect without creating a new send job.
@@ -257,14 +257,14 @@ export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown,aft
     realtimeHub.broadcastToWorkspace(a.workspace_id,'inbox:message_sent',{
       conversationId:id,messageSnippet:message.body.slice(0,100),author:message.author_type,
       visibility:message.visibility,createdAt:message.created_at,
-    });
+    }, { channelId: c.channel_id });
   });
 
   return message;
 }
 
 export async function inboxSetStatus(db:PoolClient,a:Actor,id:string,body:unknown){
- await access(db,a,id);
+ const c=await access(db,a,id);
  const data=z.object({status:z.enum(['open','resolved','snoozed'])}).strict().parse(body);
  const current=(await db.query('SELECT status FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,a.workspace_id])).rows[0];
  if(!current)throw new HttpError(404,'NOT_FOUND');
@@ -277,14 +277,14 @@ export async function inboxSetStatus(db:PoolClient,a:Actor,id:string,body:unknow
  realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:status_changed', {
    conversationId: id,
    status: row.status,
- });
+ }, { channelId: c.channel_id });
 
  return {...row,previousStatus:current.status};
 }
 
 /** Explicit return to AI; never triggered automatically by a visitor message. */
 export async function inboxResumeAi(db:PoolClient,a:Actor,id:string,body:unknown){
- await access(db,a,id);
+ const c=await access(db,a,id);
  const data=z.object({version:z.number().int().positive().optional()}).default({}).parse(body||{});
  const current=(await db.query('SELECT reply_owner,owner_version,assigned_to FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,a.workspace_id])).rows[0];
  if(!current)throw new HttpError(404,'NOT_FOUND');
@@ -300,7 +300,7 @@ export async function inboxResumeAi(db:PoolClient,a:Actor,id:string,body:unknown
  realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:ai_resumed', {
    conversationId: id,
    replyOwner: row.reply_owner,
- });
+ }, { channelId: c.channel_id });
 
  return row;
 }
@@ -330,7 +330,7 @@ export async function inboxAssign(db:PoolClient,a:Actor,id:string,body:unknown){
   realtimeHub.broadcastToWorkspace(a.workspace_id,'inbox:takeover',{
     conversationId:id,
     assignedTo:data.assignedTo,
-  });
+  }, { channelId: c.channel_id });
 
   return row;
 }

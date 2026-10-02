@@ -15,6 +15,9 @@ interface SseClient {
   workspaceId: string;
   conversationId?: string;
   isVisitor?: boolean;
+  userId?: string;
+  role?: string;
+  channelIds?: Set<string>;
   res: Response;
   req: Request;
 }
@@ -25,6 +28,9 @@ interface WsClient {
   workspaceId: string;
   conversationId?: string;
   isVisitor?: boolean;
+  userId?: string;
+  role?: string;
+  channelIds?: Set<string>;
   ws: WebSocket;
 }
 
@@ -75,7 +81,10 @@ class RealtimeHub extends EventEmitter {
     res: Response,
     req: Request,
     conversationId?: string,
-    isVisitor = false
+    isVisitor = false,
+    userId?: string,
+    role?: string,
+    channelIds?: string[]
   ): void {
     // Send SSE response headers
     res.writeHead(200, {
@@ -94,6 +103,9 @@ class RealtimeHub extends EventEmitter {
       workspaceId,
       conversationId,
       isVisitor,
+      userId,
+      role,
+      channelIds: channelIds ? new Set(channelIds) : undefined,
       res,
       req,
     };
@@ -130,7 +142,10 @@ class RealtimeHub extends EventEmitter {
     workspaceId: string,
     ws: WebSocket,
     conversationId?: string,
-    isVisitor = false
+    isVisitor = false,
+    userId?: string,
+    role?: string,
+    channelIds?: string[]
   ): void {
     const client: WsClient = {
       kind: 'ws',
@@ -138,6 +153,9 @@ class RealtimeHub extends EventEmitter {
       workspaceId,
       conversationId,
       isVisitor,
+      userId,
+      role,
+      channelIds: channelIds ? new Set(channelIds) : undefined,
       ws,
     };
 
@@ -171,6 +189,46 @@ class RealtimeHub extends EventEmitter {
     const client = this.clients.get(clientId);
     if (client) {
       client.conversationId = conversationId;
+    }
+  }
+
+  /**
+   * Evict channel membership from an active user connection.
+   */
+  public evictChannel(workspaceId: string, channelId: string, userId: string): void {
+    for (const client of this.clients.values()) {
+      if (client.workspaceId === workspaceId && client.userId === userId) {
+        if (client.channelIds) {
+          client.channelIds.delete(channelId);
+        }
+      }
+    }
+  }
+
+  /**
+   * Disconnect any open streams for a user when their membership is revoked or deactivated.
+   */
+  public disconnectUser(workspaceId: string, userId: string, reason = 'REVOKED'): void {
+    for (const client of Array.from(this.clients.values())) {
+      if (client.workspaceId === workspaceId && client.userId === userId) {
+        try {
+          if (client.kind === 'ws' && client.ws.readyState === 1) {
+            client.ws.send(JSON.stringify({
+              type: 'system:revoked',
+              event: 'system:revoked',
+              reason,
+              timestamp: new Date().toISOString()
+            }));
+            client.ws.close(4003, `Unauthorized: ${reason}`);
+          } else if (client.kind === 'sse') {
+            client.res.write(`event: system:revoked\ndata: ${JSON.stringify({ reason })}\n\n`);
+            client.res.end();
+          }
+        } catch {
+          // Ignored
+        }
+        this.clients.delete(client.id);
+      }
     }
   }
 
@@ -244,11 +302,13 @@ class RealtimeHub extends EventEmitter {
 
   /**
    * Broadcast an event to all staff in a workspace (e.g. for inbox list counters, SLA alerts).
+   * Supports channel-scoped filtering: if channelId is specified, Agents outside that channel will not receive the snippet/event.
    */
   public broadcastToWorkspace<T>(
     workspaceId: string,
     eventName: string,
-    data: T
+    data: T,
+    options?: { channelId?: string }
   ): void {
     const event: RealtimeEvent<T> = {
       event: eventName,
@@ -258,6 +318,12 @@ class RealtimeHub extends EventEmitter {
 
     for (const client of this.clients.values()) {
       if (client.workspaceId === workspaceId) {
+        // Channel-scoping rule: Agents only receive if they are members of the channel
+        if (options?.channelId && client.role === 'Agent') {
+          if (client.channelIds && !client.channelIds.has(options.channelId)) {
+            continue;
+          }
+        }
         this.sendToClient(client, event);
       }
     }
