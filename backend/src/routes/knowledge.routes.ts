@@ -26,7 +26,7 @@ import {
   failKnowledgeImport
 } from '../modules/knowledge/knowledge-imports';
 import {extractDocumentText} from '../modules/extractors/document-extract';
-import {processKnowledge, publishKnowledge, rollbackKnowledge} from '../modules/knowledge/knowledge-lifecycle';
+import {processKnowledge, publishKnowledge, rollbackKnowledge, unpublishKnowledge} from '../modules/knowledge/knowledge-lifecycle';
 import {retrieveStoredChunks} from '../modules/knowledge/knowledge-chunk-store';
 import {retrieveKnowledge} from '../modules/knowledge/knowledge-retrieval';
 
@@ -222,6 +222,11 @@ knowledgeRouter.post(
 knowledgeRouter.post(
   '/knowledge/items/:id/rollback',
   authed((db, i, req) => rollbackKnowledge(db, i, String(req.params.id), req.body))
+);
+
+knowledgeRouter.post(
+  '/knowledge/items/:id/unpublish',
+  authed((db, i, req) => unpublishKnowledge(db, i, String(req.params.id), req.body))
 );
 
 knowledgeRouter.delete(
