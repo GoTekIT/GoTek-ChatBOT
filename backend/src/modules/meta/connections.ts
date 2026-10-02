@@ -57,6 +57,16 @@ export async function verifyMetaConnection(db:PoolClient, actor:{workspace_id:st
  const row=(await db.query('SELECT id,page_access_token_ref,status FROM meta_connections WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[z.string().uuid().parse(id),actor.workspace_id])).rows[0];
  if(!row) throw new HttpError(404,'META_CONNECTION_NOT_FOUND');
  if(!process.env[row.page_access_token_ref]?.trim()) throw new HttpError(400,'META_TOKEN_REFERENCE_NOT_CONFIGURED');
+ const connection=(await db.query('SELECT channel_kind,external_page_id FROM meta_connections WHERE id=$1 AND workspace_id=$2',[row.id,actor.workspace_id])).rows[0];
+ if(connection.channel_kind==='threads') throw new HttpError(400,'META_CONNECTOR_NOT_AVAILABLE');
+ const graphVersion=process.env.META_GRAPH_VERSION||'v20.0';
+ const token=process.env[row.page_access_token_ref] as string;
+ const fields=connection.channel_kind==='whatsapp_business'?'id,display_phone_number,verified_name':'id,name';
+ let response:Response;
+ try { response=await fetch(`https://graph.facebook.com/${graphVersion}/${encodeURIComponent(connection.external_page_id)}?fields=${encodeURIComponent(fields)}`,{redirect:'error',headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)}); }
+ catch { throw new HttpError(400,'META_CREDENTIAL_VERIFY_FAILED'); }
+ const body=await response.json().catch(()=>null);
+ if(!response.ok||String(body?.id||'')!==connection.external_page_id) throw new HttpError(400,'META_CREDENTIAL_VERIFY_FAILED');
  await db.query("UPDATE meta_connections SET status='connected',last_verified_at=now(),updated_at=now() WHERE id=$1 AND workspace_id=$2",[row.id,actor.workspace_id]);
  await audit(db,actor.workspace_id,actor.user_id,'meta.connection.verified',row.id);
  return {id:row.id,status:'connected',verifiedAt:new Date().toISOString()};

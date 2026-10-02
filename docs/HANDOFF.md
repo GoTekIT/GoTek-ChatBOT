@@ -1,3 +1,8 @@
+## Graph credential verification checkpoint (2026-10-02)
+- Connection verification now calls the Meta Graph endpoint with the server-side bearer token and confirms the returned account ID matches the configured Page/account. Invalid, expired, mismatched, or network-unknown credentials remain unconnected.
+- Threads remains catalog-only and cannot be marked connected. Graph verification does not yet prove webhook subscription/App Review/live inbound acceptance.
+- `npm run build:all` passed.
+
 ## Per-connection channel guard checkpoint (2026-10-02)
 - Migration 071 and the create API now reject multiple active Meta connections bound to the same workspace channel; duplicate legacy bindings abort migration rather than choosing a source.
 - This preserves one Page/account → one channel → one connection routing invariant. Workspace admins must create/select a separate channel before linking another account.
