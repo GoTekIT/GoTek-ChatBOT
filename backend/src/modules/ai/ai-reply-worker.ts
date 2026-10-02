@@ -1,5 +1,6 @@
 import type {PoolClient} from 'pg';import {createHash} from 'node:crypto';
 import {HttpError} from '../../core/security';
+import {enqueueJob} from '../jobs/jobs';
 import {appendMessage} from '../../modules/chat/chat-store';
 import {transaction,scope} from '../../core/db';
 import {buildWidgetAiContext,assertWidgetSourcesCurrent} from '../../modules/knowledge/knowledge-retrieval';
@@ -69,7 +70,9 @@ async function commit(db:PoolClient,context:Awaited<ReturnType<typeof prepare>>,
 
  await assertWidgetSourcesCurrent(db,context.workspace,context.context.map(source=>source.citation.versionId));
  await assertAiRuleSnapshotCurrent(db,context.rules);
- await appendMessage(db,{workspace:context.workspace,conversation:context.conversation,clientId:context.clientId,author:'ai',visibility:'public',body:output,ownerVersion:context.version});
+ const reply=await appendMessage(db,{workspace:context.workspace,conversation:context.conversation,clientId:context.clientId,author:'ai',visibility:'public',body:output,ownerVersion:context.version});
+ const messenger=(await db.query("SELECT 1 FROM conversations c JOIN meta_connections mc ON mc.workspace_id=c.workspace_id AND mc.channel_id=c.channel_id WHERE c.id=$1 AND c.workspace_id=$2 AND mc.status='connected'",[context.conversation,context.workspace])).rowCount;
+ if(messenger)await enqueueJob(db,context.workspace,{kind:'meta.message.send',key:`meta-send:${reply.id}`,payload:{conversationId:context.conversation,messageId:reply.id,ownerVersion:context.version},external:true,maxAttempts:1});
  // The assistant message and dispatch receipt are committed together.  If
  // usage accounting fails, the whole transaction rolls back and remains
  // unknown; a retry must never invoke the provider again.

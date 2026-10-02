@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api, ApiError } from '../../api/api';
 import { ImportDocModal } from '../modals/ImportDocModal';
 import { ImportHistoryModal } from '../modals/ImportHistoryModal';
+import { BotTemplatesView } from './BotTemplatesView';
+import { MultiStepFaqView } from './MultiStepFaqView';
+import { WebSources } from '../../screens/knowledge/WebSources';
 
 export interface KnowledgeItem {
   id: string;
@@ -51,6 +54,14 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
   const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Navigation SubTab state (UC-036 to UC-050)
+  const [activeKnowledgeTab, setActiveKnowledgeTab] = useState<'documents' | 'faq' | 'bot_templates' | 'web_sources' | 'diagnostic'>('documents');
+
+  // Category Quick Modal state (UC-036)
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryBusy, setCategoryBusy] = useState(false);
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -231,6 +242,48 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
   const handleToggleAudience = async (item: KnowledgeItem) => {
     const nextAudience: 'PUBLIC' | 'INTERNAL' = item.audience === 'PUBLIC' ? 'INTERNAL' : 'PUBLIC';
     await handlePublish(item, nextAudience);
+  };
+
+  // Revoke publication of a knowledge item (UC-045)
+  const handleUnpublish = async (item: KnowledgeItem) => {
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn thu hồi xuất bản của tài liệu "${item.title}"? Dữ liệu này sẽ ngừng phục vụ khách hàng trên Widget ngay lập tức.`
+      )
+    ) {
+      return;
+    }
+    setActionBusyId(item.id);
+    try {
+      await api(`/knowledge/items/${item.id}/unpublish`, 'POST', {
+        requestId: crypto.randomUUID(),
+        expectedRevision: item.revision,
+      });
+      showNotification(`Đã thu hồi xuất bản "${item.title}". Tài liệu chuyển về Chưa xuất bản.`);
+      await loadData();
+    } catch (err: any) {
+      showNotification(`Thu hồi không thành công: ${err.message || 'Lỗi thử lại'}`);
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  // Create new category (UC-036)
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    setCategoryBusy(true);
+    try {
+      await api('/knowledge-categories', 'POST', { name: newCategoryName.trim() });
+      showNotification(`Đã tạo danh mục "${newCategoryName.trim()}"`);
+      setNewCategoryName('');
+      setIsCategoryModalOpen(false);
+      await loadData();
+    } catch (err: any) {
+      showNotification(`Lỗi tạo danh mục: ${err.message || 'Thử lại'}`);
+    } finally {
+      setCategoryBusy(false);
+    }
   };
 
   // Delete knowledge item (Draft, Ready, or Published)
@@ -576,8 +629,70 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
         </div>
       </div>
 
-      {/* ================= STAT SUMMARY CARDS (Bento Grid) ================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ================= SUB-NAVIGATION TABS (UC-036 - UC-050) ================= */}
+      <div className="flex items-center gap-2 border-b border-[#c7c4d8]/60 pb-3 overflow-x-auto custom-scrollbar">
+        <button
+          onClick={() => setActiveKnowledgeTab('documents')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            activeKnowledgeTab === 'documents'
+              ? 'bg-[#3525cd] text-white shadow-xs'
+              : 'bg-white text-[#464555] hover:bg-[#eaedff] hover:text-[#3525cd] border border-[#c7c4d8]/60'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[18px]">library_books</span>
+          <span>Kho tài liệu ({items.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveKnowledgeTab('faq')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            activeKnowledgeTab === 'faq'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-white text-[#464555] hover:bg-emerald-50 hover:text-emerald-700 border border-[#c7c4d8]/60'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[18px]">quiz</span>
+          <span>Soạn FAQ nhiều bước (UC-037)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveKnowledgeTab('bot_templates')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            activeKnowledgeTab === 'bot_templates'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-white text-[#464555] hover:bg-indigo-50 hover:text-indigo-700 border border-[#c7c4d8]/60'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[18px]">quickreply</span>
+          <span>Mẫu câu & Ảnh Bot (UC-038)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveKnowledgeTab('web_sources')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            activeKnowledgeTab === 'web_sources'
+              ? 'bg-[#131b2e] text-white shadow-xs'
+              : 'bg-white text-[#464555] hover:bg-slate-100 hover:text-[#131b2e] border border-[#c7c4d8]/60'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[18px]">public</span>
+          <span>Nguồn Website & Sitemap (UC-046-050)</span>
+        </button>
+
+        <button
+          onClick={() => setIsDiagnosticOpen(true)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 bg-white text-[#464555] hover:bg-purple-50 hover:text-purple-700 border border-[#c7c4d8]/60`}
+        >
+          <span className="material-symbols-outlined text-[18px]">science</span>
+          <span>Thử nghiệm truy xuất RAG (UC-043)</span>
+        </button>
+      </div>
+
+      {/* ================= TAB 1: KNOWLEDGE DOCUMENTS ================= */}
+      {activeKnowledgeTab === 'documents' && (
+        <div className="space-y-6">
+          {/* ================= STAT SUMMARY CARDS (Bento Grid) ================= */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Documents */}
         <div className="bg-white border border-[#c7c4d8]/70 rounded-2xl p-4 flex flex-col justify-between shadow-2xs hover:border-[#777587] transition-colors">
           <div className="flex items-center justify-between text-[#464555]">
@@ -689,6 +804,15 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="px-2.5 py-2 bg-[#f2f3ff] hover:bg-[#eaedff] text-[#3525cd] border border-[#c7c4d8] rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors shrink-0"
+              title="Tạo thêm danh mục tri thức mới (UC-036)"
+            >
+              <span className="material-symbols-outlined text-[16px]">create_new_folder</span>
+              <span className="hidden sm:inline">Tạo mục</span>
+            </button>
           </div>
 
           {/* Status / Audience Filter */}
@@ -981,6 +1105,18 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
                                 </button>
                               )}
 
+                              {isPublished && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleUnpublish(item); }}
+                                  className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors flex items-center gap-1 active:scale-[0.98]"
+                                  type="button"
+                                  title="Thu hồi xuất bản (ngừng phục vụ trên Widget và Bot)"
+                                >
+                                  <span className="material-symbols-outlined text-[13px]">unpublished</span>
+                                  <span>Thu hồi</span>
+                                </button>
+                              )}
+
                               {/* Separator */}
                               <div className="h-4 w-px bg-[#c7c4d8]/60 mx-0.5"></div>
 
@@ -1053,6 +1189,32 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
           </div>
         </div>
       </div>
+    </div>
+  )}
+
+  {/* ================= TAB 2: MULTI-STEP FAQ BUILDER (UC-037) ================= */}
+  {activeKnowledgeTab === 'faq' && (
+    <MultiStepFaqView
+      categories={categories}
+      onNotify={showNotification}
+      onSuccess={() => {
+        void loadData();
+        setActiveKnowledgeTab('documents');
+      }}
+    />
+  )}
+
+  {/* ================= TAB 3: BOT TEMPLATES & MEDIA (UC-038) ================= */}
+  {activeKnowledgeTab === 'bot_templates' && (
+    <BotTemplatesView onNotify={showNotification} />
+  )}
+
+  {/* ================= TAB 4: WEB SOURCES & SITEMAP (UC-046 - UC-050) ================= */}
+  {activeKnowledgeTab === 'web_sources' && (
+    <div className="bg-white rounded-2xl p-6 border border-[#c7c4d8]/70 shadow-sm">
+      <WebSources role="Owner" />
+    </div>
+  )}
 
       {/* ================= MODAL: VIEW DOCUMENT DETAIL (XEM CHI TIẾT) ================= */}
       {detailItem && (
@@ -1212,6 +1374,22 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
                   >
                     <span className="material-symbols-outlined text-[14px]">public</span>
                     <span>Đổi Công khai</span>
+                  </button>
+                )}
+
+                {detailItem.published_version_id && (
+                  <button
+                    onClick={() => {
+                      const itm = detailItem;
+                      setDetailItem(null);
+                      handleUnpublish(itm);
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg flex items-center gap-1 active:scale-[0.98]"
+                    type="button"
+                    title="Thu hồi xuất bản (ngừng phục vụ trên Widget và Bot)"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">unpublished</span>
+                    <span>Thu hồi</span>
                   </button>
                 )}
 
@@ -1709,12 +1887,56 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = () => {
           void loadData();
         }}
       />
-
       {/* ================= MODAL: IMPORT RECEIPTS & ERROR HISTORY (UC-11) ================= */}
       <ImportHistoryModal
         isOpen={isImportHistoryOpen}
         onClose={() => setIsImportHistoryOpen(false)}
       />
+
+      {/* ================= MODAL: CREATE CATEGORY (UC-036) ================= */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <h3 className="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span className="material-symbols-outlined text-blue-600">create_new_folder</span>
+              Tạo danh mục tri thức mới (UC-036)
+            </h3>
+            <form onSubmit={handleCreateCategory} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Tên danh mục *
+                </label>
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Bán hàng, Bảo hành, Kỹ thuật..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                  required
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  disabled={categoryBusy}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={categoryBusy || !newCategoryName.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl"
+                >
+                  {categoryBusy ? 'Đang tạo...' : 'Tạo danh mục'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

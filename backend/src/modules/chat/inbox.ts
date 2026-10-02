@@ -2,9 +2,11 @@ import type {PoolClient} from 'pg';
 import {z} from 'zod';
 import {HttpError,audit,uuid} from '../../core/security';
 import {appendMessage,takeover} from './chat-store';
+import {enqueueJob} from '../jobs/jobs';
 import {realtimeHub} from './realtime';
 
 export type Actor={workspace_id:string,user_id:string,role:string};
+function metaPlatformLabel(value:string|null|undefined){return value==='facebook_messenger'?'Facebook Messenger':value==='instagram_messaging'?'Instagram':value==='whatsapp_business'?'WhatsApp':value==='threads'?'Threads':value||'';}
 
 export async function access(db:PoolClient,a:Actor,id:string){
  z.string().uuid().parse(id);
@@ -16,6 +18,8 @@ export async function access(db:PoolClient,a:Actor,id:string){
 
 export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
   const q=z.object({
+    connectionIds:z.preprocess(v=>typeof v==='string'?[v]:v,z.array(z.string().uuid()).max(100).optional()),
+    platforms:z.preprocess(v=>typeof v==='string'?[v]:v,z.array(z.enum(['facebook_messenger','instagram_messaging','whatsapp_business','threads'])).max(4).optional()),
     search:z.string().trim().max(120).optional(),
     status:z.enum(['open','resolved','snoozed']).optional(),
     assigned:z.enum(['mine','unassigned']).optional(),
@@ -38,12 +42,39 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
     filterClause+=` AND c.assigned_to IS NULL`;
   }
 
-  if(q.search){
-    p.push(`%${q.search}%`);
-    filterClause+=` AND (h.name ILIKE $${p.length} OR coalesce(v.profile->>'fullName','') ILIKE $${p.length} OR coalesce(v.profile->>'emailAddress','') ILIKE $${p.length} OR coalesce(v.profile->>'phoneNumber','') ILIKE $${p.length} OR EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id=c.id AND m.body ILIKE $${p.length}))`;
+  if(q.connectionIds?.length){
+    p.push(q.connectionIds);
+    filterClause+=` AND COALESCE(source.id,legacy.id)=ANY($${p.length}::uuid[])`;
+  }
+  if(q.platforms?.length){
+    p.push(q.platforms);
+    filterClause+=` AND COALESCE(source.channel_kind,legacy.channel_kind)=ANY($${p.length}::text[])`;
   }
 
-  const sql=`SELECT c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at, h.name AS channel_name, h.origin AS website_url, h.widget_mode AS channel_type, v.profile AS visitor_profile, (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body, (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id JOIN visitors v ON v.id=c.visitor_id WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3)) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
+  if(q.search){
+    p.push(`%${q.search}%`);
+    filterClause+=` AND (h.name ILIKE $${p.length} OR coalesce(v.profile->>'fullName','') ILIKE $${p.length} OR coalesce(v.profile->>'name','') ILIKE $${p.length} OR coalesce(v.profile->>'emailAddress','') ILIKE $${p.length} OR coalesce(v.profile->>'phoneNumber','') ILIKE $${p.length} OR EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id=c.id AND m.body ILIKE $${p.length}))`;
+  }
+
+  const sql=`SELECT source.id AS connection_id,
+ COALESCE(source.page_name,legacy.page_name) AS account_name,
+ COALESCE(source.external_page_id,legacy.external_page_id) AS external_account_id,
+ COALESCE(source.status,legacy.status) AS connection_status,
+ c.id, c.channel_id, c.status, c.reply_owner, c.owner_version, c.assigned_to, c.updated_at, c.created_at,
+ h.name AS channel_name, h.origin AS website_url,
+ COALESCE(source.channel_kind,legacy.channel_kind,h.widget_mode) AS channel_type,
+ v.profile AS visitor_profile,
+ (SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,'author_type',m.author_type,'visibility',m.visibility) FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_meta,
+ (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body,
+ (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at,
+ COALESCE((SELECT jsonb_agg(ct.name ORDER BY ct.name) FROM conversation_tags ct WHERE ct.workspace_id=c.workspace_id AND ct.conversation_id=c.id),'[]'::jsonb) AS conversation_tags
+ FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id
+ JOIN visitors v ON v.id=c.visitor_id
+ LEFT JOIN meta_connections source ON source.workspace_id=c.workspace_id AND source.channel_id=c.channel_id AND source.id=c.connection_id
+ LEFT JOIN LATERAL (SELECT mc.id,mc.page_name,mc.external_page_id,mc.status,mc.channel_kind FROM meta_connections mc
+  WHERE c.connection_id IS NULL AND mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id
+  AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId') ORDER BY mc.created_at ASC,mc.id ASC LIMIT 1) legacy ON true
+ WHERE c.workspace_id=$1 AND h.enabled AND ($2::boolean OR EXISTS(SELECT 1 FROM channel_members m WHERE m.workspace_id=c.workspace_id AND m.channel_id=c.channel_id AND m.user_id=$3) ) ${filterClause} ORDER BY c.updated_at DESC LIMIT 100`;
 
   const rows=(await db.query(sql,p)).rows;
 
@@ -52,7 +83,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
     const name=prof.fullName?.trim()||prof.name?.trim()||'Khách vãng lai';
     const email=prof.emailAddress?.trim()||prof.email?.trim()||'';
     const phone=prof.phoneNumber?.trim()||prof.phone?.trim()||'';
-    const company=prof.company?.trim()||(email.includes('@')?email.split('@')[1].split('.')[0].toUpperCase():'');
+    const company=prof.company?.trim()||'';
 
     let uiStatus:'handoff'|'ai_active'|'in_review'|'resolved'='ai_active';
     if(r.status==='resolved')uiStatus='resolved';
@@ -77,6 +108,12 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
 
     return {
       ...r,
+      connectionId:r.connection_id,
+      platform:r.connection_id?r.channel_type:null,
+      accountName:r.account_name,
+      externalAccountId:r.external_account_id,
+      connectionStatus:r.connection_status,
+      sourceLabel:r.channel_type && r.account_name ? `${metaPlatformLabel(r.channel_type)} · ${r.account_name}` : null,
       channel_name:r.channel_name,
       reply_owner:r.reply_owner,
       owner_version:r.owner_version,
@@ -86,27 +123,28 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       customerEmail:email,
       customerPhone:phone,
       customerLocation:prof.location||'',
-      customerAvatar:avatar,
-      clientTier:prof.tier||'',
-      websiteUrl:r.website_url||'',
+      customerAvatar:prof.avatarUrl||avatar,
+      clientTier:prof.clientTier||'',
+      websiteUrl:['facebook_messenger','instagram_messaging','whatsapp_business','threads'].includes(r.channel_type)?'':r.website_url||'',
       lastMessageSnippet:r.last_message_body||'Bắt đầu cuộc trò chuyện mới...',
       lastMessageTime:timeStr,
-      channel:r.channel_type==='slack'?'Slack App':r.channel_type==='email'?'Email':'Widget',
+      channel:r.channel_type==='facebook_messenger'?'Facebook Messenger':r.channel_type==='instagram_messaging'?'Instagram':r.channel_type==='whatsapp_business'?'WhatsApp':r.channel_type==='threads'?'Threads':r.channel_type==='slack'?'Slack App':r.channel_type==='email'?'Email':'Widget',
       status:uiStatus,
       assignedTo:r.assigned_to||undefined,
       ownerVersion:r.owner_version,
       activeUrl:prof.activeUrl||'',
       sessionDuration:prof.sessionDuration||'',
       deviceInfo:prof.deviceInfo||'',
-      ragMatchScore:r.rag_score ? `${r.rag_score}% Match` : '',
+      ragMatchScore:'',
       ragCitations:[],
-      crmTags:Array.isArray(prof.tags)?prof.tags:[],
+      crmTags:Array.isArray(r.conversation_tags)?r.conversation_tags:(Array.isArray(prof.crmTags)?prof.crmTags:[]),
       messages: r.last_message_body ? [{
-        id: `last-${r.id}`,
-        sequence: 1,
-        author_type: 'visitor',
-        senderType: 'customer',
-        senderName: name,
+        id: r.last_message_meta.id,
+        sequence: r.last_message_meta.sequence,
+        author_type: r.last_message_meta.author_type,
+        visibility: r.last_message_meta.visibility,
+        senderType: r.last_message_meta.visibility==='internal'?'internal_note':r.last_message_meta.author_type==='visitor'?'customer':r.last_message_meta.author_type,
+        senderName: r.last_message_meta.author_type==='visitor'?name:r.last_message_meta.author_type==='ai'?'GoTek AI Copilot':'Nhân viên',
         timestamp: timeStr,
         content: r.last_message_body
       }] : []
@@ -126,7 +164,7 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
     staffMap[s.user_id]=s.email.split('@')[0];
   }
 
-  const rows=(await db.query('SELECT id,client_id,sequence,author_type,visibility,body,actor_id,visitor_received_at,created_at FROM messages WHERE conversation_id=$1 AND sequence>$2 ORDER BY sequence LIMIT 100',[id,cursor])).rows;
+  const rows=(await db.query("SELECT m.id,m.client_id,m.sequence,m.author_type,m.visibility,m.body,m.actor_id,m.visitor_received_at,m.created_at,COALESCE((SELECT jsonb_agg(jsonb_build_object('type',a.kind,'url',a.url) ORDER BY a.created_at) FROM message_attachments a WHERE a.message_id=m.id AND a.workspace_id=m.workspace_id),'[]'::jsonb) AS attachments FROM messages m WHERE m.conversation_id=$1 AND m.sequence>$2 ORDER BY m.sequence LIMIT 100",[id,cursor])).rows;
 
   return rows.map((m:any)=>{
     let senderType:'customer'|'ai'|'agent'|'internal_note'|'system_event'='customer';
@@ -143,11 +181,11 @@ export async function inboxMessages(db:PoolClient,a:Actor,id:string,after:unknow
     } else if(m.author_type==='agent'){
       if(m.visibility==='internal'){
         senderType='internal_note';
-        senderName=staffMap[m.actor_id]?`${staffMap[m.actor_id]}`:'Nhân viên';
+        senderName=staffMap[m.actor_id]?staffMap[m.actor_id]:'Nhân viên';
         senderRole='Chỉ nhân viên xem được';
       } else {
         senderType='agent';
-        senderName=staffMap[m.actor_id]?`${staffMap[m.actor_id]}`:'Nhân viên';
+        senderName=staffMap[m.actor_id]?staffMap[m.actor_id]:'Nhân viên';
         senderRole='Chuyên viên Hỗ trợ';
       }
     }
@@ -189,35 +227,37 @@ export async function inboxTakeover(db:PoolClient,a:Actor,id:string,body?:unknow
   return result;
 }
 
-export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown){
+export async function inboxSend(db:PoolClient,a:Actor,id:string,body:unknown,afterCommit:Array<()=>void>=[]){
   await access(db,a,id);
-  const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal'])}).strict().parse(body);
+  const data=z.object({clientId:z.string().uuid(),body:z.string().trim().min(1).max(10000),visibility:z.enum(['public','internal']),media:z.object({type:z.enum(['image','video','audio','file']),url:z.string().url().max(8192)}).optional()}).strict().parse(body);
+  // Serialize retries before checking current connector availability. A committed
+  // request remains replayable after disconnect without creating a new send job.
+  await db.query('SELECT id FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[id,a.workspace_id]);
+  const existing=(await db.query('SELECT id FROM messages WHERE workspace_id=$1 AND conversation_id=$2 AND client_id=$3',[a.workspace_id,id,data.clientId])).rowCount;
+  if(existing) return appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,attachments:data.media?[data.media]:[]});
+  let meta: {id:string;page_access_token_ref:string;recipient_id:string} | undefined;
+  if(data.visibility==='public') {
+    const visitor=(await db.query("SELECT v.profile FROM conversations c JOIN visitors v ON v.id=c.visitor_id WHERE c.id=$1 AND c.workspace_id=$2",[id,a.workspace_id])).rows[0];
+    if(visitor?.profile?.metaUserId) {
+      const routes=(await db.query("SELECT mc.id,mc.page_access_token_ref,v.token_hash AS identity_binding,v.profile->>'metaUserId' AS recipient_id FROM conversations c JOIN visitors v ON v.id=c.visitor_id JOIN meta_connections mc ON mc.id=c.connection_id AND mc.channel_id=c.channel_id AND mc.workspace_id=c.workspace_id WHERE c.id=$1 AND c.workspace_id=$2 AND mc.status='connected' AND mc.channel_kind IN ('facebook_messenger','instagram_messaging','whatsapp_business') FOR SHARE OF mc",[id,a.workspace_id])).rows;
+      if(routes.length!==1 || routes[0].identity_binding!==`meta:${routes[0].id}:${routes[0].recipient_id}`) throw new HttpError(409,'META_CONNECTION_UNAVAILABLE');
+      meta=routes[0];
+    }
+  }
   const msgId = uuid();
+  const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId,attachments:data.media?[data.media]:[]});
+  if(data.visibility==='public'){
 
-  // 1. Persist to DB first to ensure durability, monotonic sequence, and proper error handling
-  const message=await appendMessage(db,{workspace:a.workspace_id,conversation:id,clientId:data.clientId,body:data.body,visibility:data.visibility,author:'agent',actor:a.user_id,messageId:msgId});
+    if(meta?.recipient_id) await enqueueJob(db,a.workspace_id,{kind:'meta.message.send',key:`meta-send:${id}:${data.clientId}`,payload:{conversationId:id,messageId:message.id,connectionId:meta.id},external:true,maxAttempts:3});
+  }
 
-  // 2. Broadcast with real persisted sequence, ID, and timestamp
-  realtimeHub.broadcastToConversation(id, 'message:new', {
-    id: message.id,
-    workspace_id: a.workspace_id,
-    conversation_id: id,
-    client_id: message.client_id,
-    clientId: message.client_id,
-    sequence: message.sequence,
-    author_type: 'agent',
-    actor_id: a.user_id,
-    visibility: message.visibility,
-    body: message.body,
-    created_at: message.created_at,
-  });
-
-  realtimeHub.broadcastToWorkspace(a.workspace_id, 'inbox:message_sent', {
-    conversationId: id,
-    messageSnippet: message.body.slice(0, 100),
-    author: message.author_type,
-    visibility: message.visibility,
-    createdAt: message.created_at,
+  // Only a newly inserted message publishes, with the durable ID and sequence.
+  if(message.id===msgId) afterCommit.push(()=>{
+    realtimeHub.broadcastToConversation(id,'message:new',{...message,clientId:data.clientId});
+    realtimeHub.broadcastToWorkspace(a.workspace_id,'inbox:message_sent',{
+      conversationId:id,messageSnippet:message.body.slice(0,100),author:message.author_type,
+      visibility:message.visibility,createdAt:message.created_at,
+    });
   });
 
   return message;
@@ -299,14 +339,16 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
   const c=await access(db,a,id);
   const messages=await inboxMessages(db,a,id,0);
 
-  const channelRow=(await db.query('SELECT name, origin, widget_mode FROM channels WHERE id=$1',[c.channel_id])).rows[0];
+  const channelRow=(await db.query("SELECT name, origin, widget_mode, (SELECT mc.channel_kind FROM meta_connections mc WHERE mc.channel_id=channels.id AND mc.workspace_id=channels.workspace_id AND (mc.id=c.connection_id OR (c.connection_id IS NULL AND EXISTS(SELECT 1 FROM visitors v WHERE v.id=$2 AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId')))) ORDER BY mc.created_at ASC, mc.id ASC LIMIT 1) AS channel_kind, EXISTS(SELECT 1 FROM meta_connections mc WHERE mc.channel_id=channels.id AND mc.workspace_id=channels.workspace_id AND mc.status='connected') AS is_facebook_messenger FROM channels JOIN conversations c ON c.channel_id=channels.id AND c.id=$3 WHERE channels.id=$1",[c.channel_id,c.visitor_id,id])).rows[0];
   const visitorRow=(await db.query('SELECT profile FROM visitors WHERE id=$1',[c.visitor_id])).rows[0];
+  const conversationTags=(await db.query('SELECT name FROM conversation_tags WHERE workspace_id=$1 AND conversation_id=$2 ORDER BY name',[a.workspace_id,id])).rows.map((row:any)=>row.name);
 
+  const source=(await db.query("SELECT mc.id,mc.channel_kind,mc.page_name,mc.external_page_id,mc.status FROM meta_connections mc JOIN visitors v ON v.workspace_id=mc.workspace_id AND v.channel_id=mc.channel_id AND (($4::uuid IS NOT NULL AND mc.id=$4) OR ($4::uuid IS NULL AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId'))) WHERE v.id=$1 AND mc.workspace_id=$2 AND mc.channel_id=$3 ORDER BY (mc.id=$4) DESC,mc.created_at ASC,mc.id ASC LIMIT 1",[c.visitor_id,a.workspace_id,c.channel_id,c.connection_id])).rows[0];
   const prof=visitorRow?.profile||{};
   const name=prof.fullName?.trim()||prof.name?.trim()||'Khách vãng lai';
   const email=prof.emailAddress?.trim()||prof.email?.trim()||'';
   const phone=prof.phoneNumber?.trim()||prof.phone?.trim()||'';
-  const company=prof.company?.trim()||(email.includes('@')?email.split('@')[1].split('.')[0].toUpperCase():'');
+  const company=prof.company?.trim()||'';
 
   let uiStatus:'handoff'|'ai_active'|'in_review'|'resolved'='ai_active';
   if(c.status==='resolved')uiStatus='resolved';
@@ -317,17 +359,23 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
 
   return {
     id:c.id,
+    connectionId:source?.id||null,
+    platform:source?.channel_kind||null,
+    accountName:source?.page_name||null,
+    externalAccountId:source?.external_page_id||null,
+    connectionStatus:source?.status||null,
+    sourceLabel:source?.channel_kind&&source?.page_name?`${metaPlatformLabel(source.channel_kind)} · ${source.page_name}`:null,
     customerName:name,
     customerCompany:company,
     customerEmail:email,
     customerPhone:phone,
     customerLocation:prof.location||'',
-    customerAvatar:avatar,
-    clientTier:prof.tier||'',
-    websiteUrl:channelRow?.origin||'',
-    lastMessageSnippet:messages[messages.length-1]?.content||'',
-    lastMessageTime:messages[messages.length-1]?.timestamp||'Vừa xong',
-    channel:channelRow?.widget_mode==='slack'?'Slack App':channelRow?.widget_mode==='email'?'Email':'Widget',
+    customerAvatar:prof.avatarUrl||avatar,
+    clientTier:prof.clientTier||'',
+    websiteUrl:channelRow?.channel_kind?'':channelRow?.origin||'',
+    lastMessageSnippet:messages[messages.length-1]?.content||'Bắt đầu cuộc trò chuyện...',
+    lastMessageTime:'1m ago',
+    channel:channelRow?.channel_kind==='facebook_messenger'?'Facebook Messenger':channelRow?.channel_kind==='instagram_messaging'?'Instagram':channelRow?.channel_kind==='whatsapp_business'?'WhatsApp':channelRow?.channel_kind==='threads'?'Threads':channelRow?.widget_mode==='slack'?'Slack App':channelRow?.widget_mode==='email'?'Email':'Widget',
     status:uiStatus,
     assignedTo:c.assigned_to||undefined,
     ownerVersion:c.owner_version,
@@ -336,9 +384,19 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
     deviceInfo:prof.deviceInfo||'',
     ragMatchScore:'',
     ragCitations:[],
-    crmTags:Array.isArray(prof.tags)?prof.tags:[],
+    crmTags:conversationTags.length?conversationTags:(Array.isArray(prof.crmTags)?prof.crmTags:[]),
     messages:messages
   };
+}
+
+export async function setConversationTags(db:PoolClient,a:Actor,id:string,body:unknown){
+ await access(db,a,id);
+ const data=z.object({tags:z.array(z.string().trim().min(1).max(80)).max(30)}).strict().parse(body);
+ const tags=[...new Set(data.tags)].sort((x,y)=>x.localeCompare(y));
+ await db.query('DELETE FROM conversation_tags WHERE workspace_id=$1 AND conversation_id=$2',[a.workspace_id,id]);
+ for(const tag of tags) await db.query('INSERT INTO conversation_tags(workspace_id,conversation_id,name) VALUES($1,$2,$3)',[a.workspace_id,id,tag]);
+ await audit(db,a.workspace_id,a.user_id,'conversation.tags_updated',id);
+ return {tags};
 }
 
 export async function inboxTyping(db:PoolClient,a:Actor,id:string,body:unknown){

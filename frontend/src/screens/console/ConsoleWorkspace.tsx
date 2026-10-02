@@ -13,6 +13,7 @@ import { AnalyticsView } from '../../components/analytics/AnalyticsView';
 import { CommandPalette } from '../../components/modals/CommandPalette';
 import { navigate } from '../../hooks/usePath';
 import { api } from '../../api/api';
+import { INITIAL_CONVERSATIONS } from '../../data/mockData';
 
 interface ConsoleWorkspaceProps {
   me?: any;
@@ -50,8 +51,9 @@ export function ConsoleWorkspace({
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConvId, setSelectedConvId] = useState<string>('');
+  const [inboxSources,setInboxSources]=useState<Array<{connectionId:string;platform:string;accountName:string}>>([]);
+  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
+  const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
   const selectedConvIdRef = useRef<string>(selectedConvId);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
@@ -81,9 +83,19 @@ export function ConsoleWorkspace({
   };
 
   // Fetch real conversations from Backend while preserving existing messages in state
+  const sourceQueryRef = useRef('');
+  const sourceRequestRef = useRef(0);
   const loadConversations = async () => {
+    const request = ++sourceRequestRef.current;
     try {
-      const data: Conversation[] = await api('/conversations');
+      const data: Conversation[] = await api('/conversations'+sourceQueryRef.current);
+      if(request !== sourceRequestRef.current) return;
+      if(data.length===0){
+        setConversations([]);
+        selectedConvIdRef.current='';
+        setSelectedConvId('');
+        return;
+      }
       if (data && data.length > 0) {
         setConversations((prev) => {
           return data.map((newConv) => {
@@ -132,9 +144,13 @@ export function ConsoleWorkspace({
   };
 
   useEffect(() => {
+    let cancelled=false;
+    sourceQueryRef.current='';
+    setInboxSources([]);
+    void api('/inbox/sources').then(data=>{if(!cancelled)setInboxSources(data);}).catch(()=>{if(!cancelled)setInboxSources([]);});
     void loadConversations();
     const interval = setInterval(loadConversations, 15000);
-    return () => clearInterval(interval);
+    return () => {cancelled=true;sourceRequestRef.current++;clearInterval(interval);};
   }, [me?.workspaceId]);
 
   // Load real messages whenever selectedConvId changes
@@ -158,6 +174,7 @@ export function ConsoleWorkspace({
       };
       es.addEventListener('inbox:visitor_message', refreshList);
       es.addEventListener('inbox:message_sent', refreshList);
+      es.addEventListener('inbox:message_receipt', refreshList);
       es.addEventListener('inbox:takeover', (e: MessageEvent) => {
         try {
           const payload = JSON.parse(e.data);
@@ -361,14 +378,20 @@ export function ConsoleWorkspace({
           clientId: clientUuid,
           body: message.content,
           visibility: message.senderType === 'internal_note' ? 'internal' : 'public',
+          ...(message.attachments?.[0] ? {media: message.attachments[0]} : {}),
         });
-        showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : 'Đã gửi phản hồi tới khách hàng');
+        showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : (['Facebook Messenger','Instagram','WhatsApp','Threads'].includes(conversations.find(c => c.id === convId)?.channel || '') ? 'Đã xếp hàng gửi qua nền tảng; chưa xác nhận khách đã nhận' : 'Đã lưu phản hồi'));
       } catch (err: any) {
-        showGlobalToast(`Lỗi gửi tin: ${err.message || 'Chưa gửi được'}`);
+        setConversations(prev => prev.map(c => c.id !== convId ? c : {
+          ...c, messages: c.messages.filter(m => m.id !== clientUuid),
+        }));
+        showGlobalToast(`Lỗi gửi tin: ${err.message || 'Chưa xác nhận được kết quả gửi'}`);
+        return false;
       }
     } else {
       showGlobalToast(message.senderType === 'internal_note' ? 'Đã lưu ghi chú nội bộ 🔒' : (sentViaWs ? 'Đã gửi qua WebSocket ⚡' : 'Đã gửi phản hồi thành công'));
     }
+    return true;
   };
 
   const handleTakeover = async (convId: string) => {
@@ -555,7 +578,16 @@ export function ConsoleWorkspace({
             {!canOpenModule(me, activeModule) && <main className="p-6" role="alert">Bạn không có quyền truy cập chức năng này. <button onClick={() => handleSelectModule('inbox')}>Về hộp thư</button></main>}
             {activeModule === 'inbox' && canOpenModule(me, 'inbox') && (
               <InboxView
+                key={me?.workspaceId}
+                sources={inboxSources}
                 conversations={conversations}
+                onSourceFilterChange={(platforms,connectionIds)=>{
+                  const query=new URLSearchParams();
+                  platforms.forEach(value=>query.append('platforms',value));
+                  connectionIds.forEach(value=>query.append('connectionIds',value));
+                  sourceQueryRef.current=query.size?'?'+query.toString():'';
+                  void loadConversations();
+                }}
                 selectedConvId={selectedConvId}
                 setSelectedConvId={setSelectedConvId}
                 onSendMessage={handleSendMessage}

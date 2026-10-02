@@ -1,14 +1,18 @@
+import {SendAttempts} from './send-attempts';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Conversation, ChatMessage } from '../../types';
 import { useRealtimeChat } from '../../hooks/useRealtimeChat';
+import { api } from '../../api/api';
 
 interface InboxViewProps {
   conversations: Conversation[];
+  sources?: Array<{connectionId:string;platform:string;accountName:string}>;
+  onSourceFilterChange?: (platforms:string[],connectionIds:string[])=>void;
   selectedConvId: string;
   setSelectedConvId: (id: string) => void;
-  onSendMessage: (convId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>, sentViaWs?: boolean) => void;
+  onSendMessage: (convId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>, sentViaWs?: boolean) => Promise<boolean>;
   onTakeover: (convId: string) => void;
   onResolve: (convId: string) => void;
   onResumeAi?: (convId: string) => void;
@@ -36,6 +40,8 @@ function playNotificationChime() {
 
 export const InboxView: React.FC<InboxViewProps> = ({
   conversations,
+  sources = [],
+  onSourceFilterChange,
   selectedConvId,
   setSelectedConvId,
   onSendMessage,
@@ -46,9 +52,14 @@ export const InboxView: React.FC<InboxViewProps> = ({
 }) => {
   // Filter tabs: all, queue (cần handoff), bot (AI đang phục vụ), mine (đã gán)
   const [filterTab, setFilterTab] = useState<'all' | 'queue' | 'bot' | 'mine'>('all');
+  const [sourcePlatforms,setSourcePlatforms]=useState<string[]>([]);
+  const [sourceConnections,setSourceConnections]=useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [composerMode, setComposerMode] = useState<'public' | 'internal'>('public');
   const [messageText, setMessageText] = useState('');
+  const [mediaUrl, setMediaUrl] = useState('');
+  const [mediaType, setMediaType] = useState<'image'|'video'|'audio'|'file'>('image');
+  const [showMedia, setShowMedia] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [newTagInput, setNewTagInput] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
@@ -82,6 +93,11 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Enter can fire repeatedly before the async provider/API round trip returns.
+  // Keep a synchronous lock so one composer action creates one client id.
+  const sendingRef = useRef(false);
+  const attemptsRef = useRef(new SendAttempts());
+  const [isSending, setIsSending] = useState(false);
 
   const activeConv = conversations.find((c) => c.id === selectedConvId) || conversations[0];
   const isStaffActive = Boolean(
@@ -273,7 +289,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   };
 
   const handleSend = async () => {
-    if (!messageText.trim() || !activeConv) return;
+    if (sendingRef.current || !messageText.trim() || !activeConv) return;
     const text = messageText;
     const isInternal = !isStaffActive || composerMode === 'internal';
 
@@ -283,27 +299,38 @@ export const InboxView: React.FC<InboxViewProps> = ({
       return;
     }
 
-    const msgClientId = crypto.randomUUID();
+    sendingRef.current = true;
+    setIsSending(true);
 
-    // 1. Send via WebSocket if open (<1ms)
-    const sentViaWs = await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
+    const visibility = isInternal ? 'internal' : 'public';
+    const media=mediaUrl.trim()?{type:mediaType,url:mediaUrl.trim()}:undefined;
+    const msgClientId = attemptsRef.current.begin(activeConv.id,text,visibility,media);
 
-    // 2. Dispatch to parent console state
-    onSendMessage(activeConv.id, {
+    try {
+      // 1. Send via WebSocket if open (<1ms)
+      const isMetaChannel = ['Facebook Messenger', 'Instagram', 'WhatsApp', 'Threads'].includes(activeConv.channel);
+      const sentViaWs = isMetaChannel ? false : await sendMessageOverSocket(text, isInternal ? 'internal' : 'public', msgClientId);
+
+      // 2. Dispatch to parent console state
+      const saved = await onSendMessage(activeConv.id, {
       clientId: msgClientId,
       senderType: isInternal ? 'internal_note' : 'agent',
       senderName: 'Chuyên viên Hỗ trợ',
       senderAvatar: '',
       content: text,
-    }, sentViaWs);
+      ...(media ? {attachments:[media]} : {}),
+      }, sentViaWs);
 
-    if (activeConv?.id) {
-      localStorage.removeItem(`gotek_draft_${activeConv.id}`);
+      if (!saved) return;
+      attemptsRef.current.confirmed(activeConv.id,text,visibility,msgClientId,media);
+      setMessageText('');
+      setMediaUrl('');
+      setShowMedia(false);
+      textareaRef.current?.focus();
+    } finally {
+      sendingRef.current = false;
+      setIsSending(false);
     }
-
-    showToast(isInternal ? 'Đã lưu ghi chú nội bộ 🔒 (Khách không nhìn thấy)' : (sentViaWs ? 'Đã gửi qua WebSocket ⚡' : 'Đã gửi phản hồi'));
-    setMessageText('');
-    textareaRef.current?.focus();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -345,25 +372,29 @@ export const InboxView: React.FC<InboxViewProps> = ({
     });
   };
 
-  const handleAddTag = () => {
+  const handleAddTag = async () => {
     if (!newTagInput.trim() || !activeConv) return;
     const current = activeTags[activeConv.id] || activeConv.crmTags || [];
+    const updated=[...current, newTagInput.trim()];
     setActiveTags({
       ...activeTags,
-      [activeConv.id]: [...current, newTagInput.trim()],
+      [activeConv.id]: updated,
     });
+    try { await api(`/conversations/${activeConv.id}/tags`, 'PUT', {tags: updated}); } catch { showToast('Không lưu được nhãn CRM'); return; }
     setNewTagInput('');
     setShowAddTag(false);
     showToast('Đã thêm nhãn CRM');
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
+  const handleRemoveTag = async (tagToRemove: string) => {
     if (!activeConv) return;
     const current = activeTags[activeConv.id] || activeConv.crmTags || [];
+    const updated=current.filter((t) => t !== tagToRemove);
     setActiveTags({
       ...activeTags,
-      [activeConv.id]: current.filter((t) => t !== tagToRemove),
+      [activeConv.id]: updated,
     });
+    try { await api(`/conversations/${activeConv.id}/tags`, 'PUT', {tags: updated}); } catch { showToast('Không lưu được nhãn CRM'); return; }
     showToast('Đã gỡ nhãn CRM');
   };
 
@@ -416,6 +447,28 @@ export const InboxView: React.FC<InboxViewProps> = ({
               >
                 <span className="material-symbols-outlined text-[19px]">chevron_left</span>
               </button>
+            </div>
+
+            <div className="flex flex-col gap-2 text-xs">
+              <label>Nền tảng
+                <select multiple aria-label="Lọc nền tảng" value={sourcePlatforms} className="w-full bg-transparent border rounded p-1" onChange={e=>{
+                  const values=Array.from(e.target.selectedOptions,o=>o.value);
+                  setSourcePlatforms(values); onSourceFilterChange?.(values,sourceConnections);
+                }}>
+                  <option value="facebook_messenger">Facebook Messenger</option>
+                  <option value="instagram_messaging">Instagram</option>
+                  <option value="whatsapp_business">WhatsApp</option>
+                </select>
+              </label>
+              <label>Page / tài khoản
+                <select multiple aria-label="Lọc Page hoặc tài khoản" value={sourceConnections} className="w-full bg-transparent border rounded p-1" onChange={e=>{
+                  const values=Array.from(e.target.selectedOptions,o=>o.value);
+                  setSourceConnections(values); onSourceFilterChange?.(sourcePlatforms,values);
+                }}>
+                  {sources.map(source=><option key={source.connectionId} value={source.connectionId}>{source.platform === 'facebook_messenger' ? 'Facebook Messenger' : source.platform === 'instagram_messaging' ? 'Instagram' : source.platform === 'whatsapp_business' ? 'WhatsApp' : source.platform} · {source.accountName}</option>)}
+                </select>
+              </label>
+              <button type="button" onClick={()=>{setSourcePlatforms([]);setSourceConnections([]);onSourceFilterChange?.([],[]);}}>Xóa bộ lọc nguồn</button>
             </div>
 
             {/* Natural Search Input */}
@@ -643,7 +696,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                           )}
 
                           <span className="px-2 py-0.5 rounded-md text-[10.5px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50 font-medium ml-auto">
-                            {conv.channel}
+                            {conv.channel}{conv.accountName ? ` · ${conv.accountName}` : ''}
                           </span>
                         </div>
                       </div>
@@ -754,12 +807,12 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 <span className="font-medium text-slate-700 dark:text-slate-300">{activeConv.customerCompany}</span>
                 <span>•</span>
                 <a
-                  href={activeConv.websiteUrl}
+                  href={activeConv.websiteUrl || undefined}
                   target="_blank"
                   rel="noreferrer"
                   className="text-slate-400 hover:text-[#1664ff] dark:hover:text-blue-400 transition-colors"
                 >
-                  {activeConv.websiteUrl}
+                  {activeConv.websiteUrl || 'Website: Chưa cung cấp'}
                 </a>
               </p>
             </div>
@@ -1157,6 +1210,13 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
                   <div className="p-3.5 rounded-2xl rounded-tl-sm bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-slate-700/70 shadow-xs dark:shadow-md text-[13.5px] leading-relaxed whitespace-pre-wrap">
                     {msg.content}
+                    {msg.attachments?.map((attachment) => attachment.type === 'image' ? (
+                      <img key={attachment.url} src={attachment.url} alt="Tệp ảnh từ khách hàng" className="mt-2 max-w-full max-h-72 rounded-lg object-contain" />
+                    ) : attachment.type === 'video' ? (
+                      <video key={attachment.url} src={attachment.url} controls className="mt-2 max-w-full max-h-72 rounded-lg" />
+                    ) : (
+                      <a key={attachment.url} href={attachment.url} target="_blank" rel="noreferrer" className="mt-2 block text-blue-600 underline">Mở tệp đính kèm</a>
+                    ))}
                   </div>
 
                   {/* Customer message receipt */}
@@ -1415,7 +1475,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
               <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-[12px]">
                 <button
                   type="button"
-                  onClick={() => showToast('Tính năng đính kèm tệp sẵn sàng')}
+                  onClick={() => setShowMedia((value) => !value)}
                   className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
                   title="Đính kèm tệp tin"
                 >
@@ -1432,12 +1492,19 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 <span className="hidden sm:inline text-slate-400 dark:text-slate-500 text-[11.5px]">Nhấn Enter để lưu</span>
               </div>
 
+              {showMedia && <div className="absolute bottom-14 left-4 right-4 z-10 flex gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                <select aria-label="Loại tệp Meta" value={mediaType} onChange={(e) => setMediaType(e.target.value as typeof mediaType)} className="rounded border px-2 text-xs dark:bg-slate-800">
+                  <option value="image">Ảnh</option><option value="video">Video</option><option value="audio">Audio</option><option value="file">Tệp</option>
+                </select>
+                <input aria-label="URL media HTTPS" value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="https://... (URL công khai)" className="min-w-0 flex-1 rounded border px-2 text-xs dark:bg-slate-800" type="url" />
+              </div>}
+
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={handleSend}
-                disabled={!messageText.trim()}
+                disabled={!messageText.trim() || isSending}
                 className={`px-4 py-1.5 rounded-xl text-[13px] font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                   !isStaffActive || composerMode === 'internal'
                     ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20'
@@ -1524,7 +1591,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     mail
                   </span>
                   <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium truncate">
-                    {activeConv.customerEmail}
+                    {activeConv.customerEmail || 'Email: Chưa cung cấp'}
                   </span>
                 </div>
                 <span className="material-symbols-outlined text-slate-400 opacity-0 group-hover:opacity-100 text-[15px] transition-opacity">
@@ -1543,7 +1610,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     call
                   </span>
                   <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium truncate">
-                    {activeConv.customerPhone}
+                    {activeConv.customerPhone || 'Số điện thoại: Chưa cung cấp'}
                   </span>
                 </div>
                 <span className="material-symbols-outlined text-slate-400 opacity-0 group-hover:opacity-100 text-[15px] transition-opacity">
@@ -1554,7 +1621,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
               {/* Location */}
               <div className="flex items-center gap-2.5 p-1.5 text-slate-700 dark:text-slate-300">
                 <span className="material-symbols-outlined text-slate-400 text-[16px]">location_on</span>
-                <span className="text-[12px] font-medium">{activeConv.customerLocation}</span>
+                <span className="text-[12px] font-medium">{activeConv.customerLocation || 'Địa chỉ: Chưa cung cấp'}</span>
               </div>
 
               {/* Website */}
@@ -1562,12 +1629,12 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="material-symbols-outlined text-slate-400 text-[16px]">language</span>
                   <a
-                    href={activeConv.websiteUrl}
+                    href={activeConv.websiteUrl || undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="text-[12px] text-[#1664ff] dark:text-blue-400 hover:underline font-medium truncate"
                   >
-                    {activeConv.websiteUrl}
+                    {activeConv.websiteUrl || 'Website: Chưa cung cấp'}
                   </a>
                 </div>
                 <span className="material-symbols-outlined text-slate-400 text-[15px]">open_in_new</span>
@@ -1582,7 +1649,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">
                 <span>Kênh tiếp nhận</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.channel}</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.channel}{activeConv.accountName ? ` · ${activeConv.accountName}` : ''}</span>
               </div>
 
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">

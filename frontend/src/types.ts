@@ -53,6 +53,7 @@ export interface ChatMessage {
   senderRole?: string;
   timestamp: string;
   content: string;
+  attachments?: Array<{type: 'image'|'video'|'audio'|'file'; url: string}>;
   citations?: Array<{
     title: string;
     pageOrSection?: string;
@@ -70,12 +71,18 @@ export interface Conversation {
   customerPhone: string;
   customerLocation: string;
   customerAvatar: string;
-  clientTier: 'Enterprise Prospect' | 'Enterprise Client' | 'Growth Plan';
+  clientTier: '' | 'Enterprise Prospect' | 'Enterprise Client' | 'Growth Plan';
   websiteUrl: string;
   lastMessageSnippet: string;
   lastMessageTime: string;
   unreadCount?: number;
-  channel: 'Widget' | 'Slack App' | 'Email' | 'API Chat';
+  connectionId?: string | null;
+  platform?: string | null;
+  accountName?: string | null;
+  externalAccountId?: string | null;
+  connectionStatus?: string | null;
+  sourceLabel?: string | null;
+  channel: 'Widget' | 'Slack App' | 'Email' | 'API Chat' | 'Facebook Messenger' | 'Instagram' | 'WhatsApp' | 'Threads';
   status: 'handoff' | 'ai_active' | 'in_review' | 'resolved';
   reply_owner?: string;
   replyOwner?: string;
