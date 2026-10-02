@@ -20,7 +20,7 @@ export async function ingestMetaBody(db:PoolClient,body:unknown,afterCommit:Arra
  const statuses=normalizeMetaStatuses(body);
  for(const status of statuses){
   const c=await resolveConnectionRoute(db,status.surface,status.externalAccountId);
-  if(!c){ await quarantineMetaEvent(db,status.surface,status.externalAccountId,status.eventId,status,'NO_CONNECTION_MAPPING'); continue; }
+  if(!c) continue;
   const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,status.eventId,'status:'+status.status,status])).rowCount;
   if(inserted){
    await reconcileMetaReceipt(db,c.workspace_id,c.id,status.providerMessageId);
@@ -38,13 +38,13 @@ export async function ingestMetaBody(db:PoolClient,body:unknown,afterCommit:Arra
  for(const rawAccount of rawAccounts){
   if(!rawAccount.account) continue;
   const route=await resolveConnectionRoute(db,rawAccount.surface,rawAccount.account);
-  if(!route) await quarantineMetaEvent(db,rawAccount.surface,rawAccount.account,createHash('sha256').update(JSON.stringify(rawAccount.payload)).digest('hex'),rawAccount.payload,'NO_CONNECTION_MAPPING');
+  if(!route) continue;
  }
  if(!normalized.length) return {accepted:true,processed:0};
  let processed=0;
  for(const event of normalized){
   const c=await resolveConnectionRoute(db,event.surface,event.externalAccountId);
-  if(!c){ await quarantineMetaEvent(db,event.surface,event.externalAccountId,event.eventId,event,'NO_CONNECTION_MAPPING'); continue; }
+  if(!c) continue;
   const inserted=(await db.query('INSERT INTO meta_events(id,workspace_id,connection_id,external_event_id,event_kind,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[uuid(),c.workspace_id,c.id,event.eventId,'message',event])).rowCount;
   if(!inserted) continue;
   const profile={externalId:event.senderId,name:event.displayName||'Meta user',source:event.surface};
