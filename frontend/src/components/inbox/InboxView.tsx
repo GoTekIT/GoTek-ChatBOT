@@ -8,7 +8,7 @@ import { api } from '../../api/api';
 
 interface InboxViewProps {
   conversations: Conversation[];
-  sources?: Array<{connectionId:string;platform:string;accountName:string}>;
+  sources?: Array<{connectionId:string;platform:string;accountName:string;externalAccountId?:string}>;
   onSourceFilterChange?: (platforms:string[],connectionIds:string[])=>void;
   selectedConvId: string;
   setSelectedConvId: (id: string) => void;
@@ -465,7 +465,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                   const values=Array.from(e.target.selectedOptions,o=>o.value);
                   setSourceConnections(values); onSourceFilterChange?.(sourcePlatforms,values);
                 }}>
-                  {sources.map(source=><option key={source.connectionId} value={source.connectionId}>{source.platform === 'facebook_messenger' ? 'Facebook Messenger' : source.platform === 'instagram_messaging' ? 'Instagram' : source.platform === 'whatsapp_business' ? 'WhatsApp' : source.platform} · {source.accountName}</option>)}
+                  {sources.map(source=><option key={source.connectionId} value={source.connectionId}>{source.platform === 'facebook_messenger' ? 'Facebook Messenger' : source.platform === 'instagram_messaging' ? 'Instagram' : source.platform === 'whatsapp_business' ? 'WhatsApp' : source.platform} · {source.accountName}{source.externalAccountId ? ` · ${source.externalAccountId}` : ''}</option>)}
                 </select>
               </label>
               <button type="button" onClick={()=>{setSourcePlatforms([]);setSourceConnections([]);onSourceFilterChange?.([],[]);}}>Xóa bộ lọc nguồn</button>

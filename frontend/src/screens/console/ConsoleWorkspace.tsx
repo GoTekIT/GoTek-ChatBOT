@@ -51,7 +51,7 @@ export function ConsoleWorkspace({
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
 
-  const [inboxSources,setInboxSources]=useState<Array<{connectionId:string;platform:string;accountName:string}>>([]);
+  const [inboxSources,setInboxSources]=useState<Array<{connectionId:string;platform:string;accountName:string;externalAccountId?:string}>>([]);
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
   const selectedConvIdRef = useRef<string>(selectedConvId);
