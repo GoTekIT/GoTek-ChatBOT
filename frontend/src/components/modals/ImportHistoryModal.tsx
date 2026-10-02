@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { api, ApiError } from '../../api/api';
+import { api, ApiError } from '@api';
+import { formatBytes, formatDate } from '@/utils/formatters';
 
 export interface KnowledgeImportReceipt {
   id: string;
@@ -69,27 +70,6 @@ export const ImportHistoryModal: React.FC<ImportHistoryModalProps> = ({
     if (filter === 'ALL') return true;
     return item.status === filter;
   });
-
-  const formatBytes = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  };
-
-  const formatDate = (iso: string): string => {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return iso;
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../../api/api';
+import { api } from '@api';
 
 export const AnalyticsView: React.FC = () => {
   const [range, setRange] = useState<'7d' | '30d' | 'quarter'>('7d');

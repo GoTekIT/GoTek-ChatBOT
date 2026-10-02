@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api, ApiError } from '../../api/api';
+import { api, ApiError } from '@api';
 
 export interface BotTemplate {
   id: string;

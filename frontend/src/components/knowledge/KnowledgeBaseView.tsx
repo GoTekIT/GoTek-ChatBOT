@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api, ApiError } from '../../api/api';
+import { api, ApiError } from '@api';
 import { ImportDocModal } from '../modals/ImportDocModal';
 import { ImportHistoryModal } from '../modals/ImportHistoryModal';
 import { BotTemplatesView } from './BotTemplatesView';

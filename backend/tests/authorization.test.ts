@@ -5,9 +5,11 @@ import pg from 'pg';
 import request from 'supertest';
 import {createApp} from '../src/app';
 import {pool} from '../src/core/db';
+import {existsSync} from 'node:fs';
 
+const defaultHost = process.platform === 'win32' || !existsSync('/tmp/.s.PGSQL.55432') ? '127.0.0.1' : '/tmp';
 const admin = new pg.Pool({
-  host: process.platform === 'win32' ? '127.0.0.1' : (process.env.PGHOST || '/tmp'),
+  host: process.env.PGHOST || defaultHost,
   port: Number(process.env.PGPORT) || 55432,
   user: process.env.PGUSER || 'gotek_migrator',
   password: process.env.PGPASSWORD || 'gotek_dev_password',
