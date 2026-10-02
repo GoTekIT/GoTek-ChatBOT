@@ -1,3 +1,8 @@
+## Multi-connection management checkpoint (2026-10-02)
+- Added Owner/Admin API and Channels UI to add multiple Facebook/Instagram/WhatsApp/Threads account mappings per workspace using server-side token references only.
+- Global `(platform, external account id)` uniqueness rejects cross-workspace double ownership; connection starts pending and is verified only after the configured secret reference exists.
+- `npm run build:all` passed. Live Graph credential validation, OAuth account picker, webhook subscription registration, and Meta tester acceptance remain separate live gates.
+
 ## Quarantine replay checkpoint (2026-10-02)
 - Added Owner/Admin-only `GET /api/meta/quarantine` and `POST /api/meta/quarantine/:id/replay`. Results are workspace-scoped by current Page/account mapping; unmapped or disconnected rows are unavailable.
 - Replay reuses the signed webhook ingestion pipeline, marks the row replayed only after processing, and remains deduplicated by the existing event keys.
