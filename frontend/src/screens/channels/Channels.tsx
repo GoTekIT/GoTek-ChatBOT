@@ -8,6 +8,8 @@ import './channels-config-overrides.css';
 import './channels-config-hours.css';
 import './channels-config-prechat.css';
 
+type MetaConnections = {capabilities: Array<{surface: string; label: string; outboundMessaging: boolean}>; connections: Array<{id: string; channel_kind: string; page_name: string; status: string}>};
+const metaStatus: Record<string,string> = {connected:'Đã kết nối',pending:'Chờ xác minh',disconnected:'Đã ngắt',reauth_required:'Cần cấp quyền lại',error:'Lỗi kết nối'};
 type Channel = {id: string; name: string; origin: string; greeting?: string; color?: string; enabled: boolean};
 type Install = {id: string; name: string; origin: string; snippet: string; snippetStandard?: string; snippetNextJs?: string; snippetReact?: string};
 type Member = {id: string; full_name: string; email: string; role: string; active: boolean};
@@ -60,6 +62,20 @@ function ModalShell({title, children, onClose, wide = false}: {title: string; ch
 }
 
 export function Channels({role}: {role: string}) {
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  async function disconnectMeta(id: string) {
+    setDisconnecting(id); setMetaError('');
+    try {
+      await api(`/meta/connections/${id}/disconnect`, 'POST', {});
+      setMeta(await api('/meta/connections'));
+    } catch { setMetaError('Không thể xác nhận kết quả ngắt kết nối. Hãy làm mới để kiểm tra.'); }
+    finally { setDisconnecting(null); }
+  }
+  const [meta, setMeta] = useState<MetaConnections | null>(null);
+  const [metaError, setMetaError] = useState('');
+  const [metaFormOpen, setMetaFormOpen] = useState(false);
+  const [metaFormBusy, setMetaFormBusy] = useState(false);
+  const [metaForm, setMetaForm] = useState({platform: 'facebook_messenger', externalAccountId: '', accountName: '', tokenRef: 'META_GOTEK_PAGE_TOKEN', channelId: ''});
   const [rows, setRows] = useState<Channel[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [step, setStep] = useState(0);
@@ -88,6 +104,11 @@ export function Channels({role}: {role: string}) {
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
   async function load(isRefresh = false) {
     setError('');
+    setMeta(null); setMetaError('');
+    if (canManage) {
+      try { setMeta(await api('/meta/connections')); }
+      catch { setMetaError('Không tải được trạng thái kết nối Meta. Hãy làm mới để thử lại.'); }
+    }
     if (isRefresh) setReloading(true);
     else setLoading(true);
     try {
@@ -274,6 +295,29 @@ export function Channels({role}: {role: string}) {
           )}
         </div>
       </div>
+      {canManage && <section aria-label="Kết nối Meta">
+        <h2>Kết nối Meta</h2>
+        <p>Workspace này có thể liên kết nhiều Page/account; mỗi connection giữ nguồn riêng trong inbox.</p>
+        <button type="button" onClick={() => setMetaFormOpen((open) => !open)}>{metaFormOpen ? 'Đóng form liên kết' : 'Thêm Page/account test'}</button>
+        {metaFormOpen && <form onSubmit={async (event) => { event.preventDefault(); setMetaFormBusy(true); setMetaError(''); try { const created=await api('/meta/connections','POST',metaForm); await api(`/meta/connections/${created.id}/verify`,'POST',{}); setMeta(await api('/meta/connections')); setMetaForm({...metaForm,externalAccountId:'',accountName:''}); setMetaFormOpen(false); } catch { setMetaError('Không thể liên kết. Kiểm tra channel, tokenRef và tài khoản chưa được liên kết ở workspace khác.'); } finally { setMetaFormBusy(false); } }} style={{display:'grid',gap:8,maxWidth:520,margin:'12px 0'}}>
+          <label>Nền tảng<select value={metaForm.platform} onChange={(e) => setMetaForm({...metaForm,platform:e.target.value})}><option value="facebook_messenger">Facebook Messenger</option><option value="instagram_messaging">Instagram</option><option value="whatsapp_business">WhatsApp</option><option value="threads">Threads (catalog only)</option></select></label>
+          <label>Page/account ID<input required value={metaForm.externalAccountId} onChange={(e) => setMetaForm({...metaForm,externalAccountId:e.target.value})} /></label>
+          <label>Tên Page/account<input required value={metaForm.accountName} onChange={(e) => setMetaForm({...metaForm,accountName:e.target.value})} /></label>
+          <label>Token reference server-side<input required value={metaForm.tokenRef} onChange={(e) => setMetaForm({...metaForm,tokenRef:e.target.value})} /><small>Chỉ nhập tên biến META_...; không nhập token vào UI.</small></label>
+          <label>Channel xử lý<select required value={metaForm.channelId} onChange={(e) => setMetaForm({...metaForm,channelId:e.target.value})}><option value="">Chọn channel</option>{rows.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>
+          <button type="submit" disabled={metaFormBusy}>{metaFormBusy ? 'Đang xác minh…' : 'Liên kết và xác minh'}</button>
+        </form>}
+        {metaError && <p role="alert">{metaError}</p>}
+        {!meta && !metaError && <p role="status">Đang tải kết nối Meta…</p>}
+        {meta?.capabilities.map(capability => {
+          const connections = meta.connections.filter(connection => connection.channel_kind === capability.surface);
+          return <div key={capability.surface}>
+            <h3>{capability.label}</h3>
+            {!capability.outboundMessaging && <p>Chưa hỗ trợ nhắn tin trực tiếp trong GoTek.</p>}
+            {connections.length === 0 ? <p>Chưa có kết nối trong workspace này.</p> : connections.map(connection => <p key={connection.id}>{connection.page_name} — {metaStatus[connection.status] || 'Chưa xác định'} {connection.status !== 'disconnected' && <button type="button" disabled={disconnecting !== null} onClick={() => void disconnectMeta(connection.id)}>{disconnecting === connection.id ? 'Đang ngắt…' : 'Ngắt kết nối'}</button>}</p>)}
+          </div>;
+        })}
+      </section>}
       {error && <div role="alert" className="notice error">{error}</div>}
 
       {loading ? (

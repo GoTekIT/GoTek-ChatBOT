@@ -68,6 +68,7 @@ export function useRealtimeChat({
       senderName,
       senderRole,
       content: messageData.body || messageData.content,
+      attachments: messageData.attachments,
       timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
   };

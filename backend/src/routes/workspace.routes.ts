@@ -4,6 +4,10 @@ import {WorkspaceController} from '../controllers/workspace.controller';
 
 export const workspaceRouter = Router();
 
+workspaceRouter.post('/workspaces',
+  authed((db, identity, req) => WorkspaceController.createWorkspace(db, identity, req))
+);
+
 workspaceRouter.get(
   '/workspace',
   authed((db, identity) => WorkspaceController.getWorkspace(db, identity))

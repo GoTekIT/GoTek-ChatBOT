@@ -1,0 +1,4 @@
+-- Existing installations may contain legacy fixtures with multiple connections
+-- on one channel. New API-created connections are guarded in the service layer;
+-- the global Page/account unique index remains the database invariant. Do not
+-- add a destructive channel uniqueness constraint during backfill.

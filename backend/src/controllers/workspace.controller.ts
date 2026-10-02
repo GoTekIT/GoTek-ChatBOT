@@ -7,6 +7,10 @@ import {uidSchema, successResponse} from './auth.controller';
 import type {Identity} from '../middlewares/auth.middleware';
 
 export class WorkspaceController {
+  static async createWorkspace(db: PoolClient, i: Identity, req: Request) {
+    const {name} = z.object({name: z.string().trim().min(2).max(160)}).strict().parse(req.body);
+    return WorkspaceService.createWorkspace(db, i.user_id, name);
+  }
   static async getWorkspace(db: PoolClient, i: Identity): Promise<any> {
     return WorkspaceService.getWorkspace(db, i.workspace_id);
   }

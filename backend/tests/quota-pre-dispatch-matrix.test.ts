@@ -8,7 +8,7 @@ import {appendMessage} from '../src/modules/chat/chat-store';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 import {runAiWorkerOnce} from '../src/modules/jobs/worker';
 
-const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:Number(process.env.PGPORT||55432),user:'gotek_migrator',database:'gotek_chatbot'});
 test.after(async()=>{await pool.end();await admin.end();});
 
 async function fixture(opts:{model?:boolean;owner?:string;grounded?:boolean;revoked?:boolean}){
@@ -50,7 +50,12 @@ for(const [name,opts] of [
   const f=await fixture(opts); let calls=0;
   try {
    const result=await runAiWorkerOnce(f.w,async()=>{calls++;return 'must not call';});
-   assert.ok(['succeeded','unknown'].includes(result.state));
+   assert.equal(result.state,name==='stale owner'?'dead':'succeeded');
+   assert.equal((await runAiWorkerOnce(f.w,async()=>{calls++;return 'must not retry';})).state,'idle');
+   if(name==='stale owner'){
+    const job=(await admin.query('SELECT state,error_code FROM jobs WHERE workspace_id=$1',[f.w])).rows[0];
+    assert.deepEqual(job,{state:'dead',error_code:'STALE_REPLY_OWNER'});
+   }
    assert.equal(calls,0,'provider must not be invoked before validation');
    await assertNoReservation(f.w);
   } finally {

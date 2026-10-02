@@ -1,4 +1,5 @@
 import {Router} from 'express';
+import {listInboxSources} from '../modules/meta/connections';
 import {authed, identity, Identity} from '../middlewares/auth.middleware';
 import {transaction} from '../core/db';
 import {uuid} from '../core/security';
@@ -13,10 +14,12 @@ import {
   inboxSend,
   inboxSetStatus,
   inboxTyping,
+  setConversationTags,
   access
 } from '../modules/chat/inbox';
 
 export const inboxRouter = Router();
+inboxRouter.get('/inbox/sources',authed((db,i)=>listInboxSources(db,i)));
 
 inboxRouter.get(
   '/conversations',
@@ -32,6 +35,7 @@ inboxRouter.get(
   '/conversations/:id/messages',
   authed((db, i, req) => inboxMessages(db, i, String(req.params.id), req.query.after))
 );
+inboxRouter.put('/conversations/:id/tags',authed((db,i,req)=>setConversationTags(db,i,String(req.params.id),req.body)));
 
 inboxRouter.post(
   '/conversations/:id/assign',
@@ -50,7 +54,17 @@ inboxRouter.post(
 
 inboxRouter.post(
   '/conversations/:id/messages',
-  authed((db, i, req) => inboxSend(db, i, String(req.params.id), req.body))
+  async (req,res,next) => {
+    const afterCommit:Array<()=>void>=[];
+    try {
+      const message=await transaction(async db=>{
+        const actor=await identity(db,req);
+        return inboxSend(db,actor,String(req.params.id),req.body,afterCommit);
+      });
+      for(const publish of afterCommit){try{publish();}catch{console.warn('INBOX_REALTIME_PUBLISH_FAILED');}}
+      res.json(message);
+    }catch(error){next(error);}
+  }
 );
 
 inboxRouter.patch(
@@ -103,4 +117,3 @@ inboxRouter.get('/stream', async (req, res, next) => {
     next(e);
   }
 });
-

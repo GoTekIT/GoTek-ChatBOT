@@ -7,7 +7,7 @@ import {appendMessage} from '../src/modules/chat/chat-store';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 import {runAiWorkerOnce} from '../src/modules/jobs/worker';
 
-const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});
+const admin=new pg.Pool({host:'127.0.0.1',port:Number(process.env.PGPORT||55432),user:'gotek_migrator',database:'gotek_chatbot'});
 
 test('AI worker hands off when provider configuration cannot be used',async()=>{
  const workspace=randomUUID(),channel=randomUUID(),visitor=randomUUID(),conversation=randomUUID(),provider=randomUUID(),model=randomUUID();
@@ -42,7 +42,10 @@ test('AI worker hands off when provider configuration cannot be used',async()=>{
    await admin.query("UPDATE conversations SET reply_owner='HUMAN_ACTIVE',owner_version=owner_version+1 WHERE id=$1",[conversation]);
    throw new Error('PROVIDER_ENDPOINT_REQUIRED');
   });
-  assert.equal(raced.state,'unknown');
+  assert.equal(raced.state,'dead');
+  assert.equal((await runAiWorkerOnce(workspace,async()=>{throw new Error('cancelled reply must not retry');})).state,'idle');
+  const cancelled=(await admin.query("SELECT state,error_code FROM jobs WHERE workspace_id=$1 AND error_code='STALE_REPLY_OWNER'",[workspace])).rows;
+  assert.deepEqual(cancelled,[{state:'dead',error_code:'STALE_REPLY_OWNER'}]);
   assert.equal((await admin.query('SELECT count(*)::int AS count FROM messages WHERE conversation_id=$1',[conversation])).rows[0].count,before);
   assert.equal((await admin.query('SELECT reply_owner FROM conversations WHERE id=$1',[conversation])).rows[0].reply_owner,'HUMAN_ACTIVE');
  } finally {

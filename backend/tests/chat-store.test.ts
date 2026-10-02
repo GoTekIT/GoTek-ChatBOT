@@ -1,6 +1,6 @@
-import {inboxList,inboxMessages,inboxTakeover,inboxSend,inboxSetStatus} from '../src/modules/chat/inbox';
+import {inboxDetail,inboxList,inboxMessages,inboxTakeover,inboxSend,inboxSetStatus} from '../src/modules/chat/inbox';
 import {test,after} from 'node:test';import assert from 'node:assert/strict';import pg from 'pg';import {randomUUID} from 'node:crypto';import {pool,scope,transaction} from '../src/core/db';import {appendMessage,takeover} from '../src/modules/chat/chat-store';
-const admin=new pg.Pool({host:'127.0.0.1',port:55432,user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
+const admin=new pg.Pool({host:'127.0.0.1',port:Number(process.env.PGPORT||55432),user:'gotek_migrator',database:'gotek_chatbot'});after(async()=>{await pool.end();await admin.end();});
 test('H03 message ordering/idempotency, takeover fencing, note boundary and tenant isolation',async()=>{
  const w=randomUUID(),ch=randomUUID(),v=randomUUID(),c=randomUUID(),agent=randomUUID(),other=randomUUID();
  await admin.query('INSERT INTO workspaces(id,name) VALUES($1,$2),($3,$4)',[w,'Chat fixture',other,'Other fixture']);
@@ -23,8 +23,25 @@ test('H03 message ordering/idempotency, takeover fencing, note boundary and tena
  await admin.query('INSERT INTO channel_members(workspace_id,channel_id,user_id) VALUES($1,$2,$3)',[w,ch,agent]);
  assert.equal((await run(db=>inboxList(db,actor))).length,1);
  assert.equal((await run(db=>inboxMessages(db,actor,c,2)))[0].visibility,'internal');
- const sent=await run(db=>inboxSend(db,actor,c,{clientId:randomUUID(),body:'Scoped reply',visibility:'public'}));assert.equal(sent.sequence,4);
+ const effects:Array<()=>void>=[];
+ const replyInput={clientId:randomUUID(),body:'Scoped reply',visibility:'public' as const};
+ const sent=await run(db=>inboxSend(db,actor,c,replyInput,effects));assert.equal(sent.sequence,4);
+ assert.equal(effects.length,1);
+ assert.equal((await run(db=>inboxSend(db,actor,c,replyInput,effects))).id,sent.id);
+ assert.equal(effects.length,1,'replay must not publish another realtime message');
 
+
+ await admin.query("UPDATE visitors SET profile=$2 WHERE id=$1",[v,{metaUserId:'fixture-customer',source:'whatsapp_business'}]);
+ assert.equal((await run(db=>inboxSend(db,actor,c,replyInput,effects))).id,sent.id,'committed retry survives unavailable connector');
+ assert.equal(effects.length,1);
+ await assert.rejects(run(db=>inboxSend(db,actor,c,{clientId:randomUUID(),body:'Must not silently save offline Meta reply',visibility:'public'})),{code:'META_CONNECTION_UNAVAILABLE'});
+ assert.equal((await run(db=>db.query('SELECT id FROM messages WHERE conversation_id=$1',[c]))).rowCount,4);
+ const replacementConnection=randomUUID();
+ await admin.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Replacement','META_FIXTURE_TOKEN')",[replacementConnection,w,ch,randomUUID()]);
+ await assert.rejects(run(db=>inboxSend(db,actor,c,{clientId:randomUUID(),body:'Wrong account',visibility:'public'})),{code:'META_CONNECTION_UNAVAILABLE'});
+ assert.equal((await run(db=>db.query('SELECT id FROM messages WHERE conversation_id=$1',[c]))).rowCount,4);
+ await admin.query('DELETE FROM meta_connections WHERE id=$1',[replacementConnection]);
+ await admin.query("UPDATE visitors SET profile='{}'::jsonb WHERE id=$1",[v]);
  const replacement=randomUUID();
  await admin.query('INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,$3,$4,$5)',[replacement,replacement+'@example.test','Replacement','0900000000','disabled-test-identity']);
  await admin.query("INSERT INTO memberships(workspace_id,user_id,role) VALUES($1,$2,'Agent')",[w,replacement]);
@@ -39,6 +56,23 @@ test('H03 message ordering/idempotency, takeover fencing, note boundary and tena
  const reopened=await run(db=>appendMessage(db,{...input,clientId:randomUUID(),body:'Khách nhắn lại'}));
  assert.equal(reopened.author_type,'visitor');
  assert.equal((await run(db=>db.query('SELECT status FROM conversations WHERE id=$1',[c]))).rows[0].status,'open');
+ // Historic source must survive disconnect/re-auth in both inbox surfaces.
+ const connection=randomUUID();
+ await run(db=>db.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Test Page','META_TEST_ONLY')",[connection,w,ch,randomUUID()]));
+ await admin.query("UPDATE visitors SET token_hash=$2,profile=$3 WHERE id=$1",[v,'meta:'+connection+':source-user',{metaUserId:'source-user'}]);
+ const unrelated=randomUUID();
+ await admin.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,channel_kind,created_at) VALUES($1,$2,$3,$4,'Unrelated','META_TEST_ONLY','threads',now()-interval '1 day')",[unrelated,w,ch,randomUUID()]);
+ for(const [kind,label] of [['facebook_messenger','Facebook Messenger'],['instagram_messaging','Instagram'],['whatsapp_business','WhatsApp']]){
+  for(const status of ['connected','disconnected','reauth_required']){
+   await run(db=>db.query('UPDATE meta_connections SET channel_kind=$1,status=$2 WHERE id=$3',[kind,status,connection]));
+   const list=await run(db=>inboxList(db,actor));
+   const detail=await run(db=>inboxDetail(db,actor,c));
+   for(const item of [list[0],detail]){
+    assert.equal(item.channel,label,`${kind}/${status} source`);
+    assert.equal(item.websiteUrl,'',`${kind}/${status} must not expose placeholder website`);
+   }
+  }
+ }
  await admin.query('DELETE FROM channel_members WHERE workspace_id=$1 AND user_id=$2',[w,agent]);
  await assert.rejects(run(db=>inboxTakeover(db,actor,c,{version:2})),{code:'NOT_FOUND'});
  await assert.rejects(run(db=>inboxSend(db,actor,c,retry)),{code:'NOT_FOUND'});
