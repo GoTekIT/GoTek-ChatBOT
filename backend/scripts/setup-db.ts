@@ -11,11 +11,21 @@ const file = resolve(localDir, 'runtime.json');
 
 // Check .env if exists to keep password consistent with existing configuration
 let envPassword = '';
-const envFile = resolve(rootDir, '.env');
-if (existsSync(envFile)) {
-  const envContent = readFileSync(envFile, 'utf8');
-  const match = envContent.match(/DATABASE_URL=postgresql:\/\/[^:]+:([^@]+)@/);
-  if (match) envPassword = match[1];
+const candidateEnvFiles = [
+  resolve(rootDir, 'backend/.env'),
+  resolve(rootDir, '.env'),
+  resolve(process.cwd(), '.env'),
+  resolve(process.cwd(), 'backend/.env')
+];
+for (const cand of candidateEnvFiles) {
+  if (existsSync(cand)) {
+    const envContent = readFileSync(cand, 'utf8');
+    const match = envContent.match(/DATABASE_URL=postgresql:\/\/[^:]+:([^@]+)@/);
+    if (match) {
+      envPassword = match[1];
+      break;
+    }
+  }
 }
 
 const config = existsSync(file)
@@ -27,6 +37,9 @@ const config = existsSync(file)
       password: envPassword || randomBytes(32).toString('hex'),
       database: 'gotek_chatbot'
     };
+if (envPassword) {
+  config.password = envPassword;
+}
 
 // Admin connection options (supports Windows TCP, Docker TCP and Unix socket)
 const defaultHost = process.platform === 'win32' || !existsSync('/tmp/.s.PGSQL.55432') ? '127.0.0.1' : '/tmp';
