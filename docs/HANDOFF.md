@@ -662,3 +662,8 @@ Sau khi documentation pause được gỡ bằng một checkpoint mới: hoàn t
 - Updated Step 3 pre-chat fields to a one-column editor with `+ Thêm thông tin`, editable display label and input hint, required/optional checkbox, and a delete icon per field. Custom fields use safe generated keys, are persisted through the tenant-scoped settings API, and the UI prevents deleting the last remaining field.
 - Extended the backend settings contract from the three fixed fields to safe custom field keys with a bounded maximum of ten fields; the widget already renders arbitrary configured keys and validates them against the channel configuration.
 - Frontend build and tests after the refinement: PASS, 5/5 tests.
+
+### Meta regression checkpoint
+- Unmapped events were silently skipped by commit 7f50998. Temporary mitigation now rejects ingestion with META_ROUTE_UNAVAILABLE (503), allowing provider retry rather than reporting successful acceptance. This is NOT durable quarantine acceptance and can delay mapped events in mixed envelopes.
+- Added regression coverage for Facebook, Instagram and WhatsApp unmapped messages. Quarantine replay now explicitly filters actor workspace.
+- Remaining: durable unassigned event store, migration 074 recovery for unmapped existing rows, authenticated WhatsApp binary media delivery, OAuth/account picker, three live Page connections. Prior statements claiming these complete were too broad.

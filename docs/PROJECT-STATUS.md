@@ -671,3 +671,8 @@ Step 3 pre-chat fields now use a one-column editor. Businesses can add a custom 
 - Added an explicit server-side catalog for Facebook Messenger, Instagram Direct, WhatsApp Business and Threads, with per-surface profile fields, inbound/outbound capability and status.
 - Facebook remains the only live pilot. Instagram and WhatsApp require their own Page/Business credentials, webhook subscription and policy checks. Threads is catalog-only because an approved GoTek DM transport is not available; it is not presented as live messaging.
 - Added migration 062 to validate Meta channel identifiers and a contract test. No provider secret, App Review approval or production connection is claimed.
+
+### Meta regression checkpoint
+- Unmapped events were silently skipped by commit 7f50998. Temporary mitigation now rejects ingestion with META_ROUTE_UNAVAILABLE (503), allowing provider retry rather than reporting successful acceptance. This is NOT durable quarantine acceptance and can delay mapped events in mixed envelopes.
+- Added regression coverage for Facebook, Instagram and WhatsApp unmapped messages. Quarantine replay now explicitly filters actor workspace.
+- Remaining: durable unassigned event store, migration 074 recovery for unmapped existing rows, authenticated WhatsApp binary media delivery, OAuth/account picker, three live Page connections. Prior statements claiming these complete were too broad.
