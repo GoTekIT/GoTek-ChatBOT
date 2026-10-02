@@ -124,43 +124,31 @@ router.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
  return {id:m.id,client_id:m.client_id,sequence:m.sequence,body:m.body,author_type:m.author_type,created_at:m.created_at,replyOwner:state.reply_owner,ownerVersion:state.owner_version,assignedTo:state.assigned_to};}));});
  // A visitor may request a human, but may never choose an agent or resume AI.
  router.post('/:key/handoff',async(req,res)=>{
-  z.object({}).strict().parse(req.body);
-  res.json(await transaction(async db=>{
-   const c=await channel(db,String(req.params.key),getRequestOrigin(req)),v=await visitor(db,c,req.get('authorization'));
-   const state=(await db.query('SELECT reply_owner,owner_version FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[v.conversation_id,c.workspace_id])).rows[0];
-   // Explicit new support request reopens the inbox; preserve an existing human owner.
-   await db.query("UPDATE conversations SET status='open',updated_at=now() WHERE id=$1 AND workspace_id=$2 AND status<>'open'",[v.conversation_id,c.workspace_id]);
-   if(state.reply_owner!=='AI_ACTIVE')return {replyOwner:state.reply_owner,ownerVersion:state.owner_version,assignedTo:state.assigned_to};
+   z.object({}).strict().parse(req.body);
+   res.json(await transaction(async db=>{
+    const c=await channel(db,String(req.params.key),getRequestOrigin(req)),v=await visitor(db,c,req.get('authorization'));
+    const state=(await db.query('SELECT reply_owner,owner_version FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',[v.conversation_id,c.workspace_id])).rows[0];
+    // Explicit new support request reopens the inbox; preserve an existing human owner.
+    await db.query("UPDATE conversations SET status='open',updated_at=now() WHERE id=$1 AND workspace_id=$2 AND status<>'open'",[v.conversation_id,c.workspace_id]);
+    if(state.reply_owner!=='AI_ACTIVE')return {replyOwner:state.reply_owner,ownerVersion:state.owner_version};
 
-   // Auto-assign to eligible channel member with capacity if enabled
-   let assignedAgentId = state.assigned_to;
-   if (c.assignment_enabled && !assignedAgentId) {
-     await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",['assignment:'+c.workspace_id+':'+c.id]);
-     const eligible = (await db.query(`WITH eligible AS (SELECT m.user_id, count(*) FILTER (WHERE x.status='open') AS open_count FROM channel_members m JOIN memberships ms ON ms.workspace_id=m.workspace_id AND ms.user_id=m.user_id AND ms.active LEFT JOIN conversations x ON x.workspace_id=m.workspace_id AND x.channel_id=m.channel_id AND x.assigned_to=m.user_id AND x.status='open' WHERE m.workspace_id=$1 AND m.channel_id=$2 GROUP BY m.user_id HAVING $3::integer IS NULL OR count(*) FILTER (WHERE x.status='open') < $3 ORDER BY open_count, m.user_id LIMIT 1) SELECT user_id FROM eligible`, [c.workspace_id, c.id, c.assignment_limit])).rows[0];
-     if (eligible?.user_id) {
-       assignedAgentId = eligible.user_id;
-     }
-   }
-
-   const changed=(await db.query("UPDATE conversations SET reply_owner='HANDOFF_PENDING',assigned_to=coalesce($3,assigned_to),owner_version=owner_version+1,updated_at=now() WHERE id=$1 AND workspace_id=$2 RETURNING reply_owner,owner_version,assigned_to",[v.conversation_id,c.workspace_id,assignedAgentId])).rows[0];
-   realtimeHub.broadcastToConversation(v.conversation_id, 'conversation:takeover', {
-     conversationId: v.conversation_id,
-     replyOwner: changed?.reply_owner || 'HANDOFF_PENDING',
-     ownerVersion: changed?.owner_version || state.owner_version,
-     assignedTo: changed?.assigned_to,
-     status: 'handoff'
-   });
-   realtimeHub.broadcastToWorkspace(c.workspace_id, 'inbox:visitor_message', {
-     conversationId: v.conversation_id,
-     messageSnippet: '🔴 Khách hàng yêu cầu hỗ trợ từ nhân viên (Handoff)',
-     author: 'system',
-     assignedTo: changed?.assigned_to,
-     createdAt: new Date().toISOString()
-   });
-   return {replyOwner:changed.reply_owner,ownerVersion:changed.owner_version,assignedTo:changed.assigned_to};
-  }));
- });
- router.post('/:key/typing', async (req, res) => {
+    const changed=(await db.query("UPDATE conversations SET reply_owner='HANDOFF_PENDING',owner_version=owner_version+1,updated_at=now() WHERE id=$1 AND workspace_id=$2 RETURNING reply_owner,owner_version",[v.conversation_id,c.workspace_id])).rows[0];
+    realtimeHub.broadcastToConversation(v.conversation_id, 'conversation:takeover', {
+      conversationId: v.conversation_id,
+      replyOwner: changed?.reply_owner || 'HANDOFF_PENDING',
+      ownerVersion: changed?.owner_version || state.owner_version,
+      status: 'handoff'
+    });
+    realtimeHub.broadcastToWorkspace(c.workspace_id, 'inbox:visitor_message', {
+      conversationId: v.conversation_id,
+      messageSnippet: '🔴 Khách hàng yêu cầu hỗ trợ từ nhân viên (Handoff)',
+      author: 'system',
+      createdAt: new Date().toISOString()
+    });
+    return {replyOwner:changed.reply_owner,ownerVersion:changed.owner_version};
+   }));
+  });
+  router.post('/:key/typing', async (req, res) => {
    const data = z.object({ isTyping: z.boolean() }).parse(req.body);
    res.json(await transaction(async db => {
      const c = await channel(db, String(req.params.key), getRequestOrigin(req)),
