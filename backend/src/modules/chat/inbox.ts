@@ -66,7 +66,8 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
  v.profile AS visitor_profile,
  (SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,'author_type',m.author_type,'visibility',m.visibility) FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_meta,
  (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_body,
- (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at
+ (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS last_message_created_at,
+ COALESCE((SELECT jsonb_agg(ct.name ORDER BY ct.name) FROM conversation_tags ct WHERE ct.workspace_id=c.workspace_id AND ct.conversation_id=c.id),'[]'::jsonb) AS conversation_tags
  FROM conversations c JOIN channels h ON h.id=c.channel_id AND h.workspace_id=c.workspace_id
  JOIN visitors v ON v.id=c.visitor_id
  LEFT JOIN meta_connections source ON source.workspace_id=c.workspace_id AND source.channel_id=c.channel_id AND source.id=c.connection_id
@@ -136,7 +137,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       deviceInfo:prof.deviceInfo||'',
       ragMatchScore:'',
       ragCitations:[],
-      crmTags:Array.isArray(prof.crmTags)?prof.crmTags:[],
+      crmTags:Array.isArray(r.conversation_tags)?r.conversation_tags:(Array.isArray(prof.crmTags)?prof.crmTags:[]),
       messages: r.last_message_body ? [{
         id: r.last_message_meta.id,
         sequence: r.last_message_meta.sequence,
@@ -332,6 +333,7 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
 
   const channelRow=(await db.query("SELECT name, origin, widget_mode, (SELECT mc.channel_kind FROM meta_connections mc WHERE mc.channel_id=channels.id AND mc.workspace_id=channels.workspace_id AND (mc.id=c.connection_id OR (c.connection_id IS NULL AND EXISTS(SELECT 1 FROM visitors v WHERE v.id=$2 AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId')))) ORDER BY mc.created_at ASC, mc.id ASC LIMIT 1) AS channel_kind, EXISTS(SELECT 1 FROM meta_connections mc WHERE mc.channel_id=channels.id AND mc.workspace_id=channels.workspace_id AND mc.status='connected') AS is_facebook_messenger FROM channels JOIN conversations c ON c.channel_id=channels.id AND c.id=$3 WHERE channels.id=$1",[c.channel_id,c.visitor_id,id])).rows[0];
   const visitorRow=(await db.query('SELECT profile FROM visitors WHERE id=$1',[c.visitor_id])).rows[0];
+  const conversationTags=(await db.query('SELECT name FROM conversation_tags WHERE workspace_id=$1 AND conversation_id=$2 ORDER BY name',[a.workspace_id,id])).rows.map((row:any)=>row.name);
 
   const source=(await db.query("SELECT mc.id,mc.channel_kind,mc.page_name,mc.external_page_id,mc.status FROM meta_connections mc JOIN visitors v ON v.workspace_id=mc.workspace_id AND v.channel_id=mc.channel_id AND (($4::uuid IS NOT NULL AND mc.id=$4) OR ($4::uuid IS NULL AND v.token_hash='meta:'||mc.id::text||':'||(v.profile->>'metaUserId'))) WHERE v.id=$1 AND mc.workspace_id=$2 AND mc.channel_id=$3 ORDER BY (mc.id=$4) DESC,mc.created_at ASC,mc.id ASC LIMIT 1",[c.visitor_id,a.workspace_id,c.channel_id,c.connection_id])).rows[0];
   const prof=visitorRow?.profile||{};
@@ -374,9 +376,19 @@ export async function inboxDetail(db:PoolClient,a:Actor,id:string){
     deviceInfo:prof.deviceInfo||'',
     ragMatchScore:'',
     ragCitations:[],
-    crmTags:Array.isArray(prof.crmTags)?prof.crmTags:[],
+    crmTags:conversationTags.length?conversationTags:(Array.isArray(prof.crmTags)?prof.crmTags:[]),
     messages:messages
   };
+}
+
+export async function setConversationTags(db:PoolClient,a:Actor,id:string,body:unknown){
+ await access(db,a,id);
+ const data=z.object({tags:z.array(z.string().trim().min(1).max(80)).max(30)}).strict().parse(body);
+ const tags=[...new Set(data.tags)].sort((x,y)=>x.localeCompare(y));
+ await db.query('DELETE FROM conversation_tags WHERE workspace_id=$1 AND conversation_id=$2',[a.workspace_id,id]);
+ for(const tag of tags) await db.query('INSERT INTO conversation_tags(workspace_id,conversation_id,name) VALUES($1,$2,$3)',[a.workspace_id,id,tag]);
+ await audit(db,a.workspace_id,a.user_id,'conversation.tags_updated',id);
+ return {tags};
 }
 
 export async function inboxTyping(db:PoolClient,a:Actor,id:string,body:unknown){

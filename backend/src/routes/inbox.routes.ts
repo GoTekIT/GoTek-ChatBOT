@@ -14,6 +14,7 @@ import {
   inboxSend,
   inboxSetStatus,
   inboxTyping,
+  setConversationTags,
   access
 } from '../modules/chat/inbox';
 
@@ -34,6 +35,7 @@ inboxRouter.get(
   '/conversations/:id/messages',
   authed((db, i, req) => inboxMessages(db, i, String(req.params.id), req.query.after))
 );
+inboxRouter.put('/conversations/:id/tags',authed((db,i,req)=>setConversationTags(db,i,String(req.params.id),req.body)));
 
 inboxRouter.post(
   '/conversations/:id/assign',

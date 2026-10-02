@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Conversation, ChatMessage } from '../../types';
 import { useRealtimeChat } from '../../hooks/useRealtimeChat';
+import { api } from '../../api/api';
 
 interface InboxViewProps {
   conversations: Conversation[];
@@ -329,25 +330,29 @@ export const InboxView: React.FC<InboxViewProps> = ({
     });
   };
 
-  const handleAddTag = () => {
+  const handleAddTag = async () => {
     if (!newTagInput.trim() || !activeConv) return;
     const current = activeTags[activeConv.id] || activeConv.crmTags || [];
+    const updated=[...current, newTagInput.trim()];
     setActiveTags({
       ...activeTags,
-      [activeConv.id]: [...current, newTagInput.trim()],
+      [activeConv.id]: updated,
     });
+    try { await api(`/conversations/${activeConv.id}/tags`, 'PUT', {tags: updated}); } catch { showToast('Không lưu được nhãn CRM'); return; }
     setNewTagInput('');
     setShowAddTag(false);
     showToast('Đã thêm nhãn CRM');
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
+  const handleRemoveTag = async (tagToRemove: string) => {
     if (!activeConv) return;
     const current = activeTags[activeConv.id] || activeConv.crmTags || [];
+    const updated=current.filter((t) => t !== tagToRemove);
     setActiveTags({
       ...activeTags,
-      [activeConv.id]: current.filter((t) => t !== tagToRemove),
+      [activeConv.id]: updated,
     });
+    try { await api(`/conversations/${activeConv.id}/tags`, 'PUT', {tags: updated}); } catch { showToast('Không lưu được nhãn CRM'); return; }
     showToast('Đã gỡ nhãn CRM');
   };
 
