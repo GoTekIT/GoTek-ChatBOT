@@ -355,7 +355,7 @@ test('reconnect rejects a disconnected connection when its channel is occupied',
  await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,channel_kind,external_page_id,page_name,page_access_token_ref,status) VALUES($1,$2,$3,'facebook_messenger',$4,'First',$5,'disconnected'),($6,$2,$3,'facebook_messenger',$7,'Second',$5,'pending')",[first,workspace,channel,randomUUID(),ref,second,randomUUID()]);
  const actor={workspace_id:workspace,user_id:user,role:'Owner'};
  const originalFetch=globalThis.fetch;let calls=0;globalThis.fetch=async(input)=>{calls++;const account=String(input).split('?')[0].split('/').pop();return new Response(JSON.stringify({id:account}),{status:200,headers:{'content-type':'application/json'}})};
- try{await assert.rejects(transaction(async db=>{await scope(db,workspace);return verifyMetaConnection(db,actor,first)}),error=>error?.code==='META_CHANNEL_ALREADY_BOUND');assert.equal(calls,0);
+ try{await assert.rejects(transaction(async db=>{await scope(db,workspace);return verifyMetaConnection(db,actor,first)}),error=>(error as any)?.code==='META_CHANNEL_ALREADY_BOUND');assert.equal(calls,0);
   await admin!.query("UPDATE meta_connections SET status='disconnected' WHERE id=$1",[second]);
   const result=await transaction(async db=>{await scope(db,workspace);return verifyMetaConnection(db,actor,first)});assert.equal(result.status,'connected');assert.equal(calls,1);
  }finally{globalThis.fetch=originalFetch;delete process.env[ref];}
