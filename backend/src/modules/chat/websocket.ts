@@ -14,6 +14,8 @@ interface ClientContext {
   userId?: string;
   visitorId?: string;
   userName?: string;
+  role?: string;
+  channelIds?: Set<string>;
 }
 
 export function initWebSocketServer(server: HttpServer): WebSocketServer {
@@ -38,6 +40,29 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
 
           case 'subscribe': {
             if (msg.conversationId) {
+              // SECURITY: For staff clients, check if they have permission to access the conversation's channel
+              if (!clientCtx.isVisitor && clientCtx.userId) {
+                const hasAccess = await transaction(async db => {
+                  await scope(db, clientCtx.workspaceId);
+                  const accessCheck = await db.query(
+                    `SELECT c.id, c.channel_id FROM conversations c
+                     JOIN channels h ON h.id = c.channel_id
+                     WHERE c.workspace_id = $1 AND c.id = $2 AND h.enabled
+                       AND ($3::boolean OR EXISTS (SELECT 1 FROM channel_members m WHERE m.workspace_id = c.workspace_id AND m.channel_id = c.channel_id AND m.user_id = $4))`,
+                    [clientCtx.workspaceId, msg.conversationId, ['Owner', 'Admin'].includes(clientCtx.role || ''), clientCtx.userId]
+                  );
+                  return (accessCheck.rowCount ?? 0) > 0;
+                });
+                if (!hasAccess) {
+                  ws.send(JSON.stringify({
+                    type: 'error',
+                    code: 'FORBIDDEN',
+                    message: 'Không có quyền truy cập hội thoại này',
+                  }));
+                  break;
+                }
+              }
+
               clientCtx.conversationId = msg.conversationId;
               realtimeHub.updateClientConversation(clientId, msg.conversationId);
               ws.send(JSON.stringify({
@@ -64,6 +89,27 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
           }
 
           case 'message:send': {
+            // SECURITY: Re-verify that staff user still has an active membership
+            if (!clientCtx.isVisitor && clientCtx.userId) {
+              const isMemActive = await transaction(async db => {
+                await scope(db, clientCtx.workspaceId);
+                const checkMem = await db.query(
+                  'SELECT 1 FROM memberships WHERE workspace_id = $1 AND user_id = $2 AND active',
+                  [clientCtx.workspaceId, clientCtx.userId]
+                );
+                return (checkMem.rowCount ?? 0) > 0;
+              });
+              if (!isMemActive) {
+                ws.send(JSON.stringify({
+                  type: 'error',
+                  code: 'UNAUTHENTICATED',
+                  message: 'Phiên làm việc đã bị thu hồi hoặc tài khoản bị vô hiệu hóa',
+                }));
+                ws.close(4003, 'Unauthorized: Revoked session');
+                return;
+              }
+            }
+
             const body = typeof msg.body === 'string' ? msg.body.trim() : '';
             if (!body || body.length > 10000) {
               ws.send(JSON.stringify({
@@ -100,7 +146,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
 
                   // Verify conversation ownership
                   const c = (await db.query(
-                    'SELECT id, reply_owner, owner_version, status, assigned_to FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',
+                    'SELECT id, reply_owner, owner_version, status, assigned_to, channel_id FROM conversations WHERE id=$1 AND workspace_id=$2 FOR UPDATE',
                     [convId, clientCtx.workspaceId]
                   )).rows[0];
 
@@ -118,7 +164,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                     realtimeHub.broadcastToWorkspace(clientCtx.workspaceId, 'inbox:takeover', {
                       conversationId: convId,
                       assignedTo: clientCtx.userId,
-                    });
+                    }, { channelId: c.channel_id });
                   }
 
                   const savedMessage = await appendMessage(db, {
@@ -163,7 +209,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                     author,
                     visibility,
                     createdAt: savedMessage.created_at,
-                  });
+                  }, { channelId: c.channel_id });
 
                   // If visitor and AI is active, enqueue AI job
                   if (clientCtx.isVisitor && c.reply_owner === 'AI_ACTIVE') {
@@ -304,16 +350,27 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
             return;
           }
 
+          const channelIds = await transaction(async db => {
+            await scope(db, sRow.workspace_id);
+            const channelsRes = await db.query(
+              'SELECT channel_id FROM channel_members WHERE workspace_id = $1 AND user_id = $2',
+              [sRow.workspace_id, sRow.user_id]
+            );
+            return channelsRes.rows.map(r => r.channel_id);
+          });
+
           ctx = {
             clientId,
             isVisitor: false,
             workspaceId: sRow.workspace_id,
             userId: sRow.user_id,
             userName: sRow.full_name,
+            role: sRow.role,
+            channelIds: new Set(channelIds),
           };
 
-          realtimeHub.registerWs(clientId, ctx.workspaceId, ws, undefined, false);
-          console.log(`[WebSocket] 🟢 Staff connected (${clientId}) - User: ${sRow.full_name} (${sRow.user_id}), Workspace: ${sRow.workspace_id}`);
+          realtimeHub.registerWs(clientId, ctx.workspaceId, ws, undefined, false, ctx.userId, ctx.role, channelIds);
+          console.log(`[WebSocket] 🟢 Staff connected (${clientId}) - User: ${sRow.full_name} (${sRow.user_id}), Workspace: ${sRow.workspace_id}, Role: ${sRow.role}, Channels: ${channelIds.length}`);
 
           ws.send(JSON.stringify({
             type: 'system:ready',
