@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { api, ApiError } from '../../api/api';
+import { api, ApiError } from '@api';
 
 interface ImportDocModalProps {
   isOpen: boolean;

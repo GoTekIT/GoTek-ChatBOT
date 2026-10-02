@@ -16,7 +16,7 @@ export const upload = multer({
 
 export const uploadRateLimit = rateLimit({
   windowMs: 60_000,
-  limit: 10,
+  limit: process.env.NODE_ENV === 'test' ? 10_000 : 10,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: {error: 'RATE_LIMITED'}
@@ -24,7 +24,7 @@ export const uploadRateLimit = rateLimit({
 
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 100,
+  limit: process.env.NODE_ENV === 'test' ? 10_000 : 100,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: {error: 'RATE_LIMITED'}

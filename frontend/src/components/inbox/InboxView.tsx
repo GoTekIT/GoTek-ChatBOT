@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Conversation, ChatMessage } from '../../types';
 import { useRealtimeChat } from '../../hooks/useRealtimeChat';
-import { api } from '../../api/api';
+import { api } from '@api';
 
 interface InboxViewProps {
   conversations: Conversation[];

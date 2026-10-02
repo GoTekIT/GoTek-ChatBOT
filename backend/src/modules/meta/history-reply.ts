@@ -15,6 +15,6 @@ export async function recordMetaHistoryReply(db:PoolClient,workspace:string,conn
  const msg=(await db.query("INSERT INTO messages(id,workspace_id,conversation_id,client_id,sequence,author_type,actor_id,visibility,body,created_at) VALUES($1,$2,$3,$4,$5,'agent',NULL,'public',$6,$7) RETURNING *",[uuid(),workspace,conversation,clientId,c.next_sequence,body,createdAt])).rows[0];
  if(event.attachments.length)await db.query('INSERT INTO message_attachments(message_id,workspace_id,kind,url) SELECT $1,$2,x.type,x.url FROM jsonb_to_recordset($3::jsonb) AS x(type text,url text)',[msg.id,workspace,JSON.stringify(event.attachments)]);
  await db.query("INSERT INTO meta_message_deliveries(id,workspace_id,message_id,provider_message_id,status,connection_id) VALUES($1,$2,$3,$4,'accepted',$5)",[uuid(),workspace,msg.id,event.eventId,connection]);
- await db.query('UPDATE conversations SET next_sequence=next_sequence+1 WHERE id=$1 AND workspace_id=$2',[conversation,workspace]);
+ await db.query('UPDATE conversations SET next_sequence=next_sequence+1,updated_at=GREATEST(updated_at,$3) WHERE id=$1 AND workspace_id=$2',[conversation,workspace,createdAt]);
  return {...msg,attachments:event.attachments};
 }

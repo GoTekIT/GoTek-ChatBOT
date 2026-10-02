@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api, ApiError } from '../../api/api';
+import { api, ApiError } from '@api';
 
 export interface FaqStep {
   stepNumber: number;

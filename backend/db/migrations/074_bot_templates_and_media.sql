@@ -37,14 +37,12 @@ CREATE INDEX IF NOT EXISTS bot_media_assets_workspace_created ON bot_media_asset
 -- Enable & enforce RLS on both tables
 ALTER TABLE bot_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bot_templates FORCE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS bot_templates_scope ON bot_templates;
 CREATE POLICY bot_templates_scope ON bot_templates
   USING (workspace_id = nullif(current_setting('app.workspace_id', true), '')::uuid)
   WITH CHECK (workspace_id = nullif(current_setting('app.workspace_id', true), '')::uuid);
 
 ALTER TABLE bot_media_assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bot_media_assets FORCE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS bot_media_assets_scope ON bot_media_assets;
 CREATE POLICY bot_media_assets_scope ON bot_media_assets
   USING (workspace_id = nullif(current_setting('app.workspace_id', true), '')::uuid)
   WITH CHECK (workspace_id = nullif(current_setting('app.workspace_id', true), '')::uuid);
