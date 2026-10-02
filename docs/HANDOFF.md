@@ -1,3 +1,8 @@
+## Quarantine replay checkpoint (2026-10-02)
+- Added Owner/Admin-only `GET /api/meta/quarantine` and `POST /api/meta/quarantine/:id/replay`. Results are workspace-scoped by current Page/account mapping; unmapped or disconnected rows are unavailable.
+- Replay reuses the signed webhook ingestion pipeline, marks the row replayed only after processing, and remains deduplicated by the existing event keys.
+- `npm run build:all` passed. PR #13 remains draft on `codex/meta-messenger-pilot`; no main push or merge.
+
 ## Full backend validation checkpoint (2026-10-02)
 - Disposable PostgreSQL suite ran 211 tests: 209 passed; two failures were environment/legacy fixture issues. Authorization test hardcodes Unix socket /tmp/.s.PGSQL.55432, while the isolated test server used TCP. Chat source assertion exposed legacy conversations without connection_id; inbox now keeps a token-based compatibility fallback while explicit source bindings remain authoritative. Targeted chat-store test passes after the fix.
 - Backend build and frontend test/build had passed before this compatibility correction; rerun full CI is required.
