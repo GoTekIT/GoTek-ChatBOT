@@ -39,7 +39,8 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  const mixedBody=JSON.parse(mixed.toString());mixedBody.entry[0].messaging[0].message.mid='mixed-mid';
  const mixedRaw=Buffer.from(JSON.stringify(mixedBody));
  await assert.rejects(transaction(async db=>{
-  await receiveMetaWebhook(db,mixedRaw,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(mixedRaw).digest('hex'));
+ await receiveMetaWebhook(db,mixedRaw,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(mixedRaw).digest('hex'));
+  await scope(db,workspace);
   const payload=(await db.query("SELECT payload FROM meta_webhook_ingress WHERE external_account_id=$1 AND event_kind='message' ORDER BY received_at DESC LIMIT 1",[page])).rows[0].payload;
   assert.equal(payload.externalAccountId,page);
   assert.equal(payload.text,'Messenger integration fixture');
