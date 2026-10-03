@@ -139,7 +139,7 @@ export async function inboxList(db:PoolClient,a:Actor,query?:unknown){
       ragMatchScore:'',
       ragCitations:[],
       crmTags:Array.isArray(r.conversation_tags)?r.conversation_tags:(Array.isArray(prof.crmTags)?prof.crmTags:[]),
-      messages: r.last_message_body ? [{
+      messages: r.last_message_body && r.last_message_meta ? [{
         id: r.last_message_meta.id,
         sequence: r.last_message_meta.sequence,
         author_type: r.last_message_meta.author_type,
