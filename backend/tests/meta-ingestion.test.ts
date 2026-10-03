@@ -8,7 +8,7 @@ import {randomUUID,createHmac} from 'node:crypto';
 import {pool,scope,transaction} from '../src/core/db';
 import {receiveMetaWebhook} from '../src/modules/meta/messenger';
 import {aiReplyHandler} from '../src/modules/ai/ai-reply-worker';
-import {runMetaWorkerOnce,runMetaProfileWorkerOnce,runAiWorkerOnce} from '../src/modules/jobs/worker';
+import {runMetaWorkerOnce,runMetaProfileWorkerOnce,runAiWorkerOnce,runMetaIngressOnce} from '../src/modules/jobs/worker';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 import {appendMessage} from '../src/modules/chat/chat-store';
 const enabled=!!process.env.META_TEST_ADMIN_URL && !!process.env.DB_RUNTIME_FILE;
@@ -25,13 +25,14 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  const effects:Array<()=>void>=[];
  await assert.rejects(transaction(async db=>{
   await receiveMetaWebhook(db,raw,signature,effects);
-  assert.equal(effects.length,1);
+  assert.equal(effects.length,0);
   throw new Error('fixture rollback');
  }),/fixture rollback/);
  // Rolled-back notifications are discarded rather than published.
  effects.length=0;
  const results=await Promise.all([transaction(db=>receiveMetaWebhook(db,raw,signature)),transaction(db=>receiveMetaWebhook(db,raw,signature))]);
- assert.equal(results.reduce((n,r)=>n+r.processed,0),1);
+ assert.equal(results.reduce((n,r)=>n+r.processed,0),0);
+ assert.equal((await runMetaIngressOnce(workspace)).state,'succeeded');
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query('SELECT * FROM messages')).rowCount,1);assert.equal((await db.query("SELECT * FROM jobs WHERE kind='ai.reply'")).rowCount,1);assert.equal((await db.query('SELECT * FROM meta_events WHERE processed_at IS NOT NULL')).rowCount,1);});
  const mixed=Buffer.from(JSON.stringify({object:'page',entry:[{id:page,messaging:[{sender:{id:'fixture-user'},recipient:{id:page},message:{mid:'fixture-mid',text:'Messenger integration fixture'}}]},{id:'unrelated-page',messaging:[{sender:{id:'private-other-user'},recipient:{id:'unrelated-page'},message:{mid:'other-mid',text:'must-not-be-retained'}}]}]}));
  // Fresh event, same sender: isolate persisted payload even for batched accounts.
@@ -39,13 +40,14 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  const mixedRaw=Buffer.from(JSON.stringify(mixedBody));
  await assert.rejects(transaction(async db=>{
   await receiveMetaWebhook(db,mixedRaw,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(mixedRaw).digest('hex'));
-  const payload=(await db.query("SELECT payload FROM meta_events WHERE external_event_id='mixed-mid'")).rows[0].payload;
+  const payload=(await db.query("SELECT payload FROM meta_webhook_ingress WHERE external_account_id=$1 AND event_kind='message' ORDER BY received_at DESC LIMIT 1",[page])).rows[0].payload;
   assert.equal(payload.externalAccountId,page);
   assert.equal(payload.text,'Messenger integration fixture');
   assert.equal(JSON.stringify(payload).includes('must-not-be-retained'),false);
   assert.equal(payload.entry,undefined);
   throw new Error('isolated payload fixture rollback');
  }),/isolated payload fixture rollback/);
+ await runMetaIngressOnce(workspace);
  await transaction(async db=>{await scope(db,other);for(const table of ['messages','meta_events','meta_connections','meta_identities'])assert.equal((await db.query(`SELECT * FROM ${table}`)).rowCount,0);});
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT id FROM jobs WHERE kind='meta.profile.fetch'")).rowCount,1);});
  assert.equal((await runMetaProfileWorkerOnce(workspace,async(user,ref)=>{
@@ -179,8 +181,9 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
   const signature:string='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(raw).digest('hex');
   const effects:Array<()=>void>=[];
   const received:Array<{accepted:boolean;processed:number}>=await Promise.all([transaction(db=>receiveMetaWebhook(db,raw,signature,effects)),transaction(db=>receiveMetaWebhook(db,raw,signature,effects))]);
-  assert.equal(received.reduce((sum,r)=>sum+r.processed,0),1);
-  assert.equal(effects.length,1);
+  assert.equal(received.reduce((sum,r)=>sum+r.processed,0),0);
+  assert.equal(effects.length,0);
+  assert.equal((await runMetaIngressOnce(workspace)).state,'succeeded');
   await transaction(async db=>{await scope(db,workspace);
    const rows=(await db.query('SELECT m.body,v.profile FROM messages m JOIN conversations c ON c.id=m.conversation_id JOIN visitors v ON v.id=c.visitor_id WHERE c.channel_id=$1',[channel])).rows;
    assert.equal(rows.length,1);assert.equal(rows[0].profile.source,fixture.kind);
@@ -195,7 +198,9 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
  const sendNamed=async(name:string,id:string)=>{
   const raw=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:cases[1].account},contacts:[{wa_id:'shared-user',profile:{name}}],messages:[{from:'shared-user',id,type:'text',text:{body:'Name refresh'}}]}}]}]}));
   const sig='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(raw).digest('hex');
-  return transaction(db=>receiveMetaWebhook(db,raw,sig));
+  const result=await transaction(db=>receiveMetaWebhook(db,raw,sig));
+  await runMetaIngressOnce(workspace);
+  return result;
  };
  await sendNamed('Nguyễn An','name-refresh-1');
  await transaction(async db=>{await scope(db,workspace);
@@ -207,7 +212,9 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
  const mediaBody={object:'whatsapp_business_account',entry:[{id:'waba-id-not-phone-id',changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:cases[1].account},messages:[{from:'shared-user',id:'wa-image',type:'image',image:{id:'image-id'}},{from:'shared-user',id:'wa-video',type:'video',video:{id:'video-id'}}]}}]}]};
  const rawMedia=Buffer.from(JSON.stringify(mediaBody));
  const mediaSig='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(rawMedia).digest('hex');
- assert.equal((await transaction(db=>receiveMetaWebhook(db,rawMedia,mediaSig))).processed,2);
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,rawMedia,mediaSig))).processed,0);
+ assert.equal((await runMetaIngressOnce(workspace)).state,'succeeded');
+ assert.equal((await runMetaIngressOnce(workspace)).state,'succeeded');
  assert.equal((await transaction(db=>receiveMetaWebhook(db,rawMedia,mediaSig))).processed,0);
  await transaction(async db=>{await scope(db,workspace);
   const refs=(await db.query('SELECT media_type,external_media_id FROM meta_media_references ORDER BY media_type')).rows;
@@ -237,10 +244,12 @@ test('WhatsApp persists each receipt transition once, including reverse arrival 
  });
  const inbound=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:phone},messages:[{from:'fixture-recipient',id:'receipt-source-inbound',type:'text',text:{body:'Fixture'}}]}}]}]}));
  await transaction(db=>receiveMetaWebhook(db,inbound,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(inbound).digest('hex')));
+ await runMetaIngressOnce(workspace);
  for(const status of ['read','delivered','sent','sent','read']){
   const raw=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:phone},statuses:[{id:'same-mid',status,recipient_id:'fixture-recipient'}]}}]}]}));
   const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
   await transaction(db=>receiveMetaWebhook(db,raw,signature));
+  await runMetaIngressOnce(workspace);
  }
  await admin!.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,connection_id,provider_message_id,status)
  SELECT $1,$2,m.id,$3,'same-mid','accepted' FROM messages m WHERE m.workspace_id=$2 LIMIT 1`,[randomUUID(),workspace,connection]);
@@ -248,6 +257,7 @@ test('WhatsApp persists each receipt transition once, including reverse arrival 
  await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,channel_kind) VALUES($1,$2,$3,$4,'Sibling','META_FIXTURE_TOKEN','whatsapp_business')",[sibling,workspace,channel,siblingPhone]);
  const siblingRaw=Buffer.from(inbound.toString().replaceAll(phone,siblingPhone));
  await transaction(db=>receiveMetaWebhook(db,siblingRaw,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(siblingRaw).digest('hex')));
+ await runMetaIngressOnce(workspace);
  await admin!.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,connection_id,provider_message_id,status)
  SELECT $1,$2,m.id,$3,'same-mid','accepted' FROM messages m JOIN conversations c ON c.id=m.conversation_id WHERE c.connection_id=$3 LIMIT 1`,[randomUUID(),workspace,sibling]);
  await assert.rejects(admin!.query('UPDATE meta_message_deliveries SET connection_id=$1 WHERE workspace_id=$2 AND connection_id=$3',[sibling,workspace,connection]),{code:'23514'});
@@ -293,8 +303,11 @@ test('one signed envelope routes three Pages across two workspaces without confi
  }
  const raw=Buffer.from(JSON.stringify({object:'page',entry:[...pages.map(page=>({id:page,messaging:[{sender:{id:'same-person'},recipient:{id:page},message:{mid:'mid-'+page,text:'From '+page}}]})),{id:'unrelated-page',messaging:[{sender:{id:'unknown'},recipient:{id:'unrelated-page'},message:{mid:'unknown-mid',text:'quarantine'}}]}]}));
  const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
- assert.equal((await transaction(db=>receiveMetaWebhook(db,raw,signature))).processed,3);
- await transaction(async db=>{await db.query("SELECT set_config('app.meta_worker','true',true)"); assert.equal((await db.query("SELECT external_account_id,reason FROM meta_webhook_quarantine WHERE external_account_id='unrelated-page'")).rows[0].reason,'NO_CONNECTION_MAPPING');});
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,raw,signature))).processed,0);
+ assert.equal((await runMetaIngressOnce(workspaces[0])).state,'succeeded');
+ assert.equal((await runMetaIngressOnce(workspaces[0])).state,'succeeded');
+ assert.equal((await runMetaIngressOnce(workspaces[1])).state,'succeeded');
+ await transaction(async db=>{await db.query("SELECT set_config('app.meta_worker','true',true)"); assert.equal((await admin!.query("SELECT external_account_id,reason FROM meta_webhook_quarantine WHERE external_account_id='unrelated-page'")).rows[0].reason,'NO_CONNECTION_MAPPING');});
  assert.equal((await transaction(db=>receiveMetaWebhook(db,raw,signature))).processed,0);
  for(let i=0;i<workspaces.length;i++) await transaction(async db=>{
   await scope(db,workspaces[i]);
