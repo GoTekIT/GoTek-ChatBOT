@@ -8,7 +8,7 @@ import {getRabbitChannel} from './core/rabbitmq.js';
 import {startNotificationWorker} from './workers/notification.worker.js';
 import {startAiWorker} from './workers/ai.worker.js';
 import {initWebSocketServer} from './modules/chat/websocket.js';
-import {runMetaIngressAll,runMetaHistoryWorkerOnce,cleanupExpiredMetaIngress,closeMetaWorkerPool} from './modules/jobs/worker.js';
+import {runMetaIngressAll,runMetaWorkerAll,runMetaHistoryWorkerOnce,cleanupExpiredMetaIngress,closeMetaWorkerPool} from './modules/jobs/worker.js';
 import {startMetaScheduler} from './workers/meta-scheduler.js';
 
 const app = createApp();
@@ -44,6 +44,7 @@ server.listen(port, host, () => {
   if (process.env.META_WORKER_ENABLED === 'true') {
     stopMetaScheduler = startMetaScheduler({
       ingress: after => runMetaIngressAll({after}),
+      outbound: after => runMetaWorkerAll({after}),
       history: process.env.META_ENABLE_HISTORY_SYNC === 'true' ? runMetaHistoryWorkerOnce : undefined,
       cleanup: cleanupExpiredMetaIngress,
       onError: () => console.error('META_WORKER_ITERATION_FAILED'),

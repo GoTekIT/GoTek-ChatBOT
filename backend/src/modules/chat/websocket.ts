@@ -1,6 +1,6 @@
 import type { Server as HttpServer, IncomingMessage } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { pool, transaction, scope } from '../../core/db.js';
+import { transaction, scope } from '../../core/db.js';
 import { digest, uuid } from '../../core/security.js';
 import { realtimeHub } from './realtime.js';
 import { appendMessage, takeover } from './chat-store.js';
@@ -294,7 +294,12 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
             return;
           }
 
-          const vRow = (await pool.query(
+          const vRow = (await transaction(async db => {
+            // Resolve the tenant inside the transaction before applying RLS scope.
+            const tenant = (await db.query('SELECT workspace_id FROM visitors WHERE token_hash = $1 AND expires_at > now()', [digest(token)])).rows[0];
+            if (!tenant) return undefined;
+            await scope(db, tenant.workspace_id);
+            return (await db.query(
             `SELECT v.id, v.workspace_id, c.id AS conversation_id, v.channel_id,
                     c.status, c.reply_owner, c.owner_version
              FROM visitors v
@@ -303,6 +308,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
              ORDER BY c.created_at DESC LIMIT 1`,
             [digest(token)]
           )).rows[0];
+          })) as any;
 
           if (!vRow) {
             ws.close(4001, 'Unauthorized: Invalid or expired visitor token');
@@ -345,7 +351,12 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
             return;
           }
 
-          const sRow = (await pool.query(
+          const sRow = (await transaction(async db => {
+            // Session rows carry the tenant; scope the same transaction used for membership lookup.
+            const session = (await db.query('SELECT workspace_id FROM sessions WHERE token_hash = $1 AND expires_at > now()', [digest(sessionToken)])).rows[0];
+            if (!session) return undefined;
+            await scope(db, session.workspace_id);
+            return (await db.query(
             `SELECT s.user_id, s.workspace_id, m.role, u.full_name
              FROM sessions s
              JOIN memberships m ON m.user_id = s.user_id AND m.workspace_id = s.workspace_id AND m.active
@@ -353,6 +364,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
              WHERE s.token_hash = $1 AND s.expires_at > now()`,
             [digest(sessionToken)]
           )).rows[0];
+          })) as any;
 
           if (!sRow) {
             console.warn(`[WebSocket] ⚠️ Unauthorized connection attempt: Invalid staff session`);

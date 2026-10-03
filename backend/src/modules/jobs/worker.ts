@@ -18,11 +18,11 @@ import pg,{type PoolClient} from 'pg';
 export type JobHandler=(job:{id:string,workspace_id:string,kind:string,payload:Record<string,unknown>})=>Promise<{receipt:string}>;
 
 let metaWorkerPool:pg.Pool|undefined;
-async function notifyMetaRealtime(workspaceId:string, connectionId:string):Promise<void>{
+async function notifyMetaRealtime(workspaceId:string, connectionId:string, event?:string, data?:Record<string,unknown>):Promise<void>{
  const url=process.env.META_REALTIME_INTERNAL_URL||'http://127.0.0.1:4317/internal/meta/realtime';
  const secret=process.env.META_REALTIME_INTERNAL_SECRET;
  if(!secret){console.warn('META_REALTIME_BRIDGE_NOT_CONFIGURED');return;}
- try{const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json','x-gotek-worker-secret':secret},body:JSON.stringify({workspaceId,connectionId}),signal:AbortSignal.timeout(5000)});if(!response.ok)console.warn('META_REALTIME_BRIDGE_HTTP_'+response.status);}catch{console.warn('META_REALTIME_BRIDGE_FAILED');}
+ try{const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json','x-gotek-worker-secret':secret},body:JSON.stringify({workspaceId,connectionId,...(event?{event,data}:{})}),signal:AbortSignal.timeout(5000)});if(!response.ok)console.warn('META_REALTIME_BRIDGE_HTTP_'+response.status);}catch{console.warn('META_REALTIME_BRIDGE_FAILED');}
 }
 function getMetaWorkerPool():pg.Pool {
  if(metaWorkerPool)return metaWorkerPool;
@@ -298,6 +298,19 @@ export async function runMetaWorkerOnce(workspace:string,send:typeof sendMetaTex
  }});
  if(['succeeded','dead','unknown'].includes(outcome.state)&&sentConnection)await notifyMetaRealtime(workspace,sentConnection);
  return outcome;
+}
+
+/** Trusted local scheduler pass for outbound Meta jobs across active workspaces. */
+export async function runMetaWorkerAll(options:{after?:string|null;shouldStop?:()=>boolean}={}):Promise<{next:string|null;results:Array<{workspace:string}>}>{
+ const page:string[]=await transaction(async db=>(await db.query('SELECT id FROM public.worker_active_tenants($1,100)',[options.after??null])).rows.map(r=>r.id));
+ const results:{workspace:string}[]=[];
+ let next=options.after??null;
+ for(const workspace of page){
+  if(options.shouldStop?.())break;
+  try{await runMetaWorkerOnce(workspace);results.push({workspace});}catch{results.push({workspace});}
+  next=workspace;
+ }
+ return {results,next:page.length===0?null:next};
 }
 
 /**

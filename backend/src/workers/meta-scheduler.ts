@@ -1,6 +1,7 @@
 type Pass = {next:string|null;results:Array<{workspace:string}>};
 type Tasks = {
   ingress:(after:string|null)=>Promise<Pass>;
+  outbound?: (after:string|null)=>Promise<Pass>;
   history?: (workspace:string)=>Promise<unknown>;
   cleanup?: ()=>Promise<unknown>;
   onError:()=>void;
@@ -25,6 +26,8 @@ export function startMetaScheduler(tasks:Tasks,intervalMs=1000):()=>Promise<void
  let cursor:string|null=null;
  const pending=new Set<string>();
  loop(async()=>{if(tasks.cleanup)await tasks.cleanup();const result=await tasks.ingress(cursor);cursor=result.next;for(const row of result.results)if(tasks.history)pending.add(row.workspace);});
+ let outboundCursor:string|null=null;
+ if(tasks.outbound)loop(async()=>{const result=await tasks.outbound!(outboundCursor);outboundCursor=result.next;});
  if(tasks.history)loop(async()=>{
   for(const workspace of pending){
    if(stopped)break;
