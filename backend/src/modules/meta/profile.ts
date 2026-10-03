@@ -1,14 +1,15 @@
+import {metaGraphVersion} from './graph-version';
 import {HttpError} from '../../core/security';
 
 /** Only provider-returned display data; contact details are never inferred. */
-export async function fetchMetaProfile(userId:string,tokenRef:string,fetchImpl:typeof fetch=fetch,channelKind:'facebook_messenger'|'instagram_messaging'|'whatsapp_business'='facebook_messenger'){
+export async function fetchMetaProfile(userId:string,tokenRef:string,fetchImpl:typeof fetch=fetch,channelKind:'facebook_messenger'|'instagram_messaging'|'whatsapp_business'='facebook_messenger',accessToken?:string){
  // WhatsApp Cloud API does not expose a Facebook-style profile endpoint for
  // arbitrary contacts. The inbound payload's profile name is the only source
  // we can safely retain until the provider returns richer contact data.
  if(channelKind==='whatsapp_business')return {};
- const token=process.env[tokenRef];
+ const token=accessToken??process.env[tokenRef];
  if(!token)throw new HttpError(503,'META_TOKEN_NOT_CONFIGURED');
- const url=new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(userId)}`);
+ const url=new URL(`https://graph.facebook.com/${metaGraphVersion()}/${encodeURIComponent(userId)}`);
  url.searchParams.set('fields',channelKind==='instagram_messaging'?'name,username,profile_pic':'first_name,last_name,profile_pic');
  const response=await fetchImpl(url,{headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(10000)});
  if(!response.ok)throw new HttpError(502,'META_PROFILE_UNAVAILABLE');

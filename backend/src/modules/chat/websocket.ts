@@ -1,6 +1,6 @@
 import type { Server as HttpServer, IncomingMessage } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { pool, transaction, scope } from '../../core/db.js';
+import { transaction, scope } from '../../core/db.js';
 import { digest, uuid } from '../../core/security.js';
 import { realtimeHub } from './realtime.js';
 import { appendMessage, takeover } from './chat-store.js';
@@ -135,10 +135,11 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
             const author = clientCtx.isVisitor ? 'visitor' : 'agent';
             const actor = clientCtx.isVisitor ? undefined : clientCtx.userId;
             const msgId = uuid();
-            const nowIso = new Date().toISOString();
+
 
             // 1. ASYNCHRONOUS DATABASE PERSISTENCE & BROADCAST
             void (async () => {
+              const afterCommit: Array<() => void> = [];
               try {
                 await transaction(async (db) => {
                   // Scope transaction to current tenant workspace for RLS isolation
@@ -155,6 +156,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                   // If staff sends public message, auto-takeover if not already assigned or not human active
                   if (!clientCtx.isVisitor && visibility === 'public' && (c.reply_owner !== 'HUMAN_ACTIVE' || c.assigned_to !== clientCtx.userId)) {
                     await takeover(db, clientCtx.workspaceId, convId, clientCtx.userId!, c.owner_version);
+                    afterCommit.push(() => {
                     realtimeHub.broadcastToConversation(convId, 'conversation:takeover', {
                       conversationId: convId,
                       assignedTo: clientCtx.userId,
@@ -165,6 +167,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                       conversationId: convId,
                       assignedTo: clientCtx.userId,
                     }, { channelId: c.channel_id });
+                    });
                   }
 
                   const savedMessage = await appendMessage(db, {
@@ -179,17 +182,18 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                   });
 
                   // Send confirmation ACK back to sender with confirmed sequence
-                  ws.send(JSON.stringify({
+                  afterCommit.push(() => {
+                  if (ws.readyState === 1) ws.send(JSON.stringify({
                     type: 'message:ack',
                     clientId: msgClientId,
-                    id: msgId,
+                    id: savedMessage.id,
                     sequence: savedMessage.sequence,
                     createdAt: savedMessage.created_at,
                   }));
 
                   // Broadcast real-time message event with real sequence
                   realtimeHub.broadcastToConversation(convId, 'message:new', {
-                    id: msgId,
+                    id: savedMessage.id,
                     workspace_id: clientCtx.workspaceId,
                     conversation_id: convId,
                     client_id: msgClientId,
@@ -211,6 +215,8 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                     createdAt: savedMessage.created_at,
                   }, { channelId: c.channel_id });
 
+                  });
+
                   // If visitor and AI is active, enqueue AI job
                   if (clientCtx.isVisitor && c.reply_owner === 'AI_ACTIVE') {
                     await enqueueJob(db, clientCtx.workspaceId, {
@@ -226,6 +232,10 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
                     });
                   }
                 });
+                // Publication failures must not turn committed data into a persist error.
+                for (const publish of afterCommit) {
+                  try { publish(); } catch { console.warn('WS_POST_COMMIT_PUBLISH_FAILED'); }
+                }
               } catch (persistErr: any) {
                 console.error('[WebSocket] Background persistence error:', persistErr?.message || persistErr);
                 ws.send(JSON.stringify({
@@ -284,7 +294,12 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
             return;
           }
 
-          const vRow = (await pool.query(
+          const vRow = (await transaction(async db => {
+            // Resolve the tenant inside the transaction before applying RLS scope.
+            const tenant = (await db.query('SELECT workspace_id FROM visitors WHERE token_hash = $1 AND expires_at > now()', [digest(token)])).rows[0];
+            if (!tenant) return undefined;
+            await scope(db, tenant.workspace_id);
+            return (await db.query(
             `SELECT v.id, v.workspace_id, c.id AS conversation_id, v.channel_id,
                     c.status, c.reply_owner, c.owner_version
              FROM visitors v
@@ -293,6 +308,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
              ORDER BY c.created_at DESC LIMIT 1`,
             [digest(token)]
           )).rows[0];
+          })) as any;
 
           if (!vRow) {
             ws.close(4001, 'Unauthorized: Invalid or expired visitor token');
@@ -335,7 +351,12 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
             return;
           }
 
-          const sRow = (await pool.query(
+          const sRow = (await transaction(async db => {
+            // Session rows carry the tenant; scope the same transaction used for membership lookup.
+            const session = (await db.query('SELECT workspace_id FROM sessions WHERE token_hash = $1 AND expires_at > now()', [digest(sessionToken)])).rows[0];
+            if (!session) return undefined;
+            await scope(db, session.workspace_id);
+            return (await db.query(
             `SELECT s.user_id, s.workspace_id, m.role, u.full_name
              FROM sessions s
              JOIN memberships m ON m.user_id = s.user_id AND m.workspace_id = s.workspace_id AND m.active
@@ -343,6 +364,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
              WHERE s.token_hash = $1 AND s.expires_at > now()`,
             [digest(sessionToken)]
           )).rows[0];
+          })) as any;
 
           if (!sRow) {
             console.warn(`[WebSocket] ⚠️ Unauthorized connection attempt: Invalid staff session`);

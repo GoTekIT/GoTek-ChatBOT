@@ -200,3 +200,13 @@
   font-size: 12px;
   font-weight: 600;
 }
+.meta-connection-summary{margin:12px 0;color:#64748b;font-size:.9rem}.meta-platform-heading{display:flex;align-items:center;gap:8px;margin:20px 0 8px}.meta-count{margin-left:4px;min-width:24px;padding:2px 8px;border-radius:999px;background:#e8f0ff;color:#0057e1;font-size:.75rem;text-align:center}.meta-connection-list{display:grid;gap:8px;max-width:760px}.meta-connection-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #dbe4f0;border-radius:14px;background:linear-gradient(90deg,#fff,#f8fbff);box-shadow:0 3px 12px #0f27420d}.meta-platform-badge{display:inline-flex;align-items:center;gap:5px;min-width:112px;padding:5px 8px;border-radius:999px;font-size:.75rem;font-weight:700}.meta-platform-facebook_messenger{background:#e7f0ff;color:#1769e0}.meta-platform-instagram_messaging{background:#fce7f3;color:#be185d}.meta-platform-whatsapp_business{background:#dcfce7;color:#15803d}.meta-platform-threads{background:#f1f5f9;color:#334155}.meta-connection-main{display:grid;gap:2px;min-width:0;flex:1}.meta-connection-main strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.meta-connection-main small{color:#94a3b8;font-size:.72rem}.meta-status-dot{font-size:.75rem;white-space:nowrap}.meta-status-connected{color:#15803d}.meta-status-verified{color:#b45309}.meta-status-pending,.meta-status-reauth_required{color:#b45309}.meta-status-error{color:#dc2626}.meta-disconnect-button{border:0;background:transparent;color:#64748b;cursor:pointer}.meta-disconnect-button:hover{color:#dc2626}@media(max-width:720px){.meta-connection-card{align-items:flex-start;flex-wrap:wrap}.meta-connection-main{min-width:calc(100% - 135px)}.meta-status-dot{margin-left:120px}}
+
+.facebook-connect {padding:20px;border:1px solid var(--border-color,#334155);border-radius:16px;margin:16px 0;display:grid;gap:12px;}
+.facebook-connect h3,.facebook-connect h4,.facebook-connect p {margin:0;}
+.facebook-connect p {line-height:1.5;}
+.facebook-connect button {padding:10px 16px;border-radius:10px;justify-self:start;}
+.facebook-page-picker {display:grid;gap:12px;}
+.facebook-page-option {display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border-color,#334155);border-radius:10px;cursor:pointer;}
+.facebook-page-option span {min-width:0;overflow-wrap:anywhere;}
+.facebook-page-option small {display:block;opacity:.7;margin-top:4px;}

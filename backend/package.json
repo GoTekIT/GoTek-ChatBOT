@@ -16,6 +16,7 @@
     "worker:embedding": "tsx scripts/embed-knowledge.ts",
     "worker:web": "tsx scripts/web-refresh-worker.ts",
     "worker:meta": "tsx scripts/meta-worker.ts",
+    "worker:meta-history": "META_ENABLE_TEST_SEND=true META_ENABLE_HISTORY_SYNC=true tsx scripts/meta-worker.ts --all --history-only",
     "meta:bootstrap": "tsx scripts/meta-bootstrap.ts"
   },
   "dependencies": {

@@ -28,3 +28,21 @@ test('WhatsApp status callbacks normalize into receipt events',()=>{
  const statuses=normalizeMetaStatuses({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'1386169614577563'},statuses:[{id:'wamid.1',status:'delivered',recipient_id:'84935846075'},{id:'wamid.2',status:'failed',recipient_id:'84935846075',errors:[{title:'Undeliverable'}]}]}}]}]});
  assert.deepEqual(statuses.map(({eventId,status,error})=>({eventId,status,error})),[{eventId:'wamid.1',status:'delivered',error:undefined},{eventId:'wamid.2',status:'failed',error:'Undeliverable'}]);
 });
+
+test('provider timestamps survive webhook normalization for Messenger and WhatsApp',()=>{
+ const facebook=normalizeMetaInbound({object:'page',entry:[{id:'page',messaging:[{sender:{id:'user'},recipient:{id:'page'},timestamp:1750000000123,message:{mid:'m',text:'hello'}}]}]});
+ assert.equal(facebook[0].createdAt,new Date(1750000000123).toISOString());
+ const whatsapp=normalizeMetaInbound({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:'phone'},messages:[{from:'user',id:'m',type:'text',timestamp:'1750000000',text:{body:'hi'}}]}}]}]});
+ assert.equal(whatsapp[0].createdAt,new Date(1750000000000).toISOString());
+});
+
+test('valid Page echo binds the customer recipient and preserves direction and provider time',()=>{
+ const rows=normalizeMetaInbound({object:'page',entry:[{id:'page',messaging:[{sender:{id:'page'},recipient:{id:'customer'},timestamp:1750000000000,message:{mid:'echo',text:'Page reply',is_echo:true}}]}]});
+ assert.equal(rows.length,1);assert.equal(rows[0].senderId,'customer');assert.equal(rows[0].isPageReply,true);assert.equal(rows[0].externalAccountId,'page');
+});
+
+test('Messenger receipt binds customer sender and rejects foreign Page recipients',()=>{
+ const receipt={sender:{id:'customer'},recipient:{id:'page'},delivery:{mids:['outbound']}};
+ const rows=normalizeMetaStatuses({object:'page',entry:[{id:'page',messaging:[receipt,{...receipt,recipient:{id:'foreign'}}]}]});
+ assert.equal(rows.length,1);assert.equal(rows[0].recipientId,'customer');assert.equal(rows[0].externalAccountId,'page');
+});

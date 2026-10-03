@@ -52,6 +52,8 @@ export interface ChatMessage {
   senderAvatar?: string;
   senderRole?: string;
   timestamp: string;
+  timestampIso?: string;
+  sequence?: number;
   content: string;
   attachments?: Array<{type: 'image'|'video'|'audio'|'file'; url: string}>;
   citations?: Array<{
@@ -60,7 +62,7 @@ export interface ChatMessage {
     similarity?: string;
     verified?: boolean;
   }>;
-  status?: 'sending' | 'sent' | 'delivered' | 'read';
+  status?: 'sending' | 'queued' | 'accepted' | 'failed' | 'unknown' | 'sent' | 'delivered' | 'read';
 }
 
 export interface Conversation {
@@ -71,6 +73,9 @@ export interface Conversation {
   customerPhone: string;
   customerLocation: string;
   customerAvatar: string;
+  customerOnline?: boolean;
+  customerLastSeenAt?: string;
+  customerExternalId?: string;
   clientTier: '' | 'Enterprise Prospect' | 'Enterprise Client' | 'Growth Plan';
   websiteUrl: string;
   lastMessageSnippet: string;
@@ -106,6 +111,7 @@ export interface Conversation {
 export interface AuditLogEntry {
   id: string;
   timestamp: string;
+  timestampIso?: string;
   actor: string;
   action: string;
   target: string;

@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import {loadMessagePages} from '../../utils/message-pages';
+import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { ConsoleModule, SettingsSubTab, KnowledgeDocument, StaffMember, Conversation, ChatMessage } from '../../types';
 import { TopNav } from '../../components/TopNav';
 import { Sidebar } from '../../components/Sidebar';
-import { InboxView } from '../../components/inbox/InboxView';
-import { KnowledgeBaseView } from '../../components/knowledge/KnowledgeBaseView';
+const InboxView = lazy(() => import('../../components/inbox/InboxView').then(m => ({default:m.InboxView})));
+const KnowledgeBaseView = lazy(() => import('../../components/knowledge/KnowledgeBaseView').then(m => ({default:m.KnowledgeBaseView})));
 import { MembersSettings } from '../settings/MembersSettings';
 import { AuditSettings } from '../settings/AuditSettings';
 import {can, canOpenModule} from '../../services/authorization';
-import { CustomerWidgetView } from '../../components/widget/CustomerWidgetView';
-import { Channels } from '../channels/Channels';
-import { AnalyticsView } from '../../components/analytics/AnalyticsView';
+const CustomerWidgetView = lazy(() => import('../../components/widget/CustomerWidgetView').then(m => ({default:m.CustomerWidgetView})));
+const Channels = lazy(() => import('../channels/Channels').then(m => ({default:m.Channels})));
+const AnalyticsView = lazy(() => import('../../components/analytics/AnalyticsView').then(m => ({default:m.AnalyticsView})));
 import { CommandPalette } from '../../components/modals/CommandPalette';
 import { navigate } from '../../hooks/usePath';
 import { api } from '@api';
@@ -51,13 +52,19 @@ export function ConsoleWorkspace({
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
 
-  const [inboxSources,setInboxSources]=useState<Array<{connectionId:string;platform:string;accountName:string}>>([]);
+  const [inboxSources,setInboxSources]=useState<Array<{connectionId:string;platform:string;accountName:string;externalAccountId?:string}>>([]);
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
   const selectedConvIdRef = useRef<string>(selectedConvId);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [workspaceCreateError, setWorkspaceCreateError] = useState('');
+  const [workspaceCreateBusy, setWorkspaceCreateBusy] = useState(false);
+  const workspaceCreateLock = useRef(false);
+  const createdWorkspaceRef = useRef<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Keep selectedConvIdRef in sync with state
@@ -65,20 +72,30 @@ export function ConsoleWorkspace({
     selectedConvIdRef.current = selectedConvId;
   }, [selectedConvId]);
 
-  // Helper to load full message history for a specific conversation
+  const messageRequests = useRef(new Map<string, number>());
+  const messageWorkspace = useRef(me?.workspaceId);
+  messageWorkspace.current = me?.workspaceId;
+  useEffect(() => () => { messageRequests.current.clear(); }, [me?.workspaceId]);
+
   const loadMessagesForConv = async (convId: string) => {
     if (!convId || !/^[0-9a-f-]{36}$/i.test(convId)) return;
+    const workspace = me?.workspaceId;
+    const request = (messageRequests.current.get(convId) || 0) + 1;
+    messageRequests.current.set(convId, request);
+    const current = () => messageWorkspace.current === workspace && messageRequests.current.get(convId) === request;
     try {
-      const msgs: ChatMessage[] = await api(`/conversations/${convId}/messages`);
-      if (Array.isArray(msgs)) {
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === convId ? { ...c, messages: msgs } : c
-          )
-        );
-      }
+      const msgs = await loadMessagePages<ChatMessage>(
+        after => api(`/conversations/${convId}/messages?after=${after}`), current);
+      if (!msgs || !current()) return;
+      setConversations(prev => prev.map(c => {
+        if(c.id !== convId) return c;
+        const ids = new Set(msgs.map(m => m.id));
+        const clientIds = new Set(msgs.map(m => m.clientId).filter(Boolean));
+        const pending = c.messages.filter(m => m.status === 'sending' && !ids.has(m.id) && (!m.clientId || !clientIds.has(m.clientId)));
+        return {...c, messages: [...msgs, ...pending]};
+      }));
     } catch (err) {
-      console.warn('Load messages error', err);
+      if(current()) setToastMessage('Không tải được đầy đủ lịch sử tin nhắn. Vui lòng thử lại.');
     }
   };
 
@@ -172,6 +189,7 @@ export function ConsoleWorkspace({
           void loadMessagesForConv(activeId);
         }
       };
+      es.addEventListener('inbox:refresh', refreshList);
       es.addEventListener('inbox:visitor_message', refreshList);
       es.addEventListener('inbox:message_sent', refreshList);
       es.addEventListener('inbox:message_receipt', refreshList);
@@ -541,6 +559,7 @@ export function ConsoleWorkspace({
         onOpenAuditLogs={() => { if (can(me, 'audit.read')) setIsAuditModalOpen(true); }}
         me={me}
         onLogout={onLogout}
+        onSwitchWorkspace={() => setWorkspaceModalOpen(true)}
       />
 
       {/* Main Workspace Frame */}
@@ -577,7 +596,7 @@ export function ConsoleWorkspace({
             {/* Content Viewport: deny direct URLs as well as menu navigation. */}
             {!canOpenModule(me, activeModule) && <main className="p-6" role="alert">Bạn không có quyền truy cập chức năng này. <button onClick={() => handleSelectModule('inbox')}>Về hộp thư</button></main>}
             {activeModule === 'inbox' && canOpenModule(me, 'inbox') && (
-              <InboxView
+              <Suspense fallback={<div role="status">Đang tải hộp thư…</div>}><InboxView
                 key={me?.workspaceId}
                 sources={inboxSources}
                 conversations={conversations}
@@ -595,29 +614,29 @@ export function ConsoleWorkspace({
                 onResolve={handleResolve}
                 onResumeAi={handleResumeAi}
                 onIncomingMessage={handleIncomingMessage}
-              />
+              /></Suspense>
             )}
 
             {activeModule === 'knowledge' && canOpenModule(me, 'knowledge') && (
-              <KnowledgeBaseView
+              <Suspense fallback={<div role="status">Đang tải kho tri thức…</div>}><KnowledgeBaseView
                 authorization={me}
                 documents={documents}
                 onAddDocument={handleAddDocument}
                 onUpdateDocument={handleUpdateDocument}
                 onDeleteDocument={handleDeleteDocument}
-              />
+              /></Suspense>
             )}
 
             {activeModule === 'settings' && canOpenModule(me, 'settings') && (
               <main className="flex-1 overflow-y-auto p-6 space-y-4"><MembersSettings authorization={me} onChange={async () => { await onRefresh?.(); }} /></main>
             )}
 
-            {activeModule === 'channels' && canOpenModule(me, 'channels') && <Channels role={me?.role ?? 'Agent'} />}
-            {activeModule === 'analytics' && canOpenModule(me, 'analytics') && <AnalyticsView />}
+            {activeModule === 'channels' && canOpenModule(me, 'channels') && <Suspense fallback={<div role="status">Đang tải kênh…</div>}><Channels role={me?.role ?? 'Agent'} /></Suspense>}
+            {activeModule === 'analytics' && canOpenModule(me, 'analytics') && <Suspense fallback={<div role="status">Đang tải báo cáo…</div>}><AnalyticsView /></Suspense>}
           </>
         ) : (
           /* Live Customer Widget View */
-          canOpenModule(me, 'widget-demo') ? <CustomerWidgetView onBackToConsole={() => handleSelectModule('inbox')} /> : <p role="alert">Bạn không có quyền cấu hình widget.</p>
+          canOpenModule(me, 'widget-demo') ? <Suspense fallback={<div role="status">Đang tải widget…</div>}><CustomerWidgetView onBackToConsole={() => handleSelectModule('inbox')} /></Suspense> : <p role="alert">Bạn không có quyền cấu hình widget.</p>
         )}
       </div>
 
@@ -697,11 +716,45 @@ export function ConsoleWorkspace({
             </div>
 
             {/* Modal Actions */}
+            {createWorkspaceOpen && <form className="space-y-3" onSubmit={async event => {
+              event.preventDefault();
+              if (workspaceCreateLock.current) return;
+              workspaceCreateLock.current = true;
+              setWorkspaceCreateBusy(true);
+              setWorkspaceCreateError('');
+              try {
+                if (!createdWorkspaceRef.current) {
+                  const created = await api('/workspaces', 'POST', {name: workspaceName.trim()});
+                  createdWorkspaceRef.current = created.id;
+                }
+                const id = createdWorkspaceRef.current!;
+                if (onSwitchWorkspace) await onSwitchWorkspace(id);
+                else { await api('/workspace/switch', 'POST', {workspaceId: id}); window.location.assign('/app/inbox'); }
+                createdWorkspaceRef.current = null;
+                setWorkspaceName(''); setCreateWorkspaceOpen(false); setWorkspaceModalOpen(false);
+              } catch {
+                setWorkspaceCreateError(createdWorkspaceRef.current
+                  ? 'Workspace đã tạo. Bấm thử lại để chuyển vào workspace này.'
+                  : 'Chưa xác nhận được việc tạo workspace. Kiểm tra danh sách trước khi thử lại.');
+              } finally { workspaceCreateLock.current = false; setWorkspaceCreateBusy(false); }
+            }}>
+              <label className="block text-sm">Tên workspace
+                <input required minLength={2} maxLength={160} value={workspaceName}
+                  disabled={workspaceCreateBusy || !!createdWorkspaceRef.current}
+                  onChange={event => setWorkspaceName(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent p-2" />
+              </label>
+              <p className="text-xs text-slate-500">Bạn sẽ là chủ sở hữu workspace mới. Hội thoại và các kết nối được quản lý riêng.</p>
+              {workspaceCreateError && <p role="alert" className="text-sm text-red-600">{workspaceCreateError}</p>}
+              <button type="submit" disabled={workspaceCreateBusy || workspaceName.trim().length < 2}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50">
+                {workspaceCreateBusy ? 'Đang xử lý…' : createdWorkspaceRef.current ? 'Chuyển vào workspace' : 'Tạo và mở workspace'}
+              </button>
+            </form>}
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
               <button
                 onClick={() => {
-                  showGlobalToast('Mở trình tạo không gian làm việc mới');
-                  setWorkspaceModalOpen(false);
+                  setCreateWorkspaceOpen(true);
                 }}
                 className="px-4 py-2 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-[#1664ff] dark:hover:border-blue-400 text-xs font-semibold text-[#1664ff] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 flex items-center gap-1.5 transition-colors"
                 type="button"

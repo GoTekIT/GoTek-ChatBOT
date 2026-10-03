@@ -37,7 +37,7 @@ def format_sharegpt_to_chatml(example: Dict[str, Any], tokenizer) -> str:
     messages = example.get("messages", [])
     if hasattr(tokenizer, "apply_chat_template"):
         return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
-    
+
     # Fallback ChatML format
     text = ""
     for msg in messages:

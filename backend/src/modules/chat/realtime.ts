@@ -317,10 +317,10 @@ class RealtimeHub extends EventEmitter {
     };
 
     for (const client of this.clients.values()) {
-      if (client.workspaceId === workspaceId) {
+      if (client.workspaceId === workspaceId && !client.isVisitor) {
         // Channel-scoping rule: Agents only receive if they are members of the channel
         if (options?.channelId && client.role === 'Agent') {
-          if (client.channelIds && !client.channelIds.has(options.channelId)) {
+          if (!client.channelIds?.has(options.channelId)) {
             continue;
           }
         }

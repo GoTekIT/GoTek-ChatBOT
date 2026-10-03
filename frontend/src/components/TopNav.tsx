@@ -14,6 +14,7 @@ interface TopNavProps {
   onOpenAuditLogs?: () => void;
   me?: any;
   onLogout?: () => void;
+  onSwitchWorkspace?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -23,6 +24,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenAuditLogs,
   me,
   onLogout,
+  onSwitchWorkspace,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -104,10 +106,11 @@ export const TopNav: React.FC<TopNavProps> = ({
             <span>Hộp thư CSKH</span>
           </span>
           <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 text-[12px] font-medium flex items-center gap-1.5 border border-transparent dark:border-slate-700/60">
+          <button type="button" onClick={onSwitchWorkspace} aria-label="Chuyển workspace" className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 text-[12px] font-medium flex items-center gap-1.5 border border-transparent dark:border-slate-700/60">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <span>{me?.workspaces?.find((workspace: any) => workspace.id === me.workspaceId)?.name || 'Workspace'}</span>
-          </span>
+            <span aria-hidden="true">▾</span>
+          </button>
         </div>
 
         {/* Right Section: System Diagnostics, Mode Switcher & Profile */}

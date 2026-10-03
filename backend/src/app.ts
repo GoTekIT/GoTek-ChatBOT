@@ -16,6 +16,7 @@ import {widgetEmbed} from './modules/widget/widget-embed';
 // Modular Domain Routers
 import {apiRouter} from './routes/index';
 import {metaRouter} from './routes/meta.routes';
+import {notifyMetaRealtime} from './modules/meta/realtime-internal';
 
 // Re-export identity for backward compatibility with existing tests
 export {identity, type Identity};
@@ -39,6 +40,10 @@ export function createApp() {
   }));
   app.use(express.json({limit: '128kb', verify: (req, _res, buf) => { (req as any).rawBody = Buffer.from(buf); }}));
   app.use(cookieParser());
+
+  // Worker processes do not share the API process' in-memory RealtimeHub.
+  // Authenticate worker notifications and resolve channel scope from tenant data.
+  app.post('/internal/meta/realtime', notifyMetaRealtime);
 
   // Root Service Status Page & Specs
   app.get('/', StatusController.getRoot);

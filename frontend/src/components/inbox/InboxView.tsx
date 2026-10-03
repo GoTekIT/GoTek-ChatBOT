@@ -1,3 +1,4 @@
+import {chronologicalMessages} from '../../utils/message-timeline';
 import {SendAttempts} from './send-attempts';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -5,10 +6,11 @@ import confetti from 'canvas-confetti';
 import { Conversation, ChatMessage } from '../../types';
 import { useRealtimeChat } from '../../hooks/useRealtimeChat';
 import { api } from '@api';
+import { filterInboxConversations, InboxFilterTab } from './inbox-filters';
 
 interface InboxViewProps {
   conversations: Conversation[];
-  sources?: Array<{connectionId:string;platform:string;accountName:string}>;
+  sources?: Array<{connectionId:string;platform:string;accountName:string;externalAccountId?:string}>;
   onSourceFilterChange?: (platforms:string[],connectionIds:string[])=>void;
   selectedConvId: string;
   setSelectedConvId: (id: string) => void;
@@ -51,7 +53,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   onIncomingMessage,
 }) => {
   // Filter tabs: all, queue (cần handoff), bot (AI đang phục vụ), mine (đã gán)
-  const [filterTab, setFilterTab] = useState<'all' | 'queue' | 'bot' | 'mine'>('all');
+  const [filterTab, setFilterTab] = useState<InboxFilterTab>('all');
   const [sourcePlatforms,setSourcePlatforms]=useState<string[]>([]);
   const [sourceConnections,setSourceConnections]=useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -247,19 +249,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   }, [isDraggingDossier]);
 
   // Filter conversations
-  const filteredConversations = conversations.filter((c) => {
-    const matchesSearch =
-      c.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.customerCompany.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.lastMessageSnippet.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (!matchesSearch) return false;
-
-    if (filterTab === 'queue') return c.status === 'handoff';
-    if (filterTab === 'bot') return c.status === 'ai_active';
-    if (filterTab === 'mine') return c.status === 'in_review' || c.status === 'resolved';
-    return true;
-  });
+  const filteredConversations = filterInboxConversations(conversations, filterTab, searchQuery);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -449,26 +439,30 @@ export const InboxView: React.FC<InboxViewProps> = ({
               </button>
             </div>
 
-            <div className="flex flex-col gap-2 text-xs">
-              <label>Nền tảng
-                <select multiple aria-label="Lọc nền tảng" value={sourcePlatforms} className="w-full bg-transparent border rounded p-1" onChange={e=>{
-                  const values=Array.from(e.target.selectedOptions,o=>o.value);
-                  setSourcePlatforms(values); onSourceFilterChange?.(values,sourceConnections);
-                }}>
-                  <option value="facebook_messenger">Facebook Messenger</option>
-                  <option value="instagram_messaging">Instagram</option>
-                  <option value="whatsapp_business">WhatsApp</option>
-                </select>
-              </label>
-              <label>Page / tài khoản
-                <select multiple aria-label="Lọc Page hoặc tài khoản" value={sourceConnections} className="w-full bg-transparent border rounded p-1" onChange={e=>{
-                  const values=Array.from(e.target.selectedOptions,o=>o.value);
-                  setSourceConnections(values); onSourceFilterChange?.(sourcePlatforms,values);
-                }}>
-                  {sources.map(source=><option key={source.connectionId} value={source.connectionId}>{source.platform === 'facebook_messenger' ? 'Facebook Messenger' : source.platform === 'instagram_messaging' ? 'Instagram' : source.platform === 'whatsapp_business' ? 'WhatsApp' : source.platform} · {source.accountName}</option>)}
-                </select>
-              </label>
-              <button type="button" onClick={()=>{setSourcePlatforms([]);setSourceConnections([]);onSourceFilterChange?.([],[]);}}>Xóa bộ lọc nguồn</button>
+            <div className="space-y-3 rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-900/50 p-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-600 dark:text-slate-300">Nguồn hội thoại</span>
+                {(sourcePlatforms.length > 0 || sourceConnections.length > 0) && <button type="button" className="text-blue-600 dark:text-blue-400 hover:underline" onClick={()=>{setSourcePlatforms([]);setSourceConnections([]);onSourceFilterChange?.([],[]);}}>Xóa lọc</button>}
+              </div>
+              <div className="flex flex-wrap gap-1.5" aria-label="Lọc nền tảng">
+                {[['facebook_messenger','Facebook'],['instagram_messaging','Instagram'],['whatsapp_business','WhatsApp']].map(([value,label])=><button key={value} type="button" aria-pressed={sourcePlatforms.includes(value)} className={`rounded-full border px-3 py-1.5 font-medium transition-colors ${sourcePlatforms.includes(value)?'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300':'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`} onClick={()=>{
+                  const values=sourcePlatforms.includes(value)?sourcePlatforms.filter(v=>v!==value):[...sourcePlatforms,value];
+                  setSourcePlatforms(values);onSourceFilterChange?.(values,sourceConnections);
+                }}>{label}</button>)}
+              </div>
+              <details className="group">
+                <summary className="cursor-pointer select-none font-medium text-slate-600 dark:text-slate-300">Page / tài khoản <span className="font-normal text-slate-400">· {sourceConnections.length ? `${sourceConnections.length} đã chọn` : 'Tất cả'}</span></summary>
+                <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+                  {sources.map(source=><label key={source.connectionId} className="flex cursor-pointer items-start gap-2 rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <input type="checkbox" className="mt-0.5 accent-blue-600" checked={sourceConnections.includes(source.connectionId)} onChange={()=>{
+                      const values=sourceConnections.includes(source.connectionId)?sourceConnections.filter(v=>v!==source.connectionId):[...sourceConnections,source.connectionId];
+                      setSourceConnections(values);onSourceFilterChange?.(sourcePlatforms,values);
+                    }}/>
+                    <span className="min-w-0"><span className="block break-words font-medium">{source.accountName}</span><span className="block text-[10px] text-slate-500">{source.platform==='facebook_messenger'?'Facebook':source.platform==='instagram_messaging'?'Instagram':'WhatsApp'}{source.externalAccountId?` · ${source.externalAccountId}`:''}</span></span>
+                  </label>)}
+                  {!sources.length && <p className="py-2 text-slate-500">Chưa có Page hoặc tài khoản liên kết.</p>}
+                </div>
+              </details>
             </div>
 
             {/* Natural Search Input */}
@@ -900,7 +894,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
             </span>
           </div>
 
-          {activeConv.messages.map((msg) => {
+          {chronologicalMessages(activeConv.messages).map((msg) => {
             const isHovered = hoveredMessageId === msg.id;
             const reactions = messageReactions[msg.id] || [];
 
@@ -1110,7 +1104,11 @@ export const InboxView: React.FC<InboxViewProps> = ({
                     <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-400 dark:text-slate-500 font-normal">
                       <span>{msg.timestamp}</span>
                       <span>·</span>
-                      {msg.status === 'read' ? (
+                      {msg.status && ['queued', 'accepted', 'failed', 'unknown'].includes(msg.status) ? (
+                        <span className={msg.status === 'failed' ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'}>
+                          {msg.status === 'queued' ? 'Chờ gửi tới nền tảng' : msg.status === 'accepted' ? 'Nền tảng đã tiếp nhận' : msg.status === 'failed' ? 'Gửi thất bại' : 'Chưa xác định kết quả gửi'}
+                        </span>
+                      ) : msg.status === 'read' ? (
                         <span className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 font-medium" title="Khách đã đọc tin nhắn">
                           <span className="material-symbols-outlined text-[13px]">done_all</span>
                           <span>Đã đọc</span>
@@ -1567,8 +1565,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 alt={activeConv.customerName}
                 className="w-14 h-14 rounded-full mx-auto mb-2 object-cover border-2 border-white dark:border-slate-800 shadow-sm ring-2 ring-blue-500/20"
               />
-              <h3 className="font-bold text-[15px] text-[#1f2329] dark:text-slate-100 tracking-tight">{activeConv.customerName}</h3>
+              <div className="flex items-center justify-center gap-1.5"><h3 className="font-bold text-[15px] text-[#1f2329] dark:text-slate-100 tracking-tight">{activeConv.customerName}</h3><span className={`w-2 h-2 rounded-full ${activeConv.customerOnline ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} title={activeConv.customerOnline ? 'Đang trực tuyến' : 'Chưa xác định trạng thái trực tuyến'} /></div>
               <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mb-2">{activeConv.customerCompany}</p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-2">{activeConv.customerOnline ? 'Đang trực tuyến' : activeConv.customerLastSeenAt ? `Hoạt động lần cuối ${new Date(activeConv.customerLastSeenAt).toLocaleString('vi-VN',{dateStyle:'short',timeStyle:'short'})}` : 'Trạng thái trực tuyến chưa được Meta cung cấp'}</p>
               <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-[#1664ff] dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/70 shadow-2xs">
                 {activeConv.clientTier}
               </span>
@@ -1662,6 +1661,10 @@ export const InboxView: React.FC<InboxViewProps> = ({
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">
                 <span>Thời gian trực tuyến</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.sessionDuration}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">
+                <span>Tin gần nhất</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.lastMessageTime}</span>
               </div>
 
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 py-0.5">

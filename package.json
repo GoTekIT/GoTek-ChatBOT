@@ -23,7 +23,10 @@
     "worker:web": "npm run --prefix backend worker:web",
     "prod:up": "docker compose -f docker-compose.prod.yml up -d",
     "prod:down": "docker compose -f docker-compose.prod.yml down",
-    "prod:logs": "docker compose -f docker-compose.prod.yml logs -f"
+    "prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
+    "dev:meta": "npx concurrently -k -n MetaInbound,MetaOutbound \"META_ENABLE_TEST_SEND=true npm run --prefix backend worker:meta -- --all --ingress-only\" \"META_ENABLE_TEST_SEND=true npm run --prefix backend worker:meta -- --all --dispatch-only\"",
+    "dev:meta-history": "npm run --prefix backend worker:meta-history",
+    "dev:with-meta": "concurrently -k -n App,Meta,MetaHistory \"npm run dev\" \"npm run dev:meta\" \"npm run dev:meta-history\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

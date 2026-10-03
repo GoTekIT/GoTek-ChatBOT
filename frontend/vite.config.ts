@@ -61,6 +61,17 @@ export default defineConfig(({mode}) => {
   build: {
     outDir: 'dist',
     sourcemap: true,
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          motion: ['framer-motion'],
+          three: ['three'],
+          icons: ['lucide-react'],
+        },
+      },
+    },
   },
   };
 });

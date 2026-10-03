@@ -8,6 +8,8 @@ import {getRabbitChannel} from './core/rabbitmq.js';
 import {startNotificationWorker} from './workers/notification.worker.js';
 import {startAiWorker} from './workers/ai.worker.js';
 import {initWebSocketServer} from './modules/chat/websocket.js';
+import {runMetaIngressAll,runMetaWorkerAll,runMetaHistoryWorkerOnce,cleanupExpiredMetaIngress,closeMetaWorkerPool} from './modules/jobs/worker.js';
+import {startMetaScheduler} from './workers/meta-scheduler.js';
 
 const app = createApp();
 const server = http.createServer(app);
@@ -17,6 +19,7 @@ initWebSocketServer(server);
 
 const port = Number(process.env.PORT) || 4317;
 const host = process.env.HOST || '127.0.0.1';
+let stopMetaScheduler: (() => Promise<void>) | undefined;
 
 // Serve public static assets (sdk.js, logo, etc.)
 app.use(express.static(resolve('public'), {
@@ -38,9 +41,23 @@ if (process.env.SERVE_BUILD === 'true' && targetDist) {
 
 server.listen(port, host, () => {
   console.log(`GoTek Chatbot Backend & WebSocket running: http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port} (WS on /ws)`);
+  if (process.env.META_WORKER_ENABLED === 'true') {
+    stopMetaScheduler = startMetaScheduler({
+      ingress: after => runMetaIngressAll({after}),
+      outbound: after => runMetaWorkerAll({after}),
+      history: process.env.META_ENABLE_HISTORY_SYNC === 'true' ? runMetaHistoryWorkerOnce : undefined,
+      cleanup: cleanupExpiredMetaIngress,
+      onError: () => console.error('META_WORKER_ITERATION_FAILED'),
+    });
+  }
   // Initialize message broker queues and workers in background
   void getRabbitChannel().then(() => {
     void startNotificationWorker();
     void startAiWorker();
+
   });
 });
+
+async function shutdownMetaScheduler() { await stopMetaScheduler?.(); await closeMetaWorkerPool(); }
+process.once('SIGINT', () => void shutdownMetaScheduler());
+process.once('SIGTERM', () => void shutdownMetaScheduler());

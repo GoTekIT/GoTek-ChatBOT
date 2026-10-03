@@ -11,12 +11,22 @@ export type NormalizedMetaInbound = {
   displayName?: string;
   attachments: MetaAttachment[];
   mediaReferences: Array<{type:'image'|'video'|'audio'|'file';id:string}>;
+  createdAt?: string;
+  isPageReply?: boolean;
 };
-export type NormalizedMetaStatus = {surface:'facebook_messenger'|'instagram_messaging'|'whatsapp_business';externalAccountId:string;eventId:string;providerMessageId:string;status:'sent'|'delivered'|'read'|'failed';recipientId:string;error?:string};
+export type NormalizedMetaStatus = {surface:'facebook_messenger'|'instagram_messaging'|'whatsapp_business';externalAccountId:string;eventId:string;providerMessageId:string;status:'sent'|'delivered'|'read'|'failed';recipientId:string;watermarkAt?:string;error?:string};
 const record=z.record(z.string(),z.unknown());
 const object=(value:unknown):Record<string,unknown>=>record.safeParse(value).data||{};
 const list=(value:unknown):unknown[]=>Array.isArray(value)?value:[];
 const str=(value:unknown):string=>typeof value==='string'?value:'';
+
+function providerTime(value:unknown,seconds=false):{createdAt?:string}{
+ const n=typeof value==='number'?value:typeof value==='string'&&/^\d+$/.test(value)?Number(value):NaN;
+ const milliseconds=seconds?n*1000:n;
+ if(!Number.isFinite(milliseconds)||milliseconds<=0)return {};
+ const date=new Date(milliseconds);
+ return Number.isNaN(date.getTime())?{}:{createdAt:date.toISOString()};
+}
 
 /** Signature verification and server-owned tenant routing remain the caller's responsibility.
  * WhatsApp media IDs require authenticated resolution; they are never public URLs.
@@ -44,18 +54,22 @@ export function normalizeMetaInbound(input:unknown):NormalizedMetaInbound[]{
      if(!text&&!mediaReferences.length)continue;
      const matches=list(value.contacts).map(object).filter(contact=>str(contact.wa_id)===senderId);
      const displayName=matches.length===1?str(object(matches[0].profile).name).trim().slice(0,300):'';
-     out.push({surface,externalAccountId:account,senderId,eventId,text,attachments:[],mediaReferences,...(displayName?{displayName}:{})});
+     out.push({surface,externalAccountId:account,senderId,eventId,text,attachments:[],mediaReferences,...providerTime(message.timestamp,true),...(displayName?{displayName}:{})});
     }
    }
   }else{
    const account=str(entry.id);if(!account)continue;
    for(const item of list(entry.messaging)){
     const event=object(item),message=object(event.message);
-    const senderId=str(object(event.sender).id),eventId=str(message.mid);
-    if(message.is_echo||str(object(event.recipient).id)!==account||!senderId||!eventId)continue;
+    const pageReply=message.is_echo===true;
+    const sender=str(object(event.sender).id),recipient=str(object(event.recipient).id);
+    const senderId=pageReply?recipient:sender,eventId=str(message.mid);
+    const validDirection=pageReply?sender===account&&recipient!==account:recipient===account;
+    if(!validDirection||!senderId||!eventId)continue;
+    if(pageReply&&!providerTime(event.timestamp).createdAt)continue;
     const text=str(message.text).trim(),attachments=parseMetaAttachments(message.attachments);
     if(!text&&!attachments.length)continue;
-    out.push({surface,externalAccountId:account,senderId,eventId,text,attachments,mediaReferences:[]});
+    out.push({surface,externalAccountId:account,senderId,eventId,text,attachments,mediaReferences:[],...(pageReply?{isPageReply:true}:{}),...providerTime(event.timestamp)});
    }
   }
  }
@@ -69,9 +83,14 @@ export function normalizeMetaStatuses(input:unknown):NormalizedMetaStatus[]{
   for(const rawEntry of list(body.entry)){
    const entry=object(rawEntry),account=str(entry.id);
    for(const rawEvent of list(entry.messaging)){
-    const event=object(rawEvent),recipient=str(object(event.recipient).id),delivery=object(event.delivery),read=object(event.read);
+    const event=object(rawEvent),pageRecipient=str(object(event.recipient).id),recipient=str(object(event.sender).id),delivery=object(event.delivery),read=object(event.read);
+    if(!account||pageRecipient!==account||!recipient||recipient===account)continue;
     for(const mid of list(delivery.mids).map(str).filter(Boolean))out.push({surface,externalAccountId:account,eventId:mid,providerMessageId:mid,status:'delivered',recipientId:recipient});
     const readMid=str(read.mid);if(readMid)out.push({surface,externalAccountId:account,eventId:readMid,providerMessageId:readMid,status:'read',recipientId:recipient});
+    for(const [status,payload] of [['delivered',delivery],['read',read]] as const){
+     const watermarkAt=providerTime(payload.watermark).createdAt;
+     if(watermarkAt)out.push({surface,externalAccountId:account,eventId:`watermark:${status}:${recipient}:${watermarkAt}`,providerMessageId:'',status,recipientId:recipient,watermarkAt});
+    }
    }
   }
   return out;

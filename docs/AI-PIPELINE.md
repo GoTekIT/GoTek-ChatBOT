@@ -1,8 +1,8 @@
 # 🧠 GoTek Chatbot — Kiến Trúc & Đặc Tả Kỹ Thuật AIPipeline (`AIpipeline.md`)
 
-> **Phiên bản:** 1.0.0 — Production Ready  
-> **Cập nhật:** 2026-09-30  
-> **Áp dụng cho:** GoTek Chatbot Multi-Tenant Customer Experience Platform  
+> **Phiên bản:** 1.0.0 — Production Ready
+> **Cập nhật:** 2026-09-30
+> **Áp dụng cho:** GoTek Chatbot Multi-Tenant Customer Experience Platform
 > **Mã nguồn thực thi:** [`backend/src/modules/ai/ai-pipeline.ts`](file:///d:/GoTek-ChatBOT/backend/src/modules/ai/ai-pipeline.ts)
 
 ---
@@ -81,11 +81,11 @@ Hệ thống vận hành dựa trên 5 khối logic thuật toán được chu�
   IF contains_any(message, ["khiếu nại", "lừa đảo", "báo công an", "gặp nhân viên", "tổng đài"]) THEN
       Trigger = EXPLICIT_HUMAN_REQUEST
       Return HandoffToHuman(Reason="Khách yêu cầu trực tiếp hoặc rủi ro pháp lý")
-  
+
   ELSE IF max(Chunk.Similarity) < 0.20 AND requireGrounded == TRUE THEN
       Trigger = NO_GROUNDED_SOURCE
       Return HandoffToHuman(Reason="Tri thức chưa ghi nhận câu trả lời")
-  
+
   ELSE
       ProceedToGroundedPromptAssembly()
   ```
@@ -101,7 +101,7 @@ Hệ thống vận hành dựa trên 5 khối logic thuật toán được chu�
 
 ### 2.3. Bản Chất "Training" Trong GoTek Chatbot — Train Bằng Mô Hình Gì?
 
-Trong các hệ thống AI CSKH doanh nghiệp, khái niệm **"Training"** không phải là Pre-training lại toàn bộ mô hình nền tảng từ đầu (tốn hàng triệu USD, mất hàng tháng trời và kiến thức bị đóng băng cố định). 
+Trong các hệ thống AI CSKH doanh nghiệp, khái niệm **"Training"** không phải là Pre-training lại toàn bộ mô hình nền tảng từ đầu (tốn hàng triệu USD, mất hàng tháng trời và kiến thức bị đóng băng cố định).
 
 Thay vào đó, GoTek Chatbot áp dụng **Mô hình Huấn Luyện 3 Tầng Thực Chiến (3-Tier Enterprise Training Strategy)**:
 
@@ -239,7 +239,7 @@ flowchart LR
 ```
 
 #### 1. Môi Trường Huấn Luyện (Compute & Environment)
-- **Training diễn ra ở đâu?** 
+- **Training diễn ra ở đâu?**
   - Quá trình huấn luyện mạng nơ-ron sâu (Deep Learning Fine-Tuning) **KHÔNG** chạy trong runtime của Node.js (Node.js chỉ đóng vai trò Data Pipeline & Orchestrator).
   - Quá trình training được thực thi trên **Worker Service viết bằng Python 3.10+ chạy trên máy chủ có GPU NVIDIA (CUDA 12.x)**:
     - Khi chạy Local / On-premise: Chạy trong Docker container chuyên dụng cho AI (như container `ai-service` với PyTorch và CUDA).

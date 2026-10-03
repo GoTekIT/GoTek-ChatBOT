@@ -14,7 +14,7 @@ export async function enqueueJob(db: PoolClient, workspace: string, input: JobIn
   const attempts = input.maxAttempts ?? 5;
   validateJobInput(input, attempts);
   const inserted = await db.query(`INSERT INTO jobs (id, workspace_id, kind, idempotency_key, payload, external_effect, max_attempts) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (workspace_id,idempotency_key) DO NOTHING RETURNING *`, [uuid(), workspace, input.kind, input.key, input.payload, input.external, attempts]);
-  
+
   if (inserted.rowCount) {
     const job = inserted.rows[0];
     // Publish to RabbitMQ for event-driven asynchronous processing

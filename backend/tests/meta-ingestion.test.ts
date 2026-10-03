@@ -1,6 +1,6 @@
 import {reconcileMetaReceipt} from '../src/modules/meta/receipts';
 import {inboxList,inboxDetail} from '../src/modules/chat/inbox';
-import {listMetaConnections,disconnectMetaConnection,listInboxSources} from '../src/modules/meta/connections';
+import {createMetaConnectionsBatch,createMetaConnection,listMetaConnections,disconnectMetaConnection,listInboxSources,verifyMetaConnection} from '../src/modules/meta/connections';
 import {test,after} from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
@@ -8,7 +8,7 @@ import {randomUUID,createHmac} from 'node:crypto';
 import {pool,scope,transaction} from '../src/core/db';
 import {receiveMetaWebhook} from '../src/modules/meta/messenger';
 import {aiReplyHandler} from '../src/modules/ai/ai-reply-worker';
-import {runMetaWorkerOnce,runMetaProfileWorkerOnce,runAiWorkerOnce} from '../src/modules/jobs/worker';
+import {runMetaWorkerOnce,runMetaProfileWorkerOnce,runAiWorkerOnce,runMetaIngressOnce} from '../src/modules/jobs/worker';
 import {enqueueJob} from '../src/modules/jobs/jobs';
 import {appendMessage} from '../src/modules/chat/chat-store';
 const enabled=!!process.env.META_TEST_ADMIN_URL && !!process.env.DB_RUNTIME_FILE;
@@ -17,35 +17,39 @@ after(async()=>{await pool.end();await admin?.end();});
 test('Messenger signed inbound persists once under concurrent redelivery and isolates tenant reads',{skip:!enabled},async()=>{
  const workspace=randomUUID(),other=randomUUID(),channel=randomUUID(),connection=randomUUID(),page=randomUUID();
  process.env.META_PAGE_ID=page;process.env.META_WORKSPACE_ID=workspace;process.env.META_APP_SECRET='local-fixture-only';
+ process.env.META_FIXTURE_TOKEN='fixture-page-token';
  await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2),($3,$4)',[workspace,'Meta fixture',other,'Other fixture']);
  await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Messenger fixture','https://example.test','Hello','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
- await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Fixture','META_FIXTURE_TOKEN')",[connection,workspace,channel,page]);
+ await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,status,webhook_subscribed_at) VALUES($1,$2,$3,$4,'Fixture','META_FIXTURE_TOKEN','connected',now())",[connection,workspace,channel,page]);
  const raw=Buffer.from(JSON.stringify({object:'page',entry:[{id:page,messaging:[{sender:{id:'fixture-user'},recipient:{id:page},message:{mid:'fixture-mid',text:'Messenger integration fixture'}}]}]}));
  const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
  const effects:Array<()=>void>=[];
  await assert.rejects(transaction(async db=>{
   await receiveMetaWebhook(db,raw,signature,effects);
-  assert.equal(effects.length,1);
+  assert.equal(effects.length,0);
   throw new Error('fixture rollback');
  }),/fixture rollback/);
  // Rolled-back notifications are discarded rather than published.
  effects.length=0;
  const results=await Promise.all([transaction(db=>receiveMetaWebhook(db,raw,signature)),transaction(db=>receiveMetaWebhook(db,raw,signature))]);
- assert.equal(results.reduce((n,r)=>n+r.processed,0),1);
+ assert.equal(results.reduce((n,r)=>n+r.processed,0),0);
+ assert.equal((await runMetaIngressOnce(workspace)).state,'succeeded');
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query('SELECT * FROM messages')).rowCount,1);assert.equal((await db.query("SELECT * FROM jobs WHERE kind='ai.reply'")).rowCount,1);assert.equal((await db.query('SELECT * FROM meta_events WHERE processed_at IS NOT NULL')).rowCount,1);});
  const mixed=Buffer.from(JSON.stringify({object:'page',entry:[{id:page,messaging:[{sender:{id:'fixture-user'},recipient:{id:page},message:{mid:'fixture-mid',text:'Messenger integration fixture'}}]},{id:'unrelated-page',messaging:[{sender:{id:'private-other-user'},recipient:{id:'unrelated-page'},message:{mid:'other-mid',text:'must-not-be-retained'}}]}]}));
  // Fresh event, same sender: isolate persisted payload even for batched accounts.
  const mixedBody=JSON.parse(mixed.toString());mixedBody.entry[0].messaging[0].message.mid='mixed-mid';
  const mixedRaw=Buffer.from(JSON.stringify(mixedBody));
  await assert.rejects(transaction(async db=>{
-  await receiveMetaWebhook(db,mixedRaw,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(mixedRaw).digest('hex'));
-  const payload=(await db.query("SELECT payload FROM meta_events WHERE external_event_id='mixed-mid'")).rows[0].payload;
+ await receiveMetaWebhook(db,mixedRaw,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(mixedRaw).digest('hex'));
+  await scope(db,workspace);
+  const payload=(await db.query("SELECT payload FROM meta_webhook_ingress WHERE external_account_id=$1 AND event_kind='message' ORDER BY received_at DESC LIMIT 1",[page])).rows[0].payload;
   assert.equal(payload.externalAccountId,page);
   assert.equal(payload.text,'Messenger integration fixture');
   assert.equal(JSON.stringify(payload).includes('must-not-be-retained'),false);
   assert.equal(payload.entry,undefined);
   throw new Error('isolated payload fixture rollback');
  }),/isolated payload fixture rollback/);
+ await runMetaIngressOnce(workspace);
  await transaction(async db=>{await scope(db,other);for(const table of ['messages','meta_events','meta_connections','meta_identities'])assert.equal((await db.query(`SELECT * FROM ${table}`)).rowCount,0);});
  await transaction(async db=>{await scope(db,workspace);assert.equal((await db.query("SELECT id FROM jobs WHERE kind='meta.profile.fetch'")).rowCount,1);});
  assert.equal((await runMetaProfileWorkerOnce(workspace,async(user,ref)=>{
@@ -87,7 +91,7 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  assert.equal(accepted.state,'succeeded');assert.equal(sends,1);
  // Multiple connected accounts must never choose a token by recency.
  const ambiguous=randomUUID();
- await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Ambiguous','META_OTHER_TOKEN')",[ambiguous,workspace,channel,randomUUID()]);
+ await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,status,webhook_subscribed_at) VALUES($1,$2,$3,$4,'Ambiguous','META_OTHER_TOKEN','connected',now())",[ambiguous,workspace,channel,randomUUID()]);
  await transaction(async db=>{await scope(db,workspace);await enqueueJob(db,workspace,{kind:'meta.message.send',key:randomUUID(),payload:{conversationId:conversation,messageId:message,ownerVersion:1},external:true,maxAttempts:1});});
  const boundSend=await runMetaWorkerOnce(workspace,async input=>{
   assert.equal(input.pageAccessTokenRef,'META_FIXTURE_TOKEN');
@@ -138,7 +142,8 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  });
  const media=Buffer.from(JSON.stringify({object:'page',entry:[{id:page,messaging:[{sender:{id:'fixture-user'},recipient:{id:page},message:{mid:'media-fixture',attachments:[{type:'image',payload:{url:'https://example.test/image.jpg'}},{type:'video',payload:{url:'https://example.test/video.mp4'}}]}}]}]}));
  const mediaSignature='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(media).digest('hex');
- assert.equal((await transaction(db=>receiveMetaWebhook(db,media,mediaSignature))).processed,1);
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,media,mediaSignature))).processed,0);
+ assert.equal((await runMetaIngressOnce(workspace)).state,'succeeded');
  assert.equal((await transaction(db=>receiveMetaWebhook(db,media,mediaSignature))).processed,0);
  await transaction(async db=>{
   await scope(db,workspace);
@@ -179,8 +184,9 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
   const signature:string='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(raw).digest('hex');
   const effects:Array<()=>void>=[];
   const received:Array<{accepted:boolean;processed:number}>=await Promise.all([transaction(db=>receiveMetaWebhook(db,raw,signature,effects)),transaction(db=>receiveMetaWebhook(db,raw,signature,effects))]);
-  assert.equal(received.reduce((sum,r)=>sum+r.processed,0),1);
-  assert.equal(effects.length,1);
+  assert.equal(received.reduce((sum,r)=>sum+r.processed,0),0);
+  assert.equal(effects.length,0);
+  assert.equal((await runMetaIngressOnce(workspace)).state,'succeeded');
   await transaction(async db=>{await scope(db,workspace);
    const rows=(await db.query('SELECT m.body,v.profile FROM messages m JOIN conversations c ON c.id=m.conversation_id JOIN visitors v ON v.id=c.visitor_id WHERE c.channel_id=$1',[channel])).rows;
    assert.equal(rows.length,1);assert.equal(rows[0].profile.source,fixture.kind);
@@ -195,7 +201,9 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
  const sendNamed=async(name:string,id:string)=>{
   const raw=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:cases[1].account},contacts:[{wa_id:'shared-user',profile:{name}}],messages:[{from:'shared-user',id,type:'text',text:{body:'Name refresh'}}]}}]}]}));
   const sig='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(raw).digest('hex');
-  return transaction(db=>receiveMetaWebhook(db,raw,sig));
+  const result=await transaction(db=>receiveMetaWebhook(db,raw,sig));
+  await runMetaIngressOnce(workspace);
+  return result;
  };
  await sendNamed('Nguyễn An','name-refresh-1');
  await transaction(async db=>{await scope(db,workspace);
@@ -207,7 +215,9 @@ test('Instagram and WhatsApp persist independently with signed redelivery and te
  const mediaBody={object:'whatsapp_business_account',entry:[{id:'waba-id-not-phone-id',changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:cases[1].account},messages:[{from:'shared-user',id:'wa-image',type:'image',image:{id:'image-id'}},{from:'shared-user',id:'wa-video',type:'video',video:{id:'video-id'}}]}}]}]};
  const rawMedia=Buffer.from(JSON.stringify(mediaBody));
  const mediaSig='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(rawMedia).digest('hex');
- assert.equal((await transaction(db=>receiveMetaWebhook(db,rawMedia,mediaSig))).processed,2);
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,rawMedia,mediaSig))).processed,0);
+ assert.equal((await runMetaIngressOnce(workspace)).state,'succeeded');
+ assert.equal((await runMetaIngressOnce(workspace)).state,'succeeded');
  assert.equal((await transaction(db=>receiveMetaWebhook(db,rawMedia,mediaSig))).processed,0);
  await transaction(async db=>{await scope(db,workspace);
   const refs=(await db.query('SELECT media_type,external_media_id FROM meta_media_references ORDER BY media_type')).rows;
@@ -237,10 +247,12 @@ test('WhatsApp persists each receipt transition once, including reverse arrival 
  });
  const inbound=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:phone},messages:[{from:'fixture-recipient',id:'receipt-source-inbound',type:'text',text:{body:'Fixture'}}]}}]}]}));
  await transaction(db=>receiveMetaWebhook(db,inbound,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(inbound).digest('hex')));
+ await runMetaIngressOnce(workspace);
  for(const status of ['read','delivered','sent','sent','read']){
   const raw=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:phone},statuses:[{id:'same-mid',status,recipient_id:'fixture-recipient'}]}}]}]}));
   const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
   await transaction(db=>receiveMetaWebhook(db,raw,signature));
+  await runMetaIngressOnce(workspace);
  }
  await admin!.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,connection_id,provider_message_id,status)
  SELECT $1,$2,m.id,$3,'same-mid','accepted' FROM messages m WHERE m.workspace_id=$2 LIMIT 1`,[randomUUID(),workspace,connection]);
@@ -248,6 +260,7 @@ test('WhatsApp persists each receipt transition once, including reverse arrival 
  await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,channel_kind) VALUES($1,$2,$3,$4,'Sibling','META_FIXTURE_TOKEN','whatsapp_business')",[sibling,workspace,channel,siblingPhone]);
  const siblingRaw=Buffer.from(inbound.toString().replaceAll(phone,siblingPhone));
  await transaction(db=>receiveMetaWebhook(db,siblingRaw,'sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(siblingRaw).digest('hex')));
+ await runMetaIngressOnce(workspace);
  await admin!.query(`INSERT INTO meta_message_deliveries(id,workspace_id,message_id,connection_id,provider_message_id,status)
  SELECT $1,$2,m.id,$3,'same-mid','accepted' FROM messages m JOIN conversations c ON c.id=m.conversation_id WHERE c.connection_id=$3 LIMIT 1`,[randomUUID(),workspace,sibling]);
  await assert.rejects(admin!.query('UPDATE meta_message_deliveries SET connection_id=$1 WHERE workspace_id=$2 AND connection_id=$3',[sibling,workspace,connection]),{code:'23514'});
@@ -269,7 +282,7 @@ test('disconnect is scoped, audited once and preserves connection history',{skip
  await admin!.query("INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,'Fixture','','unused')",[user,user+'@example.test']);
  await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[workspace,'Disconnect fixture']);
  await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Fixture','https://example.test','Hi','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
- await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Fixture','META_FIXTURE_TOKEN')",[connection,workspace,channel,randomUUID()]);
+ await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,status,webhook_subscribed_at) VALUES($1,$2,$3,$4,'Fixture','META_FIXTURE_TOKEN','connected',now())",[connection,workspace,channel,randomUUID()]);
  const actor={workspace_id:workspace,user_id:user,role:'Owner'};
  await assert.rejects(transaction(async db=>{await scope(db,workspace);return disconnectMetaConnection(db,{...actor,role:'Agent'},connection);}),{code:'FORBIDDEN'});
  await assert.rejects(transaction(async db=>{await scope(db,other);return disconnectMetaConnection(db,{...actor,workspace_id:other},connection);}),{code:'META_CONNECTION_NOT_FOUND'});
@@ -289,12 +302,15 @@ test('one signed envelope routes three Pages across two workspaces without confi
  for(let i=0;i<pages.length;i++){
   const workspace=workspaces[i===2?1:0],channel=randomUUID();
   await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Route','https://example.test','Hello','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
-  await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) VALUES($1,$2,$3,$4,'Route','META_FIXTURE_TOKEN')",[randomUUID(),workspace,channel,pages[i]]);
+  await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref,status,webhook_subscribed_at) VALUES($1,$2,$3,$4,'Route','META_FIXTURE_TOKEN','connected',now())",[randomUUID(),workspace,channel,pages[i]]);
  }
  const raw=Buffer.from(JSON.stringify({object:'page',entry:[...pages.map(page=>({id:page,messaging:[{sender:{id:'same-person'},recipient:{id:page},message:{mid:'mid-'+page,text:'From '+page}}]})),{id:'unrelated-page',messaging:[{sender:{id:'unknown'},recipient:{id:'unrelated-page'},message:{mid:'unknown-mid',text:'quarantine'}}]}]}));
  const signature='sha256='+createHmac('sha256',process.env.META_APP_SECRET).update(raw).digest('hex');
- assert.equal((await transaction(db=>receiveMetaWebhook(db,raw,signature))).processed,3);
- await transaction(async db=>{await db.query("SELECT set_config('app.meta_worker','true',true)"); assert.equal((await db.query("SELECT external_account_id,reason FROM meta_webhook_quarantine WHERE external_account_id='unrelated-page'")).rows[0].reason,'NO_CONNECTION_MAPPING');});
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,raw,signature))).processed,0);
+ assert.equal((await runMetaIngressOnce(workspaces[0])).state,'succeeded');
+ assert.equal((await runMetaIngressOnce(workspaces[0])).state,'succeeded');
+ assert.equal((await runMetaIngressOnce(workspaces[1])).state,'succeeded');
+ await transaction(async db=>{await db.query("SELECT set_config('app.meta_worker','true',true)"); assert.equal((await admin!.query("SELECT external_account_id,reason FROM meta_webhook_quarantine WHERE external_account_id='unrelated-page'")).rows[0].reason,'NO_CONNECTION_MAPPING');});
  assert.equal((await transaction(db=>receiveMetaWebhook(db,raw,signature))).processed,0);
  for(let i=0;i<workspaces.length;i++) await transaction(async db=>{
   await scope(db,workspaces[i]);
@@ -323,4 +339,72 @@ test('one signed envelope routes three Pages across two workspaces without confi
  });
  const source=(await admin!.query('SELECT * FROM meta_connections WHERE external_page_id=$1',[pages[0]])).rows[0];
  await assert.rejects(admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,external_page_id,page_name,page_access_token_ref) SELECT $1,workspace_id,channel_id,$2,'Conflict','META_FIXTURE_TOKEN' FROM meta_connections WHERE external_page_id=$3",[randomUUID(),source.external_page_id,pages[2]]),{code:'23505'});
+});
+
+
+test('concurrent account linking permits only one active connection on a channel',{skip:!enabled},async()=>{
+ const workspace=randomUUID(),channel=randomUUID(),user=randomUUID();
+ const ref='META_CONCURRENT_LINK_TEST';process.env[ref]='fixture-only';
+ await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[workspace,'Concurrent linking fixture']);
+ await admin!.query("INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,'Fixture','','unused')",[user,user+'@example.test']);
+ await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Fixture','https://example.test','Hi','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
+ const actor={workspace_id:workspace,user_id:user,role:'Owner'};
+ const account=BigInt('0x'+randomUUID().replaceAll('-','')).toString();
+ try{
+  const outcomes=await Promise.allSettled([account,account+'1'].map(externalAccountId=>transaction(async db=>{
+   await scope(db,workspace);
+   return createMetaConnection(db,actor,{channelId:channel,platform:'facebook_messenger',externalAccountId,accountName:'Test',tokenRef:ref});
+  })));
+  assert.equal(outcomes.filter(r=>r.status==='fulfilled').length,1);
+  const rejected=outcomes.find(r=>r.status==='rejected') as PromiseRejectedResult;
+  assert.equal(rejected.reason.code,'META_CHANNEL_ALREADY_BOUND');
+  assert.equal((await admin!.query('SELECT id FROM meta_connections WHERE channel_id=$1',[channel])).rowCount,1);
+ }finally{delete process.env[ref];}
+});
+
+test('reconnect rejects a disconnected connection when its channel is occupied',{skip:!enabled},async()=>{
+ const workspace=randomUUID(),channel=randomUUID(),user=randomUUID(),first=randomUUID(),second=randomUUID();
+ const ref='META_RECONNECT_LINK_TEST';process.env[ref]='fixture-only';
+ await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[workspace,'Reconnect linking fixture']);
+ await admin!.query("INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,'Fixture','','unused')",[user,user+'@example.test']);
+ await admin!.query("INSERT INTO channels(id,workspace_id,name,origin,greeting,color,public_key,request_id,request_payload) VALUES($1,$2,'Fixture','https://example.test','Hi','#0057E1',$3,$4,'{}')",[channel,workspace,randomUUID(),randomUUID()]);
+ await admin!.query("INSERT INTO meta_connections(id,workspace_id,channel_id,channel_kind,external_page_id,page_name,page_access_token_ref,status) VALUES($1,$2,$3,'facebook_messenger',$4,'First',$5,'disconnected'),($6,$2,$3,'facebook_messenger',$7,'Second',$5,'pending')",[first,workspace,channel,randomUUID(),ref,second,randomUUID()]);
+ const actor={workspace_id:workspace,user_id:user,role:'Owner'};
+ const originalFetch=globalThis.fetch;let calls=0;globalThis.fetch=async(input)=>{calls++;const account=String(input).split('?')[0].split('/').pop();return new Response(JSON.stringify({id:account}),{status:200,headers:{'content-type':'application/json'}})};
+ try{await assert.rejects(transaction(async db=>{await scope(db,workspace);return verifyMetaConnection(db,actor,first)}),error=>(error as any)?.code==='META_CHANNEL_ALREADY_BOUND');assert.equal(calls,0);
+  await admin!.query("UPDATE meta_connections SET status='disconnected' WHERE id=$1",[second]);
+  const result=await transaction(async db=>{await scope(db,workspace);return verifyMetaConnection(db,actor,first)});assert.equal(result.status,'verified');assert.equal(calls,1);
+ }finally{globalThis.fetch=originalFetch;delete process.env[ref];}
+});
+
+
+test('batch linking rolls back earlier channels and accounts after a database conflict',{skip:!enabled},async()=>{
+ const workspace=randomUUID(),user=randomUUID();
+ const ref='META_BATCH_ROLLBACK_TEST';const previous=process.env[ref];process.env[ref]='fixture-only';
+ await admin!.query('INSERT INTO workspaces(id,name) VALUES($1,$2)',[workspace,'Batch rollback fixture']);
+ await admin!.query("INSERT INTO users(id,email,full_name,phone,password_hash) VALUES($1,$2,'Fixture','','unused')",[user,user+'@example.test']);
+ const actor={workspace_id:workspace,user_id:user,role:'Owner'};
+ await admin!.query("INSERT INTO memberships(workspace_id,user_id,role) VALUES($1,$2,'Owner')",[workspace,user]);
+ const account=BigInt('0x'+randomUUID().replaceAll('-','')).toString();
+ const input={platform:'facebook_messenger',externalAccountId:account,accountName:'Existing',tokenRef:ref};
+ try {
+  await transaction(async db=>{await scope(db,workspace);return createMetaConnection(db,actor,input);});
+  const counts=async()=> (await admin!.query(`SELECT
+   (SELECT count(*)::int FROM channels WHERE workspace_id=$1) AS channels,
+   (SELECT count(*)::int FROM meta_connections WHERE workspace_id=$1) AS connections,
+   (SELECT count(*)::int FROM channel_members WHERE workspace_id=$1) AS members`,[workspace])).rows[0];
+  const before=await counts();
+  await assert.rejects(transaction(async db=>{
+   await scope(db,workspace);
+   return createMetaConnectionsBatch(db,actor,{connections:[{...input,externalAccountId:account+'1'},input]});
+  }),error=>(error as any)?.code==='META_ACCOUNT_ALREADY_CONNECTED');
+  assert.deepEqual(await counts(),before,'no partial channel, member or connection survives rollback');
+  const result=await transaction(async db=>{
+   await scope(db,workspace);
+   return createMetaConnectionsBatch(db,actor,{connections:[{...input,externalAccountId:account+'2'},{...input,externalAccountId:account+'3'}]});
+  });
+  assert.equal(result.connections.length,2);
+  assert.notEqual(result.connections[0].channelId,result.connections[1].channelId);
+  assert.deepEqual(await counts(),{channels:before.channels+2,connections:before.connections+2,members:before.members+2});
+ } finally {if(previous===undefined)delete process.env[ref];else process.env[ref]=previous;}
 });
