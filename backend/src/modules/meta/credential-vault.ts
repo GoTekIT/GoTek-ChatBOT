@@ -1,6 +1,7 @@
 import {createCipheriv,createDecipheriv,randomBytes} from 'node:crypto';
 import type {PoolClient} from 'pg';
 import {HttpError} from '../../core/security';
+import {MetaRepository} from '../../repositories/meta.repository';
 
 function encryptionKey():Buffer {
  const encoded=process.env.META_CREDENTIAL_ENCRYPTION_KEY;
@@ -30,12 +31,10 @@ export function openMetaSecret(value:string,context:string):string {
 const context=(workspace:string,connection:string)=>`meta-page-token:${workspace}:${connection}`;
 export async function storeMetaCredential(db:PoolClient,workspace:string,connection:string,token:string){
  const encrypted=sealMetaSecret(token,context(workspace,connection));
- await db.query(`INSERT INTO meta_connection_credentials(workspace_id,connection_id,encrypted_token)
- VALUES($1,$2,$3) ON CONFLICT(workspace_id,connection_id)
- DO UPDATE SET encrypted_token=EXCLUDED.encrypted_token,updated_at=now()`,[workspace,connection,encrypted]);
+ await MetaRepository.storeCredential(db,workspace,connection,encrypted);
 }
 export async function resolveMetaCredential(db:PoolClient,workspace:string,connection:string,legacyRef:string):Promise<string>{
- const row=(await db.query('SELECT encrypted_token FROM meta_connection_credentials WHERE workspace_id=$1 AND connection_id=$2',[workspace,connection])).rows[0];
+ const row=await MetaRepository.findCredential(db,workspace,connection);
  if(row)return openMetaSecret(row.encrypted_token,context(workspace,connection));
  const token=process.env[legacyRef]?.trim();
  if(!token)throw new HttpError(503,'META_TOKEN_NOT_CONFIGURED');

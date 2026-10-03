@@ -6,6 +6,7 @@ import confetti from 'canvas-confetti';
 import { Conversation, ChatMessage } from '../../types';
 import { useRealtimeChat } from '../../hooks/useRealtimeChat';
 import { api } from '@api';
+import { filterInboxConversations, InboxFilterTab } from './inbox-filters';
 
 interface InboxViewProps {
   conversations: Conversation[];
@@ -52,7 +53,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   onIncomingMessage,
 }) => {
   // Filter tabs: all, queue (cần handoff), bot (AI đang phục vụ), mine (đã gán)
-  const [filterTab, setFilterTab] = useState<'all' | 'queue' | 'bot' | 'mine'>('all');
+  const [filterTab, setFilterTab] = useState<InboxFilterTab>('all');
   const [sourcePlatforms,setSourcePlatforms]=useState<string[]>([]);
   const [sourceConnections,setSourceConnections]=useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -248,19 +249,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   }, [isDraggingDossier]);
 
   // Filter conversations
-  const filteredConversations = conversations.filter((c) => {
-    const matchesSearch =
-      c.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.customerCompany.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.lastMessageSnippet.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (!matchesSearch) return false;
-
-    if (filterTab === 'queue') return c.status === 'handoff';
-    if (filterTab === 'bot') return c.status === 'ai_active';
-    if (filterTab === 'mine') return c.status === 'in_review' || c.status === 'resolved';
-    return true;
-  });
+  const filteredConversations = filterInboxConversations(conversations, filterTab, searchQuery);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
