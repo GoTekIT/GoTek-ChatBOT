@@ -1,16 +1,16 @@
 import {loadMessagePages} from '../../utils/message-pages';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { ConsoleModule, SettingsSubTab, KnowledgeDocument, StaffMember, Conversation, ChatMessage } from '../../types';
 import { TopNav } from '../../components/TopNav';
 import { Sidebar } from '../../components/Sidebar';
-import { InboxView } from '../../components/inbox/InboxView';
-import { KnowledgeBaseView } from '../../components/knowledge/KnowledgeBaseView';
+const InboxView = lazy(() => import('../../components/inbox/InboxView').then(m => ({default:m.InboxView})));
+const KnowledgeBaseView = lazy(() => import('../../components/knowledge/KnowledgeBaseView').then(m => ({default:m.KnowledgeBaseView})));
 import { MembersSettings } from '../settings/MembersSettings';
 import { AuditSettings } from '../settings/AuditSettings';
 import {can, canOpenModule} from '../../services/authorization';
-import { CustomerWidgetView } from '../../components/widget/CustomerWidgetView';
-import { Channels } from '../channels/Channels';
-import { AnalyticsView } from '../../components/analytics/AnalyticsView';
+const CustomerWidgetView = lazy(() => import('../../components/widget/CustomerWidgetView').then(m => ({default:m.CustomerWidgetView})));
+const Channels = lazy(() => import('../channels/Channels').then(m => ({default:m.Channels})));
+const AnalyticsView = lazy(() => import('../../components/analytics/AnalyticsView').then(m => ({default:m.AnalyticsView})));
 import { CommandPalette } from '../../components/modals/CommandPalette';
 import { navigate } from '../../hooks/usePath';
 import { api } from '@api';
@@ -596,7 +596,7 @@ export function ConsoleWorkspace({
             {/* Content Viewport: deny direct URLs as well as menu navigation. */}
             {!canOpenModule(me, activeModule) && <main className="p-6" role="alert">Bạn không có quyền truy cập chức năng này. <button onClick={() => handleSelectModule('inbox')}>Về hộp thư</button></main>}
             {activeModule === 'inbox' && canOpenModule(me, 'inbox') && (
-              <InboxView
+              <Suspense fallback={<div role="status">Đang tải hộp thư…</div>}><InboxView
                 key={me?.workspaceId}
                 sources={inboxSources}
                 conversations={conversations}
@@ -614,29 +614,29 @@ export function ConsoleWorkspace({
                 onResolve={handleResolve}
                 onResumeAi={handleResumeAi}
                 onIncomingMessage={handleIncomingMessage}
-              />
+              /></Suspense>
             )}
 
             {activeModule === 'knowledge' && canOpenModule(me, 'knowledge') && (
-              <KnowledgeBaseView
+              <Suspense fallback={<div role="status">Đang tải kho tri thức…</div>}><KnowledgeBaseView
                 authorization={me}
                 documents={documents}
                 onAddDocument={handleAddDocument}
                 onUpdateDocument={handleUpdateDocument}
                 onDeleteDocument={handleDeleteDocument}
-              />
+              /></Suspense>
             )}
 
             {activeModule === 'settings' && canOpenModule(me, 'settings') && (
               <main className="flex-1 overflow-y-auto p-6 space-y-4"><MembersSettings authorization={me} onChange={async () => { await onRefresh?.(); }} /></main>
             )}
 
-            {activeModule === 'channels' && canOpenModule(me, 'channels') && <Channels role={me?.role ?? 'Agent'} />}
-            {activeModule === 'analytics' && canOpenModule(me, 'analytics') && <AnalyticsView />}
+            {activeModule === 'channels' && canOpenModule(me, 'channels') && <Suspense fallback={<div role="status">Đang tải kênh…</div>}><Channels role={me?.role ?? 'Agent'} /></Suspense>}
+            {activeModule === 'analytics' && canOpenModule(me, 'analytics') && <Suspense fallback={<div role="status">Đang tải báo cáo…</div>}><AnalyticsView /></Suspense>}
           </>
         ) : (
           /* Live Customer Widget View */
-          canOpenModule(me, 'widget-demo') ? <CustomerWidgetView onBackToConsole={() => handleSelectModule('inbox')} /> : <p role="alert">Bạn không có quyền cấu hình widget.</p>
+          canOpenModule(me, 'widget-demo') ? <Suspense fallback={<div role="status">Đang tải widget…</div>}><CustomerWidgetView onBackToConsole={() => handleSelectModule('inbox')} /></Suspense> : <p role="alert">Bạn không có quyền cấu hình widget.</p>
         )}
       </div>
 
