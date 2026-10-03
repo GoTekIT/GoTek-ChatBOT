@@ -142,7 +142,8 @@ test('Messenger signed inbound persists once under concurrent redelivery and iso
  });
  const media=Buffer.from(JSON.stringify({object:'page',entry:[{id:page,messaging:[{sender:{id:'fixture-user'},recipient:{id:page},message:{mid:'media-fixture',attachments:[{type:'image',payload:{url:'https://example.test/image.jpg'}},{type:'video',payload:{url:'https://example.test/video.mp4'}}]}}]}]}));
  const mediaSignature='sha256='+createHmac('sha256',process.env.META_APP_SECRET!).update(media).digest('hex');
- assert.equal((await transaction(db=>receiveMetaWebhook(db,media,mediaSignature))).processed,1);
+ assert.equal((await transaction(db=>receiveMetaWebhook(db,media,mediaSignature))).processed,0);
+ assert.equal((await runMetaIngressOnce(workspace)).state,'succeeded');
  assert.equal((await transaction(db=>receiveMetaWebhook(db,media,mediaSignature))).processed,0);
  await transaction(async db=>{
   await scope(db,workspace);
