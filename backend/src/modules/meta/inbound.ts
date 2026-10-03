@@ -64,7 +64,8 @@ export function normalizeMetaInbound(input:unknown):NormalizedMetaInbound[]{
     const pageReply=message.is_echo===true;
     const sender=str(object(event.sender).id),recipient=str(object(event.recipient).id);
     const senderId=pageReply?recipient:sender,eventId=str(message.mid);
-    if((pageReply?sender!==account||recipient===account:recipient!==account)||!senderId||!eventId)continue;
+    const validDirection=pageReply?sender===account&&recipient!==account:recipient===account;
+    if(!validDirection||!senderId||!eventId)continue;
     if(pageReply&&!providerTime(event.timestamp).createdAt)continue;
     const text=str(message.text).trim(),attachments=parseMetaAttachments(message.attachments);
     if(!text&&!attachments.length)continue;
